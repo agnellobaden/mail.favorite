@@ -736,6 +736,31 @@
             background: #ffcccc;
         }
 
+        /* Upcoming Week Preview Styles */
+        #upcomingWeekContainer {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.5) transparent;
+        }
+
+        #upcomingWeekContainer::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        #upcomingWeekContainer::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        #upcomingWeekContainer::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.5);
+            border-radius: 3px;
+        }
+
+        #upcomingWeekContainer::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.7);
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             * {
@@ -964,6 +989,16 @@
                 font-size: 20px;
             }
 
+            #upcomingWeekPreview {
+                margin: 15px 0;
+                padding: 12px;
+            }
+
+            #upcomingWeekPreview h3 {
+                font-size: 0.95em;
+                margin-bottom: 12px;
+            }
+
             .table-container {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
@@ -1165,6 +1200,16 @@
                 font-size: 0.85em;
                 padding: 10px;
             }
+
+            #upcomingWeekPreview {
+                margin: 12px 0;
+                padding: 10px;
+            }
+
+            #upcomingWeekPreview h3 {
+                font-size: 0.85em;
+                margin-bottom: 10px;
+            }
         }
     </style>
 </head>
@@ -1231,6 +1276,14 @@
         <div class="view-toggle">
             <button id="viewCards" class="active">🎴 Karten-Ansicht</button>
             <button id="viewTable">📋 Tabellen-Ansicht</button>
+        </div>
+
+        <!-- Bevorstehende Termine diese Woche -->
+        <div id="upcomingWeekPreview" style="display: none; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <h3 style="color: white; margin-bottom: 15px; font-size: 1.1em;">📅 Bevorstehende Termine diese Woche</h3>
+            <div id="upcomingWeekContainer" style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px;">
+                <!-- Dynamisch gefüllt -->
+            </div>
         </div>
 
         <div class="filter-section">
@@ -1677,12 +1730,76 @@
             // Sortieren
             sortBookings(filtered);
 
+            // Bevorstehende Termine diese Woche anzeigen
+            displayUpcomingWeek();
+
             // Richtige Ansicht anzeigen
             if (currentView === 'cards') {
                 displayCards(filtered);
             } else {
                 displayBookings(filtered);
             }
+        }
+
+        // Bevorstehende Termine diese Woche anzeigen
+        function displayUpcomingWeek() {
+            const now = new Date();
+            const endOfWeek = new Date(now);
+            const dayOfWeek = now.getDay();
+            const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+            endOfWeek.setDate(now.getDate() + daysUntilSunday);
+            endOfWeek.setHours(23, 59, 59, 999);
+
+            // Finde alle bevorstehenden Termine dieser Woche
+            const upcomingThisWeek = allBookings.filter(booking => {
+                const bookingDate = parseDateTime(booking.date, booking.time);
+                const isUpcoming = bookingDate >= now && bookingDate <= endOfWeek;
+                const isActive = booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage';
+                return isUpcoming && isActive;
+            }).sort((a, b) => {
+                return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
+            });
+
+            const container = document.getElementById('upcomingWeekContainer');
+            const preview = document.getElementById('upcomingWeekPreview');
+
+            if (upcomingThisWeek.length === 0) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            preview.style.display = 'block';
+
+            container.innerHTML = upcomingThisWeek.map(booking => {
+                const dateTime = parseDateTime(booking.date, booking.time);
+                const dayName = dateTime.toLocaleDateString('de-DE', { weekday: 'short' });
+
+                return `
+                    <div style="min-width: 280px; background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 1em; color: #333; margin-bottom: 5px;">${booking.name || 'Unbekannt'}</div>
+                                <div style="font-size: 0.85em; color: #666;">${booking.company || ''}</div>
+                            </div>
+                            <span class="status-badge status-${(booking.status || '').toLowerCase()}" style="font-size: 0.7em; padding: 4px 8px;">${booking.status || ''}</span>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+                            <div style="background: #f0f0f0; padding: 8px 12px; border-radius: 6px; flex: 1; text-align: center;">
+                                <div style="font-size: 0.7em; color: #666; text-transform: uppercase;">${dayName}</div>
+                                <div style="font-weight: 600; font-size: 1em; color: #667eea;">${booking.date || '-'}</div>
+                            </div>
+                            <div style="background: #f0f0f0; padding: 8px 12px; border-radius: 6px; flex: 1; text-align: center;">
+                                <div style="font-size: 0.7em; color: #666;">UHRZEIT</div>
+                                <div style="font-weight: 600; font-size: 1em; color: #667eea;">${booking.time || '-'}</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.8em; color: #666; margin-top: 8px;">
+                            <div>👥 ${booking.guests || '-'} Gäste</div>
+                            <div style="margin-top: 4px;">📍 ${booking.city || 'Keine Stadt'}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Sortieren
