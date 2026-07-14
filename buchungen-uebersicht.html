@@ -230,14 +230,29 @@
             font-weight: 600;
         }
 
-        .status-gebucht {
-            background-color: #d4edda;
-            color: #155724;
+        .status-anfrage {
+            background-color: #e7f3ff;
+            color: #004085;
         }
 
         .status-neu {
             background-color: #fff3cd;
             color: #856404;
+        }
+
+        .status-gebucht {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-rechnung-versendet {
+            background-color: #fff0e6;
+            color: #cc5500;
+        }
+
+        .status-bezahlte-rechnung {
+            background-color: #d1f2eb;
+            color: #00644e;
         }
 
         .status-archiviert {
@@ -777,6 +792,171 @@
 
         .burger-dropdown button.delete:hover {
             background: #ffcccc;
+        }
+
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        body.dark-mode .container {
+            background: #0f1419;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3 {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .subtitle {
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .filter-section {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode .filter-header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        }
+
+        body.dark-mode .filter-header:hover {
+            background: linear-gradient(135deg, #3a4558 0%, #1d2738 100%);
+        }
+
+        body.dark-mode .filter-content {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode .filter-section label {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .filter-section select,
+        body.dark-mode .filter-section input {
+            background: #2d3748;
+            border-color: #4a5568;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .booking-card {
+            background: #1a1f2e;
+            border-left-color: #667eea;
+        }
+
+        body.dark-mode .booking-card.next-booking {
+            background: linear-gradient(135deg, #3d3520 0%, #4a4025 100%);
+        }
+
+        body.dark-mode .card-title {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .card-company,
+        body.dark-mode .card-date-time {
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .card-header,
+        body.dark-mode .card-actions {
+            border-color: #2d3748;
+        }
+
+        body.dark-mode .card-info-row {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .table-container {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode table {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode tbody tr {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode tbody tr:hover {
+            background-color: #2d3748;
+        }
+
+        body.dark-mode td {
+            border-bottom-color: #2d3748;
+        }
+
+        body.dark-mode .form-container {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode .form-header {
+            border-bottom-color: #2d3748;
+        }
+
+        body.dark-mode .form-header h2 {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .form-group label {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .form-group input,
+        body.dark-mode .form-group select,
+        body.dark-mode .form-group textarea {
+            background: #2d3748;
+            border-color: #4a5568;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .btn-secondary {
+            background: #2d3748;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .btn-secondary:hover {
+            background: #3d4758;
+        }
+
+        body.dark-mode .close-btn {
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .close-btn:hover {
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .loading {
+            color: #b0b0b0;
+        }
+
+        body.dark-mode #upcomingWeekPreview {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        }
+
+        body.dark-mode .burger-dropdown {
+            background: #1a1f2e;
+        }
+
+        body.dark-mode .burger-dropdown button {
+            background: #2d3748;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .burger-dropdown button:hover {
+            background: #3d4758;
+        }
+
+        body.dark-mode .burger-dropdown button.delete {
+            background: #4a2020;
+            color: #ff6b6b;
+        }
+
+        body.dark-mode .burger-dropdown button.delete:hover {
+            background: #5a3030;
         }
 
         /* Upcoming Week Preview Styles */
@@ -1618,6 +1798,38 @@
             filterIcon.classList.toggle('collapsed');
         }
 
+        // Dark Mode Toggle-Funktion
+        function toggleDarkMode() {
+            const body = document.body;
+            const darkModeButton = document.getElementById('darkModeToggle');
+
+            body.classList.toggle('dark-mode');
+
+            // Status speichern in LocalStorage
+            const isDarkMode = body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+
+            // Button-Text aktualisieren
+            if (isDarkMode) {
+                darkModeButton.innerHTML = '☀️ Light Mode';
+            } else {
+                darkModeButton.innerHTML = '🌙 Dark Mode';
+            }
+        }
+
+        // Dark Mode beim Laden der Seite wiederherstellen
+        function loadDarkModePreference() {
+            const darkModePreference = localStorage.getItem('darkMode');
+            const darkModeButton = document.getElementById('darkModeToggle');
+
+            if (darkModePreference === 'enabled') {
+                document.body.classList.add('dark-mode');
+                if (darkModeButton) {
+                    darkModeButton.innerHTML = '☀️ Light Mode';
+                }
+            }
+        }
+
         // CSV laden über File Input
         function loadCSV() {
             const fileInput = document.getElementById('csvFileInput');
@@ -1859,7 +2071,7 @@
                                 <div style="font-weight: 600; font-size: 1em; color: #333; margin-bottom: 5px;">${booking.name || 'Unbekannt'}</div>
                                 <div style="font-size: 0.85em; color: #666;">${booking.company || ''}</div>
                             </div>
-                            <span class="status-badge status-${(booking.status || '').toLowerCase()}" style="font-size: 0.7em; padding: 4px 8px;">${booking.status || ''}</span>
+                            <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.7em; padding: 4px 8px;">${booking.status || ''}</span>
                         </div>
                         <div style="display: flex; gap: 10px; margin-bottom: 8px;">
                             <div style="background: #f0f0f0; padding: 8px 12px; border-radius: 6px; flex: 1; text-align: center;">
@@ -2096,7 +2308,7 @@
                         <div>
                             <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
                             <div class="card-company">${booking.company || '-'}</div>
-                            <span class="status-badge status-${(booking.status || '').toLowerCase()}">${booking.status || '-'}</span>
+                            <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                         </div>
                         <div class="card-date">
                             <div class="card-date-day">${booking.date || '-'}</div>
@@ -2210,7 +2422,7 @@
 
                 row.innerHTML = `
                     <td>${booking.id || '-'}</td>
-                    <td><span class="status-badge status-${(booking.status || '').toLowerCase()}">${booking.status || '-'}</span></td>
+                    <td><span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span></td>
                     <td><strong>${booking.name || '-'}</strong></td>
                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email || '-'}</td>
                     <td>${booking.phone || '-'}</td>
@@ -2547,6 +2759,9 @@
 
         // Beim Laden - Setup File Input und LocalStorage
         loadCSV();
+
+        // Dark Mode Präferenz laden
+        loadDarkModePreference();
 
         // Versuche Daten aus LocalStorage zu laden
         if (!loadFromLocalStorage()) {
