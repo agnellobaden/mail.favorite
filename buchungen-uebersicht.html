@@ -53,13 +53,56 @@
 
         .filter-section {
             margin-bottom: 25px;
-            padding: 20px;
             background: #f8f9fa;
             border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .filter-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: all 0.3s;
+        }
+
+        .filter-header:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+        }
+
+        .filter-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .filter-toggle-icon {
+            font-size: 1.2em;
+            transition: transform 0.3s;
+        }
+
+        .filter-toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .filter-content {
+            padding: 20px;
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
             align-items: center;
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s;
+        }
+
+        .filter-content.collapsed {
+            max-height: 0;
+            padding: 0 20px;
         }
 
         .filter-section label {
@@ -853,9 +896,28 @@
             }
 
             .filter-section {
+                margin-bottom: 15px;
+            }
+
+            .filter-header {
+                padding: 12px 15px;
+            }
+
+            .filter-header h3 {
+                font-size: 0.95em;
+            }
+
+            .filter-toggle-icon {
+                font-size: 1em;
+            }
+
+            .filter-content {
                 padding: 10px;
                 gap: 8px;
-                margin-bottom: 15px;
+            }
+
+            .filter-content.collapsed {
+                padding: 0 10px;
             }
 
             .date-filter-row {
@@ -1220,6 +1282,7 @@
             <span>☰</span>
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
+            <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mail Import (JSON)</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
@@ -1287,27 +1350,33 @@
         </div>
 
         <div class="filter-section">
-            <div class="date-filter-row">
-                <div>
-                    <label for="statusFilter">Status:</label>
-                    <select id="statusFilter">
-                        <option value="alle" selected>Alle</option>
-                        <option value="Anfrage">Anfrage</option>
-                        <option value="Neu">Neu</option>
-                        <option value="Gebucht">Gebucht</option>
-                        <option value="Rechnung versendet">Rechnung versendet</option>
-                        <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
-                        <option value="Archiviert">Archiviert</option>
-                        <option value="Storniert">Storniert</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="dateFromFilter">Von Datum:</label>
-                    <input type="date" id="dateFromFilter">
-                </div>
-                <div>
-                    <label for="dateToFilter">Bis Datum:</label>
-                    <input type="date" id="dateToFilter">
+            <div class="filter-header" onclick="toggleFilters()">
+                <h3>🔍 Filter</h3>
+                <span class="filter-toggle-icon" id="filterToggleIcon">▼</span>
+            </div>
+            <div class="filter-content" id="filterContent">
+                <div class="date-filter-row">
+                    <div>
+                        <label for="statusFilter">Status:</label>
+                        <select id="statusFilter">
+                            <option value="alle" selected>Alle</option>
+                            <option value="Anfrage">Anfrage</option>
+                            <option value="Neu">Neu</option>
+                            <option value="Gebucht">Gebucht</option>
+                            <option value="Rechnung versendet">Rechnung versendet</option>
+                            <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
+                            <option value="Archiviert">Archiviert</option>
+                            <option value="Storniert">Storniert</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="dateFromFilter">Von Datum:</label>
+                        <input type="date" id="dateFromFilter">
+                    </div>
+                    <div>
+                        <label for="dateToFilter">Bis Datum:</label>
+                        <input type="date" id="dateToFilter">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1539,6 +1608,15 @@
         let currentSort = { column: 'date', direction: 'asc' };
         let currentView = 'cards'; // 'cards' oder 'table'
         let currentEmailChatBooking = null;
+
+        // Filter Toggle-Funktion
+        function toggleFilters() {
+            const filterContent = document.getElementById('filterContent');
+            const filterIcon = document.getElementById('filterToggleIcon');
+
+            filterContent.classList.toggle('collapsed');
+            filterIcon.classList.toggle('collapsed');
+        }
 
         // CSV laden über File Input
         function loadCSV() {
