@@ -1747,12 +1747,35 @@
             }
         }
 
+        // Automatisch CSV-Datei vom Server laden
+        async function autoLoadCSV() {
+            try {
+                // Versuche die CSV-Datei vom Server zu laden
+                const response = await fetch('anfragen-export-2026-07-14 (1).csv');
+                if (response.ok) {
+                    const text = await response.text();
+                    parseCSV(text);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('fileUploadSection').innerHTML = '<p style="color: #667eea; font-weight: 600;">✓ Daten automatisch geladen</p>';
+                    return true;
+                }
+            } catch (error) {
+                console.log('Automatisches Laden fehlgeschlagen:', error);
+            }
+            return false;
+        }
+
         // Beim Laden - Setup File Input und LocalStorage
         loadCSV();
 
         // Versuche Daten aus LocalStorage zu laden
         if (!loadFromLocalStorage()) {
-            document.getElementById('loading').textContent = 'Bitte wähle zuerst deine CSV-Datei aus...';
+            // Wenn kein LocalStorage, versuche CSV automatisch zu laden
+            autoLoadCSV().then(success => {
+                if (!success) {
+                    document.getElementById('loading').textContent = 'Bitte wähle zuerst deine CSV-Datei aus...';
+                }
+            });
         }
 
         // ==================== RECHNUNGSSYSTEM ====================
