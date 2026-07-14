@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(start \"\" \"C:\\Users\\aagne\\OneDrive\\Desktop\\mail.eisfavorite\\buchungen-uebersicht.html\")",
+      "Bash(wc:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(head:*)",
+      "Bash(git init:*)",
+      "Bash(dir:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
