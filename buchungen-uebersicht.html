@@ -12,11 +12,17 @@
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
             min-height: 100vh;
+            overflow-x: hidden;
+            width: 100%;
         }
 
         .container {
@@ -732,73 +738,99 @@
 
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
+            * {
+                box-sizing: border-box;
+            }
+
             body {
-                padding: 10px;
+                padding: 5px;
+                overflow-x: hidden;
             }
 
             .container {
-                padding: 15px;
-                border-radius: 10px;
+                padding: 10px;
+                border-radius: 8px;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             h1 {
-                font-size: 1.8em;
-                margin-bottom: 8px;
+                font-size: 1.4em;
+                margin-bottom: 5px;
+                padding-right: 60px;
+                word-break: break-word;
             }
 
             .subtitle {
-                font-size: 0.9em;
-                margin-bottom: 20px;
+                font-size: 0.8em;
+                margin-bottom: 12px;
             }
 
             #dataInfo {
-                padding: 10px;
+                padding: 8px;
+                font-size: 0.85em;
             }
 
             #dataInfo > div {
                 flex-direction: column;
-                gap: 10px;
+                gap: 8px;
             }
 
             #dataInfo > div > div:last-child {
                 width: 100%;
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 6px;
             }
 
             #dataInfo button {
                 width: 100%;
-                font-size: 0.9em;
-                padding: 10px;
+                font-size: 0.8em;
+                padding: 8px;
             }
 
             .stats {
-                gap: 10px;
+                display: flex;
+                flex-direction: row;
+                gap: 6px;
+                margin-bottom: 15px;
+                overflow-x: visible;
             }
 
             .stat-card {
-                min-width: 100%;
-                padding: 15px;
+                flex: 1;
+                min-width: 0;
+                padding: 10px 8px;
+                text-align: center;
+            }
+
+            .stat-card h3 {
+                font-size: 0.65em;
+                margin-bottom: 3px;
+                white-space: nowrap;
             }
 
             .stat-card .number {
-                font-size: 2em;
+                font-size: 1.4em;
             }
 
             .view-toggle {
                 flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 15px;
             }
 
             .view-toggle button {
                 flex: 1;
-                min-width: 120px;
-                font-size: 0.9em;
+                min-width: 100px;
+                font-size: 0.8em;
+                padding: 8px 12px;
             }
 
             .filter-section {
-                padding: 15px;
-                gap: 10px;
+                padding: 10px;
+                gap: 8px;
+                margin-bottom: 15px;
             }
 
             .date-filter-row {
@@ -810,24 +842,32 @@
                 width: 100%;
             }
 
+            .filter-section label {
+                font-size: 0.85em;
+            }
+
             .filter-section select,
             .filter-section input {
                 width: 100%;
-                font-size: 0.9em;
+                font-size: 0.85em;
+                padding: 8px 10px;
             }
 
             .cards-container {
                 grid-template-columns: 1fr;
-                gap: 15px;
+                gap: 10px;
             }
 
             .booking-card {
-                padding: 15px;
+                padding: 12px;
+                font-size: 0.9em;
             }
 
             .card-header {
                 flex-direction: column;
-                gap: 10px;
+                gap: 8px;
+                margin-bottom: 10px;
+                padding-bottom: 10px;
             }
 
             .card-date {
@@ -835,29 +875,93 @@
             }
 
             .card-title {
+                font-size: 1em;
+                word-break: break-word;
+            }
+
+            .card-company {
+                font-size: 0.8em;
+                margin-bottom: 5px;
+            }
+
+            .status-badge {
+                font-size: 0.7em;
+                padding: 4px 8px;
+            }
+
+            .card-date-day {
                 font-size: 1.1em;
             }
 
+            .card-date-time {
+                font-size: 0.8em;
+            }
+
+            .card-info {
+                margin: 8px 0;
+            }
+
             .card-info-row {
+                font-size: 0.8em;
+                margin: 6px 0;
+                line-height: 1.4;
+            }
+
+            .card-info-row i,
+            .card-info-row span:first-child {
+                margin-right: 8px;
+                width: 16px;
                 font-size: 0.9em;
-                flex-wrap: wrap;
+                flex-shrink: 0;
+            }
+
+            .card-info-row span {
+                word-break: break-word;
+                overflow-wrap: break-word;
+            }
+
+            .card-info-row a {
+                word-break: break-all;
+                overflow-wrap: anywhere;
             }
 
             .card-actions {
                 flex-wrap: wrap;
+                gap: 6px;
+                margin-top: 10px;
+                padding-top: 10px;
             }
 
             .card-button {
-                font-size: 0.85em;
-                padding: 8px;
+                font-size: 0.75em;
+                padding: 7px 10px;
+                flex: 1;
+                min-width: calc(50% - 3px);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .add-booking-btn {
-                width: 50px;
-                height: 50px;
-                bottom: 80px;
-                right: 20px;
-                font-size: 24px;
+                width: 45px;
+                height: 45px;
+                bottom: 15px;
+                right: 15px;
+                font-size: 20px;
+            }
+
+            .burger-menu {
+                top: 15px;
+                right: 15px;
+            }
+
+            .burger-icon {
+                width: 45px;
+                height: 45px;
+            }
+
+            .burger-icon span {
+                font-size: 20px;
             }
 
             .table-container {
@@ -933,41 +1037,133 @@
         }
 
         @media (max-width: 480px) {
+            body {
+                padding: 3px;
+            }
+
+            .container {
+                padding: 8px;
+            }
+
             h1 {
-                font-size: 1.5em;
+                font-size: 1.2em;
+                padding-right: 50px;
             }
 
             .subtitle {
-                font-size: 0.85em;
+                font-size: 0.75em;
+                margin-bottom: 10px;
+            }
+
+            .stats {
+                gap: 4px;
+            }
+
+            .stat-card {
+                padding: 8px 4px;
             }
 
             .stat-card h3 {
-                font-size: 0.8em;
+                font-size: 0.6em;
+                margin-bottom: 2px;
             }
 
             .stat-card .number {
-                font-size: 1.8em;
-            }
-
-            .card-title {
-                font-size: 1em;
-            }
-
-            .card-company {
-                font-size: 0.85em;
-            }
-
-            .status-badge {
-                font-size: 0.75em;
-                padding: 4px 10px;
-            }
-
-            .card-date-day {
                 font-size: 1.2em;
             }
 
+            .view-toggle button {
+                font-size: 0.75em;
+                padding: 7px 10px;
+                min-width: 90px;
+            }
+
+            .filter-section {
+                padding: 8px;
+            }
+
+            .filter-section label {
+                font-size: 0.8em;
+            }
+
+            .filter-section select,
+            .filter-section input {
+                font-size: 0.8em;
+                padding: 6px 8px;
+            }
+
+            .booking-card {
+                padding: 10px;
+            }
+
+            .card-title {
+                font-size: 0.95em;
+            }
+
+            .card-company {
+                font-size: 0.75em;
+            }
+
+            .status-badge {
+                font-size: 0.65em;
+                padding: 3px 7px;
+            }
+
+            .card-date-day {
+                font-size: 1em;
+            }
+
+            .card-date-time {
+                font-size: 0.75em;
+            }
+
             .card-info-row {
+                font-size: 0.75em;
+                margin: 5px 0;
+            }
+
+            .card-info-row i,
+            .card-info-row span:first-child {
+                width: 14px;
+                margin-right: 6px;
                 font-size: 0.85em;
+            }
+
+            .card-button {
+                font-size: 0.7em;
+                padding: 6px 8px;
+            }
+
+            .add-booking-btn {
+                width: 40px;
+                height: 40px;
+                bottom: 12px;
+                right: 12px;
+                font-size: 18px;
+            }
+
+            .burger-menu {
+                top: 12px;
+                right: 12px;
+            }
+
+            .burger-icon {
+                width: 40px;
+                height: 40px;
+            }
+
+            .burger-icon span {
+                font-size: 18px;
+            }
+
+            .burger-dropdown {
+                min-width: 200px;
+                top: 50px;
+            }
+
+            .burger-dropdown button {
+                font-size: 0.85em;
+                padding: 10px;
             }
         }
     </style>
@@ -1471,23 +1667,55 @@
         function sortBookings(bookings) {
             const now = new Date();
 
+            // Finde den nächsten zukünftigen Termin (nur Datum, ohne Uhrzeit)
+            let nextDate = null;
+            bookings.forEach(booking => {
+                const bookingDateTime = parseDateTime(booking.date, booking.time);
+                const isUpcoming = bookingDateTime >= now && (booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage');
+
+                if (isUpcoming) {
+                    const bookingDateOnly = parseDate(booking.date);
+                    if (!nextDate || bookingDateOnly < nextDate) {
+                        nextDate = bookingDateOnly;
+                    }
+                }
+            });
+
             bookings.sort((a, b) => {
-                const aDate = parseDateTime(a.date, a.time);
-                const bDate = parseDateTime(b.date, b.time);
+                const aDateTime = parseDateTime(a.date, a.time);
+                const bDateTime = parseDateTime(b.date, b.time);
+                const aDateOnly = parseDate(a.date);
+                const bDateOnly = parseDate(b.date);
 
                 // Prüfe ob Termin in der Zukunft ist und Status aktiv
-                const aIsUpcoming = aDate >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
-                const bIsUpcoming = bDate >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
+                const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
+                const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
 
-                // Bevorstehende Termine kommen IMMER zuerst
+                // Prüfe ob Termin am nächsten Tag ist
+                const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsUpcoming;
+                const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsUpcoming;
+
+                // Termine am nächsten Tag kommen GANZ OBEN
+                if (aIsNextDay && !bIsNextDay) return -1;
+                if (!aIsNextDay && bIsNextDay) return 1;
+
+                // Wenn beide am nächsten Tag sind, sortiere nach Uhrzeit
+                if (aIsNextDay && bIsNextDay) {
+                    return aDateTime - bDateTime;
+                }
+
+                // Andere bevorstehende Termine kommen danach
                 if (aIsUpcoming && !bIsUpcoming) return -1;
                 if (!aIsUpcoming && bIsUpcoming) return 1;
 
-                // Wenn beide bevorstehend oder beide vergangen, sortiere nach Datum (bevorstehende aufsteigend, vergangene absteigend)
+                // Wenn beide bevorstehend, sortiere nach Datum
                 if (aIsUpcoming && bIsUpcoming) {
-                    return aDate - bDate; // Nächste Termine zuerst
-                } else if (!aIsUpcoming && !bIsUpcoming) {
-                    return bDate - aDate; // Neueste vergangene zuerst
+                    return aDateTime - bDateTime;
+                }
+
+                // Vergangene Termine kommen zuletzt
+                if (!aIsUpcoming && !bIsUpcoming) {
+                    return bDateTime - aDateTime; // Neueste vergangene zuerst
                 }
 
                 // Wenn beide in dieser Woche oder beide nicht, nach der gewählten Spalte sortieren
