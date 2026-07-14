@@ -1256,10 +1256,6 @@
                     <label for="dateToFilter">Bis Datum:</label>
                     <input type="date" id="dateToFilter">
                 </div>
-                <div>
-                    <label for="searchInput">Suche:</label>
-                    <input type="text" id="searchInput" placeholder="Name, E-Mail, Stadt...">
-                </div>
             </div>
         </div>
 
@@ -1613,7 +1609,6 @@
         // Filtern und anzeigen
         function filterAndDisplay() {
             const statusFilter = document.getElementById('statusFilter').value;
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
             const dateFrom = document.getElementById('dateFromFilter').value;
             const dateTo = document.getElementById('dateToFilter').value;
 
@@ -1640,16 +1635,6 @@
                     const bookingDate = parseDate(b.date);
                     return bookingDate <= toDate;
                 });
-            }
-
-            // Suchfilter
-            if (searchText) {
-                filtered = filtered.filter(b =>
-                    (b.name && b.name.toLowerCase().includes(searchText)) ||
-                    (b.email && b.email.toLowerCase().includes(searchText)) ||
-                    (b.city && b.city.toLowerCase().includes(searchText)) ||
-                    (b.phone && b.phone.toLowerCase().includes(searchText))
-                );
             }
 
             // Sortieren
@@ -2034,7 +2019,6 @@
 
         // Event-Listener
         document.getElementById('statusFilter').addEventListener('change', filterAndDisplay);
-        document.getElementById('searchInput').addEventListener('input', filterAndDisplay);
         document.getElementById('dateFromFilter').addEventListener('change', filterAndDisplay);
         document.getElementById('dateToFilter').addEventListener('change', filterAndDisplay);
 
