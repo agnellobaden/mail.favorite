@@ -1110,6 +1110,13 @@
             background: rgba(255,255,255,0.7);
         }
 
+        /* Strichliste Karten Hover-Effekt */
+        .tally-product-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3) !important;
+            border-color: #667eea !important;
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             * {
@@ -4149,18 +4156,18 @@
                 const total = count * price;
 
                 html += `
-                    <div class="tally-product-card" style="background: white; border: 2px solid #e0e0e0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div class="tally-product-card" onclick="incrementTally('${product.id}')" style="background: white; border: 2px solid #e0e0e0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <span style="font-size: 1.8em;">${product.emoji}</span>
                             <span style="font-size: 0.75em; color: #666; font-weight: 600;">${price.toFixed(2)} €</span>
                         </div>
                         <div style="font-weight: 700; font-size: 0.85em; color: #333; text-align: center; min-height: 32px; display: flex; align-items: center; justify-content: center;">${product.name}</div>
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #f8f9fa; padding: 8px; border-radius: 8px;">
-                            <button onclick="decrementTally('${product.id}')" class="tally-btn-minus" style="width: 35px; height: 35px; border: none; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; border-radius: 50%; font-size: 1.3em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" ${count === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>−</button>
+                            <button onclick="event.stopPropagation(); decrementTally('${product.id}')" class="tally-btn-minus" style="width: 35px; height: 35px; border: none; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; border-radius: 50%; font-size: 1.3em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" ${count === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>−</button>
                             <div style="flex: 1; text-align: center;">
                                 <div style="font-size: 1.6em; font-weight: 700; color: #667eea;">${count}</div>
                             </div>
-                            <button onclick="incrementTally('${product.id}')" class="tally-btn-plus" style="width: 35px; height: 35px; border: none; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 50%; font-size: 1.3em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
+                            <button onclick="event.stopPropagation(); incrementTally('${product.id}')" class="tally-btn-plus" style="width: 35px; height: 35px; border: none; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 50%; font-size: 1.3em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
                         </div>
                         <div style="text-align: center; font-size: 0.95em; font-weight: 700; color: #667eea; padding-top: 5px; border-top: 2px solid #e0e0e0;">
                             ${total.toFixed(2)} €
