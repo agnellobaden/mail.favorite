@@ -4786,11 +4786,20 @@
         function resetTally() {
             if (!confirm('Möchtest du die Strichliste wirklich zurücksetzen?')) return;
 
+            console.log('🔄 Setze Strichliste zurück...');
+            console.log('Vorher:', { ...currentTallyCounts });
+
+            // Setze alle Zähler auf 0
             PRODUCTS_LIST.forEach(p => {
                 currentTallyCounts[p.id] = 0;
             });
 
+            console.log('Nachher:', { ...currentTallyCounts });
+
+            // Aktualisiere die Anzeige
             displayTally();
+
+            console.log('✓ Strichliste zurückgesetzt - Gesamtbetrag sollte 0.00 € sein');
         }
 
         // Strichliste schließen (mit automatischem Speichern)
