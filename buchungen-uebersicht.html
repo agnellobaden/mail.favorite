@@ -4784,7 +4784,7 @@
 
         // Strichliste zurücksetzen
         function resetTally() {
-            if (!confirm('Möchtest du die Strichliste wirklich zurücksetzen?')) return;
+            if (!confirm('Möchtest du die Strichliste wirklich zurücksetzen?\n\nAlle Werte werden auf 0 gesetzt und gespeichert.')) return;
 
             console.log('🔄 Setze Strichliste zurück...');
             console.log('Vorher:', { ...currentTallyCounts });
@@ -4799,7 +4799,14 @@
             // Aktualisiere die Anzeige
             displayTally();
 
-            console.log('✓ Strichliste zurückgesetzt - Gesamtbetrag sollte 0.00 € sein');
+            // Automatisch speichern nach Reset
+            console.log('💾 Speichere zurückgesetzte Strichliste...');
+            const saved = saveTally(false); // Speichern ohne Alert und ohne Schließen
+
+            if (saved) {
+                console.log('✓ Strichliste zurückgesetzt und gespeichert - Gesamtbetrag: 0.00 €');
+                alert('✓ Strichliste wurde zurückgesetzt und gespeichert!\n\nAlle Werte sind jetzt 0.');
+            }
         }
 
         // Strichliste schließen (mit automatischem Speichern)
