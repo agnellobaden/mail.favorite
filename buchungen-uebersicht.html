@@ -4554,11 +4554,21 @@
             `;
 
             dayBookings.forEach(booking => {
-                const statusEmoji = booking.status === 'GEBUCHT' ? '✅' : '🆕';
+                const isGebucht = booking.status === 'GEBUCHT';
+                const bgColor = isGebucht ? '#e8f5e9' : '#e3f2fd';
+                const borderColor = isGebucht ? '#4CAF50' : '#667eea';
+                const statusLabel = isGebucht ? 'Gebucht' : 'NEU';
+                const statusColor = isGebucht ? '#4CAF50' : '#667eea';
+
                 bookingsHTML += `
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
-                        <div style="font-weight: 700; color: #333; margin-bottom: 5px;">
-                            ${statusEmoji} ${booking.name || 'Unbekannt'}
+                    <div style="background: ${bgColor}; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-weight: 700; color: #333;">
+                                ${booking.name || 'Unbekannt'}
+                            </div>
+                            <div style="background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75em; font-weight: 700;">
+                                ${statusLabel}
+                            </div>
                         </div>
                         <div style="font-size: 0.9em; color: #666;">
                             <strong>Uhrzeit:</strong> ${booking.time || '-'} ${booking.timeEnd ? '- ' + booking.timeEnd : ''}<br>
