@@ -1687,13 +1687,25 @@
                         <label for="formCity">Stadt</label>
                         <input type="text" id="formCity">
                     </div>
+                    <div class="form-group">
+                        <label for="formLocation">Veranstaltungsort</label>
+                        <input type="text" id="formLocation" placeholder="z.B. Garten, Halle">
+                    </div>
+                    <div class="form-group">
+                        <label for="formDistance">Entfernung (km)</label>
+                        <input type="number" id="formDistance" min="0" step="0.1">
+                    </div>
                     <div class="form-group full-width">
                         <label for="formWunschsorten">Wunschsorten</label>
                         <input type="text" id="formWunschsorten" placeholder="z.B. Vanille, Schokolade, Erdbeere">
                     </div>
                     <div class="form-group full-width">
-                        <label for="formNotizen">Eigene Notizen</label>
+                        <label for="formNotizen">Notizen</label>
                         <textarea id="formNotizen"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="formEigeneNotizen">Eigene Notizen</label>
+                        <textarea id="formEigeneNotizen"></textarea>
                     </div>
                 </div>
                 <div class="form-actions">
@@ -2575,8 +2587,9 @@
                     booking.timeEnd = document.getElementById('formTimeEnd').value;
                     booking.guests = document.getElementById('formGuests').value;
                     booking.kugelPerGuest = document.getElementById('formKugelPerGuest').value;
+                    booking.location = document.getElementById('formLocation').value;
                     booking.street = document.getElementById('formStreet').value;
-                    booking.plz = document.getElementById('formPlz').value;
+                    booking.plz = document.getElementById('formPLZ').value;
                     booking.city = document.getElementById('formCity').value;
                     booking.distance = document.getElementById('formDistance').value;
                     booking.wunschsorten = document.getElementById('formWunschsorten').value;
@@ -2607,7 +2620,7 @@
                     kugelPerGuest: document.getElementById('formKugelPerGuest').value,
                     location: document.getElementById('formLocation').value,
                     street: document.getElementById('formStreet').value,
-                    plz: document.getElementById('formPlz').value,
+                    plz: document.getElementById('formPLZ').value,
                     city: document.getElementById('formCity').value,
                     distance: document.getElementById('formDistance').value,
                     wunschsorten: document.getElementById('formWunschsorten').value,
@@ -3357,7 +3370,7 @@
             document.getElementById('formKugelPerGuest').value = booking.kugelPerGuest || '';
             document.getElementById('formLocation').value = booking.location || '';
             document.getElementById('formStreet').value = booking.street || '';
-            document.getElementById('formPlz').value = booking.plz || '';
+            document.getElementById('formPLZ').value = booking.plz || '';
             document.getElementById('formCity').value = booking.city || '';
             document.getElementById('formDistance').value = booking.distance || '';
             document.getElementById('formWunschsorten').value = booking.wunschsorten || '';
