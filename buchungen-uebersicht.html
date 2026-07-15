@@ -2826,9 +2826,18 @@
                                 const value = booking[key];
                                 if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
                                     cleanBooking[key] = value;
-                                } else if (typeof value === 'object') {
-                                    // Konvertiere Objekte zu JSON-Strings
-                                    cleanBooking[key] = JSON.stringify(value);
+                                } else if (typeof value === 'object' && !Array.isArray(value)) {
+                                    // Firestore unterstützt native Objekte - behalte sie als Objekt
+                                    // Wichtig für tally-Daten und andere strukturierte Daten
+                                    cleanBooking[key] = value;
+
+                                    // Logging für tally-Daten
+                                    if (key === 'tally') {
+                                        console.log('📤 Speichere Strichliste für', cleanId, ':', value);
+                                    }
+                                } else if (Array.isArray(value)) {
+                                    // Arrays auch direkt speichern
+                                    cleanBooking[key] = value;
                                 }
                             }
                         }
@@ -4609,19 +4618,29 @@
         // Strichliste öffnen
         function openTally(bookingId) {
             const booking = allBookings.find(b => b.id === bookingId);
-            if (!booking) return;
+            if (!booking) {
+                console.error('❌ Buchung nicht gefunden:', bookingId);
+                return;
+            }
+
+            console.log('📋 Öffne Strichliste für Buchung:', bookingId);
+            console.log('Buchungs-Daten:', booking);
 
             currentTallyBooking = booking;
 
             // Lade gespeicherte Strichliste oder initialisiere neu
-            if (booking.tally) {
+            if (booking.tally && typeof booking.tally === 'object') {
+                console.log('✓ Lade gespeicherte Strichliste:', booking.tally);
                 currentTallyCounts = { ...booking.tally };
             } else {
+                console.log('ℹ️ Keine Strichliste vorhanden - initialisiere neu');
                 currentTallyCounts = {};
                 PRODUCTS_LIST.forEach(p => {
                     currentTallyCounts[p.id] = 0;
                 });
             }
+
+            console.log('Aktuelle Strichlisten-Counts:', currentTallyCounts);
 
             displayTally();
             document.getElementById('tallyModal').style.display = 'block';
@@ -4713,7 +4732,10 @@
 
         // Strichliste speichern (mit automatischem Speichern)
         function saveTally(showAlert = true) {
-            if (!currentTallyBooking) return false;
+            if (!currentTallyBooking) {
+                console.error('❌ Keine Buchung für Strichliste vorhanden');
+                return false;
+            }
 
             const prices = loadPrices();
             let total = 0;
@@ -4724,20 +4746,39 @@
                 total += count * price;
             });
 
-            // Speichere Strichliste in Buchung
-            currentTallyBooking.tally = { ...currentTallyCounts };
-            currentTallyBooking.tallyTotal = total;
-            currentTallyBooking.tallyUpdatedAt = new Date().toISOString();
+            console.log('💾 Speichere Strichliste für Buchung:', currentTallyBooking.id);
+            console.log('Strichlisten-Daten:', currentTallyCounts);
+            console.log('Gesamtbetrag:', total);
 
+            // WICHTIG: Finde die Buchung im allBookings Array und aktualisiere sie direkt
+            const bookingIndex = allBookings.findIndex(b => b.id === currentTallyBooking.id);
+
+            if (bookingIndex === -1) {
+                console.error('❌ Buchung nicht in allBookings gefunden:', currentTallyBooking.id);
+                alert('Fehler: Buchung konnte nicht gefunden werden!');
+                return false;
+            }
+
+            // Aktualisiere die Buchung im Array direkt
+            allBookings[bookingIndex].tally = { ...currentTallyCounts };
+            allBookings[bookingIndex].tallyTotal = total;
+            allBookings[bookingIndex].tallyUpdatedAt = new Date().toISOString();
+
+            // Aktualisiere auch die currentTallyBooking Referenz
+            currentTallyBooking = allBookings[bookingIndex];
+
+            // Speichern in LocalStorage UND Firebase
+            console.log('💾 Speichere in LocalStorage und Firebase...');
             saveToLocalStorage();
             filterAndDisplay();
 
             if (showAlert) {
                 alert(`✓ Strichliste gespeichert!\n\nGesamtbetrag: ${total.toFixed(2)} €`);
                 closeTally();
+            } else {
+                console.log('✓ Strichliste automatisch gespeichert (ohne Alert)');
             }
 
-            console.log('✓ Strichliste automatisch gespeichert für Buchung:', currentTallyBooking.id);
             return true;
         }
 
@@ -4801,10 +4842,18 @@
                     const data = doc.data();
                     // Entferne Firebase-spezifische Felder für besseren Vergleich
                     delete data.updatedAt;
-                    firebaseBookings.push({
+
+                    const booking = {
                         ...data,
                         id: doc.id
-                    });
+                    };
+
+                    // Logging für Strichlisten-Daten
+                    if (booking.tally) {
+                        console.log('📥 Buchung mit Strichliste von Firebase:', doc.id, 'Tally:', booking.tally);
+                    }
+
+                    firebaseBookings.push(booking);
                 });
 
                 console.log('🔍 Vergleiche Daten - Lokal:', allBookings.length, 'Firebase:', firebaseBookings.length);
