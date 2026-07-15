@@ -1756,33 +1756,55 @@
             }
 
             .calendar-day-header {
-                padding: 6px !important;
-                font-size: 0.75em !important;
+                padding: 4px 2px !important;
+                font-size: 0.7em !important;
             }
 
             .calendar-day {
-                padding: 4px !important;
-                min-height: 50px;
+                padding: 2px !important;
+                min-height: 45px;
+                font-size: 0.85em;
             }
 
             .calendar-day-number {
-                font-size: 0.9em !important;
-                margin-bottom: 2px !important;
+                font-size: 0.85em !important;
+                margin-bottom: 1px !important;
             }
 
             .calendar-booking-indicator {
-                width: 6px !important;
-                height: 6px !important;
-                top: 3px !important;
-                right: 3px !important;
+                width: 5px !important;
+                height: 5px !important;
+                top: 2px !important;
+                right: 2px !important;
             }
 
             .calendar-booking-count {
-                font-size: 0.65em !important;
+                font-size: 0.6em !important;
             }
 
             #calendarGrid {
-                gap: 3px !important;
+                gap: 2px !important;
+                width: 100%;
+                max-width: 100vw;
+            }
+
+            #calendarModal .modal-content {
+                width: 100% !important;
+                max-width: 100vw !important;
+                margin: 10px !important;
+                padding: 10px !important;
+            }
+
+            #calendarModal .calendar-header {
+                padding: 10px 5px !important;
+            }
+
+            #calendarModal h2 {
+                font-size: 1.2em !important;
+            }
+
+            #calendarMonthYear {
+                font-size: 1em !important;
             }
         }
     </style>
@@ -4689,9 +4711,9 @@
             document.getElementById('tallyTotal').textContent = total.toFixed(2) + ' €';
         }
 
-        // Strichliste speichern
-        function saveTally() {
-            if (!currentTallyBooking) return;
+        // Strichliste speichern (mit automatischem Speichern)
+        function saveTally(showAlert = true) {
+            if (!currentTallyBooking) return false;
 
             const prices = loadPrices();
             let total = 0;
@@ -4710,8 +4732,13 @@
             saveToLocalStorage();
             filterAndDisplay();
 
-            alert(`✓ Strichliste gespeichert!\n\nGesamtbetrag: ${total.toFixed(2)} €`);
-            closeTally();
+            if (showAlert) {
+                alert(`✓ Strichliste gespeichert!\n\nGesamtbetrag: ${total.toFixed(2)} €`);
+                closeTally();
+            }
+
+            console.log('✓ Strichliste automatisch gespeichert für Buchung:', currentTallyBooking.id);
+            return true;
         }
 
         // Strichliste zurücksetzen
@@ -4725,8 +4752,19 @@
             displayTally();
         }
 
-        // Strichliste schließen
+        // Strichliste schließen (mit automatischem Speichern)
         function closeTally() {
+            // Automatisch speichern bevor geschlossen wird
+            if (currentTallyBooking && Object.keys(currentTallyCounts).length > 0) {
+                // Prüfe ob es Änderungen gibt
+                const hasChanges = PRODUCTS_LIST.some(p => (currentTallyCounts[p.id] || 0) > 0);
+
+                if (hasChanges) {
+                    saveTally(false); // Speichern ohne Alert
+                    console.log('💾 Strichliste automatisch gespeichert beim Schließen');
+                }
+            }
+
             document.getElementById('tallyModal').style.display = 'none';
             currentTallyBooking = null;
             currentTallyCounts = {};
@@ -4737,9 +4775,7 @@
 
         document.getElementById('tallyModal').addEventListener('click', function(e) {
             if (e.target === this) {
-                if (confirm('Möchtest du die Strichliste schließen? Nicht gespeicherte Änderungen gehen verloren.')) {
-                    closeTally();
-                }
+                closeTally(); // Schließen ohne Warnung, speichert automatisch
             }
         });
 
