@@ -2536,16 +2536,18 @@
         // Formular-Event-Handler
         document.getElementById('addBookingBtn').addEventListener('click', function() {
             currentEditingBookingId = null;
-            document.querySelector('#bookingFormModal h2').textContent = 'Neue Buchung hinzufügen';
+            document.querySelector('#formModal h2').textContent = 'Neue Buchung hinzufügen';
             document.getElementById('formModal').style.display = 'block';
             document.getElementById('bookingForm').reset();
         });
 
         document.getElementById('closeFormBtn').addEventListener('click', function() {
+            currentEditingBookingId = null;
             document.getElementById('formModal').style.display = 'none';
         });
 
         document.getElementById('cancelFormBtn').addEventListener('click', function() {
+            currentEditingBookingId = null;
             document.getElementById('formModal').style.display = 'none';
         });
 
@@ -2630,15 +2632,16 @@
             updateStats();
             filterAndDisplay();
 
-            // Modal schließen
+            // Modal schließen und zurücksetzen
+            currentEditingBookingId = null;
             document.getElementById('formModal').style.display = 'none';
-
-            alert('Buchung erfolgreich hinzugefügt!');
+            document.getElementById('bookingForm').reset();
         });
 
         // Modal schließen bei Klick außerhalb
         document.getElementById('formModal').addEventListener('click', function(e) {
             if (e.target === this) {
+                currentEditingBookingId = null;
                 this.style.display = 'none';
             }
         });
@@ -3398,10 +3401,10 @@
             document.getElementById('formEigeneNotizen').value = booking.eigeneNotizen || '';
 
             // Formular-Titel ändern
-            document.querySelector('#bookingFormModal h2').textContent = 'Buchung bearbeiten';
+            document.querySelector('#formModal h2').textContent = 'Buchung bearbeiten';
 
             // Formular öffnen
-            document.getElementById('bookingFormModal').style.display = 'block';
+            document.getElementById('formModal').style.display = 'block';
         }
 
         // ==================== BURGER MENU ====================
