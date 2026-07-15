@@ -1895,8 +1895,16 @@
     </div>
 
     <div class="container">
-        <h1>📊 Buchungsübersicht</h1>
-        <p class="subtitle">Alle Buchungen im Überblick</p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+            <div>
+                <h1>📊 Buchungsübersicht</h1>
+                <p class="subtitle">Alle Buchungen im Überblick</p>
+            </div>
+            <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f8f9fa; border-radius: 8px; margin-top: 10px;">
+                <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
+                <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
+            </div>
+        </div>
 
         <div id="dataInfo" style="display: none; margin-bottom: 20px; padding: 15px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 5px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -2318,8 +2326,41 @@
         let firebaseInitialized = false;
         let isUpdatingFromFirebase = false;
 
+        // Firebase Status Anzeige
+        function updateFirebaseStatus(status, message) {
+            const dot = document.getElementById('firebaseStatusDot');
+            const text = document.getElementById('firebaseStatusText');
+
+            if (!dot || !text) return;
+
+            switch(status) {
+                case 'connected':
+                    dot.style.background = '#4CAF50';
+                    text.style.color = '#4CAF50';
+                    text.textContent = message || '🟢 Live verbunden';
+                    break;
+                case 'syncing':
+                    dot.style.background = '#2196F3';
+                    text.style.color = '#2196F3';
+                    text.textContent = message || '🔄 Synchronisiere...';
+                    break;
+                case 'error':
+                    dot.style.background = '#f44336';
+                    text.style.color = '#f44336';
+                    text.textContent = message || '🔴 Getrennt';
+                    break;
+                case 'connecting':
+                    dot.style.background = '#ffc107';
+                    text.style.color = '#ffc107';
+                    text.textContent = message || '🟡 Verbinde...';
+                    break;
+            }
+        }
+
         // Firebase initialisieren
         function initializeFirebase(config) {
+            updateFirebaseStatus('connecting', '🟡 Verbinde...');
+
             try {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(config);
@@ -2330,10 +2371,13 @@
 
                 // Echtzeit-Synchronisation starten
                 startRealtimeSync();
+
+                updateFirebaseStatus('connected', '🟢 Live verbunden');
                 return true;
             } catch (error) {
                 console.error('✗ Firebase-Initialisierung fehlgeschlagen:', error);
                 firebaseInitialized = false;
+                updateFirebaseStatus('error', '🔴 Fehler: ' + error.message);
                 return false;
             }
         }
@@ -2612,7 +2656,12 @@
         }
 
         async function saveToFirebase() {
-            if (!firebaseInitialized || !db || isUpdatingFromFirebase) return;
+            if (!firebaseInitialized || !db || isUpdatingFromFirebase) {
+                console.log('⚠️ Firebase-Speichern übersprungen (nicht bereit)');
+                return;
+            }
+
+            updateFirebaseStatus('syncing', '🔄 Speichere...');
 
             try {
                 const batch = db.batch();
@@ -2628,8 +2677,14 @@
 
                 await batch.commit();
                 console.log('✓ Daten in Firebase synchronisiert:', allBookings.length, 'Buchungen');
+
+                updateFirebaseStatus('connected', '🟢 Gespeichert');
+                setTimeout(() => {
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+                }, 1500);
             } catch (error) {
                 console.error('✗ Firebase-Sync-Fehler:', error);
+                updateFirebaseStatus('error', '🔴 Fehler beim Speichern');
                 throw error;
             }
         }
@@ -4535,6 +4590,7 @@
             // Echtzeit-Listener für Buchungen
             db.collection('buchungen').onSnapshot((snapshot) => {
                 console.log('📡 Änderungen von Firebase erhalten:', snapshot.size, 'Dokumente');
+                updateFirebaseStatus('syncing', '🔄 Empfange Updates...');
 
                 // Flag setzen, um Endlos-Loop zu vermeiden
                 isUpdatingFromFirebase = true;
@@ -4549,6 +4605,8 @@
                         id: doc.id
                     });
                 });
+
+                console.log('🔍 Vergleiche Daten - Lokal:', allBookings.length, 'Firebase:', firebaseBookings.length);
 
                 // Sortiere beide Arrays für besseren Vergleich
                 const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
@@ -4575,8 +4633,10 @@
                     filterAndDisplay();
 
                     console.log('✓ Daten synchronisiert:', allBookings.length, 'Buchungen');
+                    updateFirebaseStatus('connected', '🟢 Aktualisiert');
                 } else {
                     console.log('✓ Daten bereits aktuell');
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
                 }
 
                 // Flag zurücksetzen nach kurzer Verzögerung
@@ -4585,6 +4645,7 @@
                 }, 500);
             }, (error) => {
                 console.error('✗ Synchronisations-Fehler:', error);
+                updateFirebaseStatus('error', '🔴 Sync-Fehler: ' + error.message);
                 isUpdatingFromFirebase = false;
             });
         }
@@ -4842,6 +4903,11 @@
 
             console.log('✓ App bereit!');
             console.log('Firebase aktiv:', firebaseInitialized ? 'Ja ✓' : 'Nein (nur lokal)');
+
+            // Status-Anzeige aktualisieren
+            if (!firebaseInitialized) {
+                updateFirebaseStatus('error', '🔴 Nur lokaler Modus');
+            }
         });
 
         // Scroll-Position speichern bei Änderungen
