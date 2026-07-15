@@ -2433,7 +2433,8 @@
 
                 // Test 2: Versuche ein Test-Dokument zu schreiben
                 console.log('📝 Test 2: Schreib-Berechtigung...');
-                const testDocRef = db.collection('buchungen').doc('__test_connection__');
+                const testId = 'test-connection-' + Date.now();
+                const testDocRef = db.collection('buchungen').doc(testId);
                 await testDocRef.set({
                     test: true,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
