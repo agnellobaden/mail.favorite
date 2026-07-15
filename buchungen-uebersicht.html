@@ -2316,6 +2316,7 @@
 
         let db = null;
         let firebaseInitialized = false;
+        let isUpdatingFromFirebase = false;
 
         // Firebase initialisieren
         function initializeFirebase(config) {
@@ -2536,7 +2537,7 @@
         }
 
         async function saveToFirebase() {
-            if (!firebaseInitialized || !db) return;
+            if (!firebaseInitialized || !db || isUpdatingFromFirebase) return;
 
             try {
                 const batch = db.batch();
@@ -2547,11 +2548,11 @@
                     batch.set(docRef, {
                         ...booking,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+                    }, { merge: true });
                 }
 
                 await batch.commit();
-                console.log('✓ Daten in Firebase synchronisiert');
+                console.log('✓ Daten in Firebase synchronisiert:', allBookings.length, 'Buchungen');
             } catch (error) {
                 console.error('✗ Firebase-Sync-Fehler:', error);
                 throw error;
@@ -4453,16 +4454,27 @@
             db.collection('buchungen').onSnapshot((snapshot) => {
                 console.log('📡 Änderungen von Firebase erhalten:', snapshot.size, 'Dokumente');
 
+                // Flag setzen, um Endlos-Loop zu vermeiden
+                isUpdatingFromFirebase = true;
+
                 const firebaseBookings = [];
                 snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Entferne Firebase-spezifische Felder für besseren Vergleich
+                    delete data.updatedAt;
                     firebaseBookings.push({
-                        ...doc.data(),
+                        ...data,
                         id: doc.id
                     });
                 });
 
-                // Aktualisiere lokales Array, aber nur wenn sich wirklich etwas geändert hat
-                if (JSON.stringify(allBookings) !== JSON.stringify(firebaseBookings)) {
+                // Sortiere beide Arrays für besseren Vergleich
+                const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
+                const sortedFirebase = [...firebaseBookings].sort((a, b) => a.id.localeCompare(b.id));
+
+                // Aktualisiere nur, wenn sich wirklich etwas geändert hat
+                if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
+                    console.log('🔄 Lokale Daten werden aktualisiert...');
                     allBookings = firebaseBookings;
 
                     // LocalStorage als Backup aktualisieren
@@ -4473,9 +4485,17 @@
                     filterAndDisplay();
 
                     console.log('✓ Daten synchronisiert:', allBookings.length, 'Buchungen');
+                } else {
+                    console.log('✓ Daten bereits aktuell');
                 }
+
+                // Flag zurücksetzen nach kurzer Verzögerung
+                setTimeout(() => {
+                    isUpdatingFromFirebase = false;
+                }, 500);
             }, (error) => {
                 console.error('✗ Synchronisations-Fehler:', error);
+                isUpdatingFromFirebase = false;
             });
         }
 
