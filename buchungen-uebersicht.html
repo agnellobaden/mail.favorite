@@ -2339,6 +2339,16 @@
 
         // Firebase-Config aus localStorage laden oder Setup anzeigen
         function checkFirebaseSetup() {
+            // Standard Firebase-Konfiguration
+            const defaultConfig = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1"
+            };
+
             const savedConfig = localStorage.getItem('firebaseConfig');
 
             if (savedConfig) {
@@ -2347,10 +2357,16 @@
                     return initializeFirebase(config);
                 } catch (error) {
                     console.error('Fehler beim Laden der Firebase-Config:', error);
-                    return false;
+                    // Bei Fehler die Standard-Config verwenden
+                    localStorage.setItem('firebaseConfig', JSON.stringify(defaultConfig));
+                    return initializeFirebase(defaultConfig);
                 }
+            } else {
+                // Keine Config vorhanden - Standard-Config verwenden und speichern
+                console.log('🔧 Verwende Standard Firebase-Konfiguration');
+                localStorage.setItem('firebaseConfig', JSON.stringify(defaultConfig));
+                return initializeFirebase(defaultConfig);
             }
-            return false;
         }
 
         // ==========================================
