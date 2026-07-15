@@ -2647,6 +2647,10 @@
                     document.getElementById('csvLines').textContent = allBookings.length;
                     document.getElementById('fileUploadSection').innerHTML = '<p style="color: #667eea; font-weight: 600;">✓ Daten aus Speicher geladen</p>';
                     console.log('✓ Daten aus LocalStorage geladen:', allBookings.length, 'Einträge');
+
+                    // Wenn Firebase aktiv ist, prüfe ob Daten hochgeladen werden müssen
+                    // (wird durch startRealtimeSync automatisch gemacht)
+
                     return true;
                 }
             } catch (e) {
@@ -4549,6 +4553,14 @@
                 // Sortiere beide Arrays für besseren Vergleich
                 const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
                 const sortedFirebase = [...firebaseBookings].sort((a, b) => a.id.localeCompare(b.id));
+
+                // Wenn Firebase leer ist aber lokale Daten vorhanden sind, dann lokale Daten hochladen
+                if (firebaseBookings.length === 0 && allBookings.length > 0) {
+                    console.log('📤 Firebase ist leer, lokale Daten werden hochgeladen...');
+                    isUpdatingFromFirebase = false;
+                    saveToFirebase();
+                    return;
+                }
 
                 // Aktualisiere nur, wenn sich wirklich etwas geändert hat
                 if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
