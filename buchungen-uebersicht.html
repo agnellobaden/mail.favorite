@@ -2398,6 +2398,12 @@
                             💰 Als bezahlt markieren
                         </button>
                         ` : ''}
+                        <button class="card-button" onclick="editBooking('${booking.id}')" style="background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%); color: white;">
+                            ✏️ Bearbeiten
+                        </button>
+                        <button class="card-button" onclick="deleteBooking('${booking.id}')" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
+                            🗑️ Löschen
+                        </button>
                     </div>
                 `;
 
@@ -2529,6 +2535,8 @@
 
         // Formular-Event-Handler
         document.getElementById('addBookingBtn').addEventListener('click', function() {
+            currentEditingBookingId = null;
+            document.querySelector('#bookingFormModal h2').textContent = 'Neue Buchung hinzufügen';
             document.getElementById('formModal').style.display = 'block';
             document.getElementById('bookingForm').reset();
         });
@@ -2545,49 +2553,77 @@
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Neue ID generieren
-            const maxId = allBookings.length > 0 ? Math.max(...allBookings.map(b => parseInt(b.id) || 0)) : 0;
-            const newId = maxId + 1;
-
             // Datum konvertieren (YYYY-MM-DD zu DD.MM.YYYY)
             const dateInput = document.getElementById('formDate').value;
             const dateParts = dateInput.split('-');
             const formattedDate = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
 
-            // Jetzt-Datum für "Erstellt am"
+            // Jetzt-Datum für "Aktualisiert am"
             const now = new Date();
-            const createdDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
 
-            // Neue Buchung erstellen
-            const newBooking = {
-                id: newId.toString(),
-                status: document.getElementById('formStatus').value,
-                name: document.getElementById('formName').value,
-                email: document.getElementById('formEmail').value,
-                phone: document.getElementById('formPhone').value,
-                company: document.getElementById('formCompany').value,
-                date: formattedDate,
-                time: document.getElementById('formTime').value,
-                timeEnd: document.getElementById('formTimeEnd').value,
-                guests: document.getElementById('formGuests').value,
-                kugelPerGuest: document.getElementById('formKugelPerGuest').value,
-                location: '',
-                street: document.getElementById('formStreet').value,
-                plz: document.getElementById('formPLZ').value,
-                city: document.getElementById('formCity').value,
-                distance: '',
-                wunschsorten: document.getElementById('formWunschsorten').value,
-                notizen: '',
-                eigeneNotizen: document.getElementById('formNotizen').value,
-                angebotUrl: '',
-                angebotVorlage: '',
-                rechnungUrl: '',
-                erstelltAm: createdDate,
-                aktualisiertAm: createdDate
-            };
+            if (currentEditingBookingId) {
+                // BEARBEITEN - Bestehende Buchung aktualisieren
+                const booking = allBookings.find(b => b.id === currentEditingBookingId);
+                if (booking) {
+                    booking.status = document.getElementById('formStatus').value;
+                    booking.name = document.getElementById('formName').value;
+                    booking.email = document.getElementById('formEmail').value;
+                    booking.phone = document.getElementById('formPhone').value;
+                    booking.company = document.getElementById('formCompany').value;
+                    booking.date = formattedDate;
+                    booking.time = document.getElementById('formTime').value;
+                    booking.timeEnd = document.getElementById('formTimeEnd').value;
+                    booking.guests = document.getElementById('formGuests').value;
+                    booking.kugelPerGuest = document.getElementById('formKugelPerGuest').value;
+                    booking.street = document.getElementById('formStreet').value;
+                    booking.plz = document.getElementById('formPlz').value;
+                    booking.city = document.getElementById('formCity').value;
+                    booking.distance = document.getElementById('formDistance').value;
+                    booking.wunschsorten = document.getElementById('formWunschsorten').value;
+                    booking.notizen = document.getElementById('formNotizen').value;
+                    booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
+                    booking.aktualisiertAm = updatedDate;
 
-            // Zur Liste hinzufügen
-            allBookings.push(newBooking);
+                    alert('✓ Buchung wurde aktualisiert!');
+                }
+
+                currentEditingBookingId = null;
+            } else {
+                // NEU - Neue Buchung erstellen
+                const maxId = allBookings.length > 0 ? Math.max(...allBookings.map(b => parseInt(b.id) || 0)) : 0;
+                const newId = maxId + 1;
+
+                const newBooking = {
+                    id: newId.toString(),
+                    status: document.getElementById('formStatus').value,
+                    name: document.getElementById('formName').value,
+                    email: document.getElementById('formEmail').value,
+                    phone: document.getElementById('formPhone').value,
+                    company: document.getElementById('formCompany').value,
+                    date: formattedDate,
+                    time: document.getElementById('formTime').value,
+                    timeEnd: document.getElementById('formTimeEnd').value,
+                    guests: document.getElementById('formGuests').value,
+                    kugelPerGuest: document.getElementById('formKugelPerGuest').value,
+                    location: document.getElementById('formLocation').value,
+                    street: document.getElementById('formStreet').value,
+                    plz: document.getElementById('formPlz').value,
+                    city: document.getElementById('formCity').value,
+                    distance: document.getElementById('formDistance').value,
+                    wunschsorten: document.getElementById('formWunschsorten').value,
+                    notizen: document.getElementById('formNotizen').value,
+                    eigeneNotizen: document.getElementById('formEigeneNotizen').value,
+                    angebotUrl: '',
+                    angebotVorlage: '',
+                    rechnungUrl: '',
+                    erstelltAm: updatedDate,
+                    aktualisiertAm: updatedDate
+                };
+
+                allBookings.push(newBooking);
+                alert('✓ Neue Buchung wurde erstellt!');
+            }
 
             // Speichern und aktualisieren
             saveToLocalStorage();
@@ -3292,6 +3328,80 @@
 
                 alert('✓ Rechnung wurde als bezahlt markiert!');
             }
+        }
+
+        // ==================== BEARBEITEN & LÖSCHEN ====================
+
+        // Buchung löschen mit Sicherheitsabfrage
+        function deleteBooking(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('Buchung nicht gefunden!');
+                return;
+            }
+
+            const confirmMessage = `WIRKLICH LÖSCHEN?\n\n` +
+                `Name: ${booking.name || '-'}\n` +
+                `Firma: ${booking.company || '-'}\n` +
+                `Datum: ${booking.date || '-'} um ${booking.time || '-'}\n` +
+                `Status: ${booking.status || '-'}\n\n` +
+                `Diese Aktion kann nicht rückgängig gemacht werden!`;
+
+            if (confirm(confirmMessage)) {
+                // Zweite Sicherheitsabfrage
+                if (confirm('Bist du dir ABSOLUT SICHER? Diese Buchung wird unwiderruflich gelöscht!')) {
+                    // Buchung aus Array entfernen
+                    const index = allBookings.findIndex(b => b.id === bookingId);
+                    if (index > -1) {
+                        allBookings.splice(index, 1);
+
+                        saveToLocalStorage();
+                        updateStats();
+                        filterAndDisplay();
+
+                        alert('✓ Buchung wurde gelöscht!');
+                    }
+                }
+            }
+        }
+
+        // Buchung bearbeiten
+        let currentEditingBookingId = null;
+
+        function editBooking(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('Buchung nicht gefunden!');
+                return;
+            }
+
+            currentEditingBookingId = bookingId;
+
+            // Formular mit Daten füllen
+            document.getElementById('formStatus').value = booking.status || 'Neu';
+            document.getElementById('formName').value = booking.name || '';
+            document.getElementById('formEmail').value = booking.email || '';
+            document.getElementById('formPhone').value = booking.phone || '';
+            document.getElementById('formCompany').value = booking.company || '';
+            document.getElementById('formDate').value = booking.date ? booking.date.split('.').reverse().join('-') : '';
+            document.getElementById('formTime').value = booking.time || '';
+            document.getElementById('formTimeEnd').value = booking.timeEnd || '';
+            document.getElementById('formGuests').value = booking.guests || '';
+            document.getElementById('formKugelPerGuest').value = booking.kugelPerGuest || '';
+            document.getElementById('formLocation').value = booking.location || '';
+            document.getElementById('formStreet').value = booking.street || '';
+            document.getElementById('formPlz').value = booking.plz || '';
+            document.getElementById('formCity').value = booking.city || '';
+            document.getElementById('formDistance').value = booking.distance || '';
+            document.getElementById('formWunschsorten').value = booking.wunschsorten || '';
+            document.getElementById('formNotizen').value = booking.notizen || '';
+            document.getElementById('formEigeneNotizen').value = booking.eigeneNotizen || '';
+
+            // Formular-Titel ändern
+            document.querySelector('#bookingFormModal h2').textContent = 'Buchung bearbeiten';
+
+            // Formular öffnen
+            document.getElementById('bookingFormModal').style.display = 'block';
         }
 
         // ==================== BURGER MENU ====================
