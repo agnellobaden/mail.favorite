@@ -2731,6 +2731,31 @@
             saveAppState();
         }
 
+        // Hilfsfunktion: Bereinigt IDs für Firebase (entfernt ungültige Zeichen)
+        function sanitizeFirebaseId(id) {
+            if (!id) return 'booking-' + Date.now();
+
+            // Entferne oder ersetze ungültige Zeichen für Firebase Document IDs
+            // Erlaubt: A-Z, a-z, 0-9, _, -, .
+            let cleanId = String(id)
+                .replace(/[\/\\]/g, '-')  // Ersetze Slashes mit Bindestrichen
+                .replace(/[^a-zA-Z0-9_.-]/g, '_')  // Ersetze andere Sonderzeichen mit Unterstrich
+                .replace(/^\.+|\.+$/g, '')  // Entferne Punkte am Anfang/Ende
+                .substring(0, 1500);  // Firebase limit: 1500 bytes
+
+            // Wenn die ID leer oder nur aus Punkten besteht, generiere eine neue
+            if (!cleanId || cleanId.length === 0) {
+                cleanId = 'booking-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            }
+
+            // Stelle sicher, dass ID nicht mit __ beginnt (reserved in Firebase)
+            if (cleanId.startsWith('__')) {
+                cleanId = 'id' + cleanId;
+            }
+
+            return cleanId;
+        }
+
         async function saveToFirebase() {
             if (!firebaseInitialized || !db || isUpdatingFromFirebase) {
                 console.log('⚠️ Firebase-Speichern übersprungen (nicht bereit)');
@@ -2748,32 +2773,59 @@
                 console.log('💾 Speichere', allBookings.length, 'Buchungen in Firebase...');
 
                 const batch = db.batch();
+                let processedCount = 0;
 
                 // Alle Buchungen in Firebase speichern
-                for (const booking of allBookings) {
+                for (let i = 0; i < allBookings.length; i++) {
+                    const booking = allBookings[i];
+
                     if (!booking.id) {
-                        console.warn('⚠️ Buchung ohne ID übersprungen:', booking);
+                        console.warn('⚠️ Buchung ohne ID - generiere neue ID für Index', i);
+                        booking.id = 'booking-' + Date.now() + '-' + i;
+                    }
+
+                    // Bereinige die ID für Firebase
+                    const originalId = booking.id;
+                    const cleanId = sanitizeFirebaseId(booking.id);
+
+                    if (originalId !== cleanId) {
+                        console.log(`🔧 ID bereinigt: "${originalId}" → "${cleanId}"`);
+                        booking.id = cleanId;
+                    }
+
+                    try {
+                        const docRef = db.collection('buchungen').doc(cleanId);
+
+                        // Erstelle eine saubere Kopie der Buchung ohne undefined-Werte
+                        const cleanBooking = {};
+                        for (const key in booking) {
+                            if (booking[key] !== undefined && booking[key] !== null) {
+                                // Stelle sicher, dass auch Werte keine problematischen Typen sind
+                                const value = booking[key];
+                                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                                    cleanBooking[key] = value;
+                                } else if (typeof value === 'object') {
+                                    // Konvertiere Objekte zu JSON-Strings
+                                    cleanBooking[key] = JSON.stringify(value);
+                                }
+                            }
+                        }
+
+                        batch.set(docRef, {
+                            ...cleanBooking,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+
+                        processedCount++;
+                    } catch (docError) {
+                        console.error(`✗ Fehler bei Buchung ${i} (ID: ${cleanId}):`, docError);
+                        // Überspringe diese Buchung und mache mit der nächsten weiter
                         continue;
                     }
-
-                    const docRef = db.collection('buchungen').doc(booking.id);
-
-                    // Erstelle eine saubere Kopie der Buchung ohne undefined-Werte
-                    const cleanBooking = {};
-                    for (const key in booking) {
-                        if (booking[key] !== undefined && booking[key] !== null) {
-                            cleanBooking[key] = booking[key];
-                        }
-                    }
-
-                    batch.set(docRef, {
-                        ...cleanBooking,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
                 }
 
                 await batch.commit();
-                console.log('✓ Daten in Firebase synchronisiert:', allBookings.length, 'Buchungen');
+                console.log('✓ Daten in Firebase synchronisiert:', processedCount, 'von', allBookings.length, 'Buchungen');
 
                 updateFirebaseStatus('connected', '🟢 Gespeichert');
                 setTimeout(() => {
@@ -2791,22 +2843,14 @@
                     console.error('💡 Tipp: Prüfe die Firestore Security Rules in der Firebase Console');
                 } else if (error.code === 'unavailable') {
                     errorMsg = '🔴 Netzwerkfehler - Keine Verbindung';
+                } else if (error.message && error.message.includes('Invalid segment')) {
+                    errorMsg = '🔴 Ungültige Daten-IDs erkannt';
+                    console.error('💡 Tipp: IDs dürfen keine Sonderzeichen wie / oder \\ enthalten');
                 } else if (error.message) {
                     errorMsg = `🔴 Fehler: ${error.message.substring(0, 50)}`;
                 }
 
                 updateFirebaseStatus('error', errorMsg);
-
-                // Zeige Alert mit detaillierter Fehlermeldung für Debugging
-                if (error.code === 'permission-denied') {
-                    alert('⚠️ FIREBASE FEHLER\n\n' +
-                          'Zugriff auf Firestore verweigert!\n\n' +
-                          'Bitte überprüfe die Firestore Security Rules:\n' +
-                          '1. Öffne Firebase Console\n' +
-                          '2. Gehe zu Firestore Database > Rules\n' +
-                          '3. Stelle sicher, dass die Rules auf "if true" gesetzt sind\n\n' +
-                          'Fehlercode: ' + error.code);
-                }
             }
         }
 
