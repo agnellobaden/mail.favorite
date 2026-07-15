@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buchungsübersicht - EisFavorite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -1577,6 +1582,64 @@
     </style>
 </head>
 <body>
+    <!-- Firebase Setup Modal -->
+    <div id="firebaseSetupModal" class="form-modal" style="display: none;">
+        <div class="form-container" style="max-width: 600px;">
+            <h2 style="margin-bottom: 20px;">🔧 Firebase-Synchronisation einrichten</h2>
+
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
+                <p style="margin-bottom: 10px; font-weight: 600;">Warum Firebase?</p>
+                <p style="font-size: 0.95em; line-height: 1.6;">
+                    Mit Firebase werden deine Buchungen automatisch zwischen PC und Handy synchronisiert.
+                    Alle Änderungen sind sofort auf allen Geräten sichtbar!
+                </p>
+            </div>
+
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                <p style="margin-bottom: 10px; font-weight: 600;">📋 Schnellanleitung:</p>
+                <ol style="font-size: 0.9em; line-height: 1.8; padding-left: 20px;">
+                    <li>Öffne <a href="https://console.firebase.google.com/" target="_blank" style="color: #667eea; font-weight: 600;">Firebase Console</a></li>
+                    <li>Klicke auf "Projekt hinzufügen" und erstelle ein neues Projekt</li>
+                    <li>Aktiviere "Firestore Database" (im Test-Modus starten)</li>
+                    <li>Gehe zu Projekteinstellungen → Füge eine Web-App hinzu</li>
+                    <li>Kopiere die Config-Werte und füge sie unten ein</li>
+                </ol>
+            </div>
+
+            <form id="firebaseConfigForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="form-group" style="margin: 0;">
+                    <label>API Key</label>
+                    <input type="text" id="fbApiKey" placeholder="AIzaSy..." required style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>Auth Domain</label>
+                    <input type="text" id="fbAuthDomain" placeholder="dein-projekt.firebaseapp.com" required style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>Project ID</label>
+                    <input type="text" id="fbProjectId" placeholder="dein-projekt-id" required style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>Storage Bucket</label>
+                    <input type="text" id="fbStorageBucket" placeholder="dein-projekt.appspot.com" required style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>Messaging Sender ID</label>
+                    <input type="text" id="fbMessagingSenderId" placeholder="123456789" required style="width: 100%;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>App ID</label>
+                    <input type="text" id="fbAppId" placeholder="1:123456:web:abc..." required style="width: 100%;">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; margin: 0;">💾 Speichern & Synchronisation starten</button>
+                    <button type="button" onclick="skipFirebaseSetup()" class="btn btn-secondary" style="margin: 0;">⏭️ Überspringen (nur lokal)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Burger Menu -->
     <div class="burger-menu">
         <div class="burger-icon" id="burgerIcon">
@@ -1584,6 +1647,7 @@
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
             <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
+            <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mail Import (JSON)</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
@@ -1917,6 +1981,53 @@
     </div>
 
     <script>
+        // ==========================================
+        // FIREBASE KONFIGURATION & INITIALISIERUNG
+        // ==========================================
+
+        let db = null;
+        let firebaseInitialized = false;
+
+        // Firebase initialisieren
+        function initializeFirebase(config) {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                db = firebase.firestore();
+                firebaseInitialized = true;
+                console.log('✓ Firebase erfolgreich initialisiert');
+
+                // Echtzeit-Synchronisation starten
+                startRealtimeSync();
+                return true;
+            } catch (error) {
+                console.error('✗ Firebase-Initialisierung fehlgeschlagen:', error);
+                firebaseInitialized = false;
+                return false;
+            }
+        }
+
+        // Firebase-Config aus localStorage laden oder Setup anzeigen
+        function checkFirebaseSetup() {
+            const savedConfig = localStorage.getItem('firebaseConfig');
+
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    return initializeFirebase(config);
+                } catch (error) {
+                    console.error('Fehler beim Laden der Firebase-Config:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // ==========================================
+        // GLOBALE VARIABLEN
+        // ==========================================
+
         let allBookings = [];
         let currentSort = { column: 'date', direction: 'asc' };
         let currentView = 'cards'; // 'cards' oder 'table'
@@ -2056,16 +2167,53 @@
         }
 
         // LocalStorage Funktionen
-        function saveToLocalStorage() {
+        // ==========================================
+        // DATEN SPEICHERN (Firebase + LocalStorage Fallback)
+        // ==========================================
+
+        async function saveToLocalStorage() {
+            // Immer in LocalStorage als Backup speichern
             try {
                 localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-                console.log('Daten in LocalStorage gespeichert');
+                console.log('✓ Daten in LocalStorage gespeichert');
             } catch (e) {
-                console.error('Fehler beim Speichern:', e);
+                console.error('✗ Fehler beim LocalStorage-Speichern:', e);
+            }
+
+            // Wenn Firebase aktiviert ist, auch dort speichern
+            if (firebaseInitialized && db) {
+                try {
+                    await saveToFirebase();
+                } catch (e) {
+                    console.error('✗ Fehler beim Firebase-Speichern:', e);
+                }
             }
         }
 
-        function loadFromLocalStorage() {
+        async function saveToFirebase() {
+            if (!firebaseInitialized || !db) return;
+
+            try {
+                const batch = db.batch();
+
+                // Alle Buchungen in Firebase speichern
+                for (const booking of allBookings) {
+                    const docRef = db.collection('buchungen').doc(booking.id);
+                    batch.set(docRef, {
+                        ...booking,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                await batch.commit();
+                console.log('✓ Daten in Firebase synchronisiert');
+            } catch (error) {
+                console.error('✗ Firebase-Sync-Fehler:', error);
+                throw error;
+            }
+        }
+
+        async function loadFromLocalStorage() {
             try {
                 const saved = localStorage.getItem('eisfavorite_bookings');
                 if (saved) {
@@ -2077,11 +2225,11 @@
                     document.getElementById('totalEntries').textContent = allBookings.length;
                     document.getElementById('csvLines').textContent = allBookings.length;
                     document.getElementById('fileUploadSection').innerHTML = '<p style="color: #667eea; font-weight: 600;">✓ Daten aus Speicher geladen</p>';
-                    console.log('Daten aus LocalStorage geladen:', allBookings.length, 'Einträge');
+                    console.log('✓ Daten aus LocalStorage geladen:', allBookings.length, 'Einträge');
                     return true;
                 }
             } catch (e) {
-                console.error('Fehler beim Laden:', e);
+                console.error('✗ Fehler beim Laden:', e);
             }
             return false;
         }
@@ -3685,6 +3833,123 @@
                 this.style.display = 'none';
                 currentEmailChatBooking = null;
             }
+        });
+
+        // ==========================================
+        // FIREBASE ECHTZEIT-SYNCHRONISATION
+        // ==========================================
+
+        function startRealtimeSync() {
+            if (!firebaseInitialized || !db) return;
+
+            console.log('🔄 Echtzeit-Synchronisation gestartet');
+
+            // Echtzeit-Listener für Buchungen
+            db.collection('buchungen').onSnapshot((snapshot) => {
+                console.log('📡 Änderungen von Firebase erhalten:', snapshot.size, 'Dokumente');
+
+                const firebaseBookings = [];
+                snapshot.forEach((doc) => {
+                    firebaseBookings.push({
+                        ...doc.data(),
+                        id: doc.id
+                    });
+                });
+
+                // Aktualisiere lokales Array, aber nur wenn sich wirklich etwas geändert hat
+                if (JSON.stringify(allBookings) !== JSON.stringify(firebaseBookings)) {
+                    allBookings = firebaseBookings;
+
+                    // LocalStorage als Backup aktualisieren
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+
+                    // UI aktualisieren
+                    updateStats();
+                    filterAndDisplay();
+
+                    console.log('✓ Daten synchronisiert:', allBookings.length, 'Buchungen');
+                }
+            }, (error) => {
+                console.error('✗ Synchronisations-Fehler:', error);
+            });
+        }
+
+        // ==========================================
+        // FIREBASE SETUP-FUNKTIONEN
+        // ==========================================
+
+        function skipFirebaseSetup() {
+            document.getElementById('firebaseSetupModal').style.display = 'none';
+            localStorage.setItem('firebaseSkipped', 'true');
+            console.log('⏭️ Firebase-Setup übersprungen - nur lokaler Modus');
+        }
+
+        function openFirebaseSetup() {
+            document.getElementById('firebaseSetupModal').style.display = 'block';
+        }
+
+        // Firebase Config Form Handler
+        document.getElementById('firebaseConfigForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const config = {
+                apiKey: document.getElementById('fbApiKey').value.trim(),
+                authDomain: document.getElementById('fbAuthDomain').value.trim(),
+                projectId: document.getElementById('fbProjectId').value.trim(),
+                storageBucket: document.getElementById('fbStorageBucket').value.trim(),
+                messagingSenderId: document.getElementById('fbMessagingSenderId').value.trim(),
+                appId: document.getElementById('fbAppId').value.trim()
+            };
+
+            // Config in localStorage speichern
+            localStorage.setItem('firebaseConfig', JSON.stringify(config));
+
+            // Firebase initialisieren
+            const success = initializeFirebase(config);
+
+            if (success) {
+                // Modal schließen
+                document.getElementById('firebaseSetupModal').style.display = 'none';
+
+                // Bestehende Daten zu Firebase hochladen
+                if (allBookings.length > 0) {
+                    try {
+                        await saveToFirebase();
+                        alert('✓ Firebase erfolgreich eingerichtet!\nAlle Daten wurden synchronisiert.');
+                    } catch (error) {
+                        alert('⚠️ Firebase eingerichtet, aber Fehler beim Hochladen der Daten.\nBitte prüfe deine Firebase-Regeln.');
+                    }
+                } else {
+                    alert('✓ Firebase erfolgreich eingerichtet!\nDeine Daten werden ab jetzt automatisch synchronisiert.');
+                }
+            } else {
+                alert('✗ Firebase-Initialisierung fehlgeschlagen.\nBitte prüfe deine Eingaben und versuche es erneut.');
+            }
+        });
+
+        // ==========================================
+        // INITIALISIERUNG BEIM LADEN
+        // ==========================================
+
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 App wird geladen...');
+
+            // Prüfe Firebase-Setup
+            const hasFirebaseConfig = checkFirebaseSetup();
+            const firebaseSkipped = localStorage.getItem('firebaseSkipped');
+
+            // Zeige Setup-Modal nur, wenn Firebase nicht konfiguriert und nicht übersprungen
+            if (!hasFirebaseConfig && firebaseSkipped !== 'true') {
+                setTimeout(() => {
+                    document.getElementById('firebaseSetupModal').style.display = 'block';
+                }, 1000);
+            }
+
+            // Lade Daten aus LocalStorage (funktioniert auch ohne Firebase)
+            loadFromLocalStorage();
+
+            console.log('✓ App bereit!');
+            console.log('Firebase aktiv:', firebaseInitialized ? 'Ja ✓' : 'Nein (nur lokal)');
         });
     </script>
 </body>
