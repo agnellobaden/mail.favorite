@@ -2401,9 +2401,6 @@
                         <button class="card-button" onclick="editBooking('${booking.id}')" style="background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%); color: white;">
                             ✏️ Bearbeiten
                         </button>
-                        <button class="card-button" onclick="deleteBooking('${booking.id}')" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
-                            🗑️ Löschen
-                        </button>
                     </div>
                 `;
 
@@ -3333,40 +3330,7 @@
             }
         }
 
-        // ==================== BEARBEITEN & LÖSCHEN ====================
-
-        // Buchung löschen mit Sicherheitsabfrage
-        function deleteBooking(bookingId) {
-            const booking = allBookings.find(b => b.id === bookingId);
-            if (!booking) {
-                alert('Buchung nicht gefunden!');
-                return;
-            }
-
-            const confirmMessage = `WIRKLICH LÖSCHEN?\n\n` +
-                `Name: ${booking.name || '-'}\n` +
-                `Firma: ${booking.company || '-'}\n` +
-                `Datum: ${booking.date || '-'} um ${booking.time || '-'}\n` +
-                `Status: ${booking.status || '-'}\n\n` +
-                `Diese Aktion kann nicht rückgängig gemacht werden!`;
-
-            if (confirm(confirmMessage)) {
-                // Zweite Sicherheitsabfrage
-                if (confirm('Bist du dir ABSOLUT SICHER? Diese Buchung wird unwiderruflich gelöscht!')) {
-                    // Buchung aus Array entfernen
-                    const index = allBookings.findIndex(b => b.id === bookingId);
-                    if (index > -1) {
-                        allBookings.splice(index, 1);
-
-                        saveToLocalStorage();
-                        updateStats();
-                        filterAndDisplay();
-
-                        alert('✓ Buchung wurde gelöscht!');
-                    }
-                }
-            }
-        }
+        // ==================== BEARBEITEN ====================
 
         // Buchung bearbeiten
         let currentEditingBookingId = null;
