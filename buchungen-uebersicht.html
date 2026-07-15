@@ -1903,6 +1903,7 @@
             <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f8f9fa; border-radius: 8px; margin-top: 10px;">
                 <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
                 <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
+                <button onclick="testFirebaseConnection()" class="btn btn-secondary" style="margin-left: auto; padding: 5px 10px; font-size: 0.8em;">🔍 Test</button>
             </div>
         </div>
 
@@ -2414,6 +2415,81 @@
             }
         }
 
+        // Firebase-Verbindung testen (für Debugging)
+        async function testFirebaseConnection() {
+            console.log('🔍 Teste Firebase-Verbindung...');
+
+            if (!firebaseInitialized || !db) {
+                console.error('✗ Firebase ist nicht initialisiert');
+                alert('❌ Firebase ist nicht initialisiert!\n\nBitte lade die Seite neu.');
+                return false;
+            }
+
+            try {
+                // Test 1: Versuche Daten zu lesen
+                console.log('📖 Test 1: Lese-Berechtigung...');
+                const testRead = await db.collection('buchungen').limit(1).get();
+                console.log('✓ Lesen erfolgreich -', testRead.size, 'Dokumente gefunden');
+
+                // Test 2: Versuche ein Test-Dokument zu schreiben
+                console.log('📝 Test 2: Schreib-Berechtigung...');
+                const testDocRef = db.collection('buchungen').doc('__test_connection__');
+                await testDocRef.set({
+                    test: true,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('✓ Schreiben erfolgreich');
+
+                // Test 3: Test-Dokument löschen
+                await testDocRef.delete();
+                console.log('✓ Löschen erfolgreich');
+
+                alert('✅ FIREBASE VERBINDUNG OK!\n\n' +
+                      '✓ Lesen: OK\n' +
+                      '✓ Schreiben: OK\n' +
+                      '✓ Löschen: OK\n\n' +
+                      'Die Firebase-Verbindung funktioniert einwandfrei.');
+
+                return true;
+
+            } catch (error) {
+                console.error('✗ Firebase-Verbindungstest fehlgeschlagen:', error);
+                console.error('Error Code:', error.code);
+                console.error('Error Message:', error.message);
+
+                let errorDetails = 'Fehlercode: ' + (error.code || 'Unbekannt') + '\n';
+                errorDetails += 'Nachricht: ' + (error.message || 'Keine Details verfügbar');
+
+                if (error.code === 'permission-denied') {
+                    alert('❌ FIREBASE FEHLER: Zugriff verweigert!\n\n' +
+                          'Die Firestore Security Rules blockieren den Zugriff.\n\n' +
+                          'Lösung:\n' +
+                          '1. Öffne Firebase Console:\n' +
+                          '   https://console.firebase.google.com/\n' +
+                          '2. Wähle dein Projekt: mailfavorite-e8f49\n' +
+                          '3. Gehe zu: Firestore Database > Rules\n' +
+                          '4. Ändere die Rules zu:\n\n' +
+                          'rules_version = \'2\';\n' +
+                          'service cloud.firestore {\n' +
+                          '  match /databases/{database}/documents {\n' +
+                          '    match /buchungen/{document=**} {\n' +
+                          '      allow read, write: if true;\n' +
+                          '    }\n' +
+                          '  }\n' +
+                          '}\n\n' +
+                          '5. Klicke "Veröffentlichen"\n\n' +
+                          errorDetails);
+                } else {
+                    alert('❌ FIREBASE VERBINDUNGSFEHLER!\n\n' + errorDetails);
+                }
+
+                return false;
+            }
+        }
+
+        // Mache testFirebaseConnection global verfügbar für Console-Debugging
+        window.testFirebaseConnection = testFirebaseConnection;
+
         // ==========================================
         // GLOBALE VARIABLEN
         // ==========================================
@@ -2664,13 +2740,34 @@
             updateFirebaseStatus('syncing', '🔄 Speichere...');
 
             try {
+                // Validierung: Prüfe ob allBookings ein gültiges Array ist
+                if (!Array.isArray(allBookings)) {
+                    throw new Error('Ungültige Datenstruktur - kein Array');
+                }
+
+                console.log('💾 Speichere', allBookings.length, 'Buchungen in Firebase...');
+
                 const batch = db.batch();
 
                 // Alle Buchungen in Firebase speichern
                 for (const booking of allBookings) {
+                    if (!booking.id) {
+                        console.warn('⚠️ Buchung ohne ID übersprungen:', booking);
+                        continue;
+                    }
+
                     const docRef = db.collection('buchungen').doc(booking.id);
+
+                    // Erstelle eine saubere Kopie der Buchung ohne undefined-Werte
+                    const cleanBooking = {};
+                    for (const key in booking) {
+                        if (booking[key] !== undefined && booking[key] !== null) {
+                            cleanBooking[key] = booking[key];
+                        }
+                    }
+
                     batch.set(docRef, {
-                        ...booking,
+                        ...cleanBooking,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                 }
@@ -2684,8 +2781,32 @@
                 }, 1500);
             } catch (error) {
                 console.error('✗ Firebase-Sync-Fehler:', error);
-                updateFirebaseStatus('error', '🔴 Fehler beim Speichern');
-                throw error;
+                console.error('Error Code:', error.code || 'Kein Code');
+                console.error('Error Message:', error.message || 'Keine Nachricht');
+
+                // Detaillierte Fehlermeldung je nach Fehlertyp
+                let errorMsg = '🔴 Fehler beim Speichern';
+                if (error.code === 'permission-denied') {
+                    errorMsg = '🔴 Zugriff verweigert - Firestore Rules prüfen';
+                    console.error('💡 Tipp: Prüfe die Firestore Security Rules in der Firebase Console');
+                } else if (error.code === 'unavailable') {
+                    errorMsg = '🔴 Netzwerkfehler - Keine Verbindung';
+                } else if (error.message) {
+                    errorMsg = `🔴 Fehler: ${error.message.substring(0, 50)}`;
+                }
+
+                updateFirebaseStatus('error', errorMsg);
+
+                // Zeige Alert mit detaillierter Fehlermeldung für Debugging
+                if (error.code === 'permission-denied') {
+                    alert('⚠️ FIREBASE FEHLER\n\n' +
+                          'Zugriff auf Firestore verweigert!\n\n' +
+                          'Bitte überprüfe die Firestore Security Rules:\n' +
+                          '1. Öffne Firebase Console\n' +
+                          '2. Gehe zu Firestore Database > Rules\n' +
+                          '3. Stelle sicher, dass die Rules auf "if true" gesetzt sind\n\n' +
+                          'Fehlercode: ' + error.code);
+                }
             }
         }
 
