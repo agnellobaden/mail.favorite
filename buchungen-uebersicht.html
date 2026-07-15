@@ -160,6 +160,17 @@
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
 
+        .stat-card.email {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card.email:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        }
+
         .stat-card h3 {
             font-size: 0.9em;
             margin-bottom: 10px;
@@ -270,6 +281,30 @@
         .status-storniert {
             background-color: #f8d7da;
             color: #721c24;
+        }
+
+        .new-email-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 800;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+            }
         }
 
         .next-booking {
@@ -1806,6 +1841,68 @@
             #calendarMonthYear {
                 font-size: 1em !important;
             }
+
+            /* Tabelle auf Mobile verstecken, nur Karten-Ansicht */
+            .table-container {
+                display: none !important;
+            }
+
+            .view-toggle {
+                display: none !important; /* View-Toggle auf Mobile verstecken */
+            }
+
+            /* Karten-Container immer anzeigen */
+            #cardsContainer {
+                display: grid !important;
+            }
+
+            /* Strichliste für "blind bedienbar" - größere Buttons */
+            .tally-btn-plus,
+            .tally-btn-minus {
+                width: 50px !important;
+                height: 50px !important;
+                font-size: 1.8em !important;
+                font-weight: 900 !important;
+                border: 3px solid rgba(0,0,0,0.1) !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+            }
+
+            .tally-product-card {
+                padding: 15px !important;
+                gap: 12px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .tally-product-name {
+                font-size: 1.1em !important;
+                font-weight: 700 !important;
+            }
+
+            .tally-count-display {
+                font-size: 2em !important;
+                font-weight: 900 !important;
+                min-width: 80px !important;
+                padding: 15px !important;
+            }
+
+            #tallyTotalBar {
+                padding: 20px !important;
+                position: sticky !important;
+                bottom: 0 !important;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                box-shadow: 0 -4px 12px rgba(0,0,0,0.3) !important;
+            }
+
+            #tallyTotalBar span:first-child {
+                font-size: 1.2em !important;
+                font-weight: 700 !important;
+            }
+
+            #tallyTotalBar #tallyTotal {
+                font-size: 2.2em !important;
+                font-weight: 900 !important;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            }
         }
     </style>
 </head>
@@ -1963,6 +2060,10 @@
                 <h3>NEU</h3>
                 <div class="number" id="stat-neu">0</div>
             </div>
+            <div class="stat-card email" onclick="document.getElementById('jsonImportInput').click()" title="Klicken um E-Mails zu prüfen">
+                <h3>📧 NEU EINGETROFFEN</h3>
+                <div class="number" id="stat-email">0</div>
+            </div>
             <div class="stat-card gesamt">
                 <h3>GESAMT</h3>
                 <div class="number" id="stat-gesamt">0</div>
@@ -1972,6 +2073,7 @@
         <div class="view-toggle">
             <button id="viewCards" class="active">🎴 Karten-Ansicht</button>
             <button id="viewTable">📋 Tabellen-Ansicht</button>
+            <button onclick="document.getElementById('jsonImportInput').click()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%); border-color: #ff6b6b;">📧 E-Mails prüfen</button>
         </div>
 
         <!-- Bevorstehende Termine diese Woche -->
@@ -1989,6 +2091,10 @@
             </div>
             <div class="filter-content collapsed" id="filterContent">
                 <div class="date-filter-row">
+                    <div>
+                        <label for="nameFilter">Name suchen:</label>
+                        <input type="text" id="nameFilter" placeholder="Name, Firma...">
+                    </div>
                     <div>
                         <label for="statusFilter">Status:</label>
                         <select id="statusFilter">
@@ -2134,8 +2240,96 @@
                         <input type="number" id="formDistance" min="0" step="0.1">
                     </div>
                     <div class="form-group full-width">
-                        <label for="formWunschsorten">Wunschsorten</label>
-                        <input type="text" id="formWunschsorten" placeholder="z.B. Vanille, Schokolade, Erdbeere">
+                        <label for="formWunschsorten">Wunschsorten (max. 3 Sorten)</label>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #ddd;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                                <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #667eea;">
+                                    <strong style="color: #667eea; display: block; margin-bottom: 8px; font-size: 0.9em;">🥛 MILCHEIS</strong>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Schokolade" style="margin-right: 5px;"> Schokolade
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="⚪ Vanille" style="margin-right: 5px;"> Vanille
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="💚 Pistazie" style="margin-right: 5px;"> Pistazie
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍌 Banane" style="margin-right: 5px;"> Banane
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Stracciatella" style="margin-right: 5px;"> Stracciatella
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🌰 Haselnuss" style="margin-right: 5px;"> Haselnuss
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🥥 Kokos" style="margin-right: 5px;"> Kokos
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍪 Cookie" style="margin-right: 5px;"> Cookie
+                                    </label>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #667eea;">
+                                    <strong style="color: #667eea; display: block; margin-bottom: 8px; font-size: 0.9em;">🥛 SPECIALS</strong>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🥛 Joghurt" style="margin-right: 5px;"> Joghurt
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Trüffel" style="margin-right: 5px;"> Trüffel
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Weiße Schokolade" style="margin-right: 5px;"> Weiße Schokolade
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍷 Malaga" style="margin-right: 5px;"> Malaga
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🐬 Delfino" style="margin-right: 5px;"> Delfino
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍒 Joghurt-Kirsch" style="margin-right: 5px;"> Joghurt-Kirsch
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🌿 Waldmeister" style="margin-right: 5px;"> Waldmeister
+                                    </label>
+                                </div>
+                                <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #f093fb;">
+                                    <strong style="color: #f093fb; display: block; margin-bottom: 8px; font-size: 0.9em;">🍓 FRUCHTEIS</strong>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍓 Erdbeere" style="margin-right: 5px;"> Erdbeere
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🥭 Mango" style="margin-right: 5px;"> Mango
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍋 Zitrone" style="margin-right: 5px;"> Zitrone
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍈 Melone" style="margin-right: 5px;"> Melone
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="❤️ Himbeere" style="margin-right: 5px;"> Himbeere
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🧡 Aprikose" style="margin-right: 5px;"> Aprikose
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍍 Ananas" style="margin-right: 5px;"> Ananas
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="💜 Johannisbeere" style="margin-right: 5px;"> Johannisbeere
+                                    </label>
+                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍹 Exotic Cocktail" style="margin-right: 5px;"> Exotic Cocktail
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="selectedFlavorsDisplay" style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px; font-weight: 600; color: #667eea; min-height: 40px; display: flex; align-items: center; justify-content: center;">
+                                <span>Wähle bis zu 3 Sorten aus</span>
+                            </div>
+                        </div>
+                        <input type="text" id="formWunschsorten" placeholder="Oder manuell eingeben: z.B. Vanille, Schokolade, Erdbeere" style="margin-top: 5px;">
                     </div>
                     <div class="form-group full-width">
                         <label for="formNotizen">Notizen</label>
@@ -2208,6 +2402,23 @@
                     <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Drucken</button>
                     <button type="button" class="btn btn-primary" onclick="saveInvoice()">💾 Speichern</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Angebots-Modal -->
+    <div class="invoice-modal" id="offerModal">
+        <div class="invoice-form-container">
+            <div class="form-header">
+                <h2>📋 Angebot erstellen</h2>
+                <button class="close-btn" id="closeOfferBtn">&times;</button>
+            </div>
+
+            <div id="offerPreviewContent"></div>
+            <div class="form-actions" style="margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closeOfferModal()">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="downloadOfferPDF()">📄 Als PDF speichern</button>
+                <button type="button" class="btn btn-primary" onclick="sendOfferByEmail()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📧 Per E-Mail senden</button>
             </div>
         </div>
     </div>
@@ -2531,6 +2742,7 @@
                     currentView: currentView,
                     currentSort: currentSort,
                     filters: {
+                        name: document.getElementById('nameFilter')?.value || '',
                         status: document.getElementById('statusFilter')?.value || 'alle',
                         dateFrom: document.getElementById('dateFromFilter')?.value || '',
                         dateTo: document.getElementById('dateToFilter')?.value || ''
@@ -2569,6 +2781,9 @@
 
                 // Filter wiederherstellen
                 if (state.filters) {
+                    if (document.getElementById('nameFilter')) {
+                        document.getElementById('nameFilter').value = state.filters.name || '';
+                    }
                     if (document.getElementById('statusFilter')) {
                         document.getElementById('statusFilter').value = state.filters.status || 'alle';
                     }
@@ -2937,19 +3152,32 @@
         function updateStats() {
             const gebucht = allBookings.filter(b => b.status === 'Gebucht').length;
             const neu = allBookings.filter(b => b.status === 'Neu').length;
+            const neuEingetroffen = allBookings.filter(b => b.isNewFromEmail === true).length;
 
             document.getElementById('stat-gebucht').textContent = gebucht;
             document.getElementById('stat-neu').textContent = neu;
+            document.getElementById('stat-email').textContent = neuEingetroffen;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
         }
 
         // Filtern und anzeigen
         function filterAndDisplay() {
+            const nameFilter = document.getElementById('nameFilter').value.toLowerCase().trim();
             const statusFilter = document.getElementById('statusFilter').value;
             const dateFrom = document.getElementById('dateFromFilter').value;
             const dateTo = document.getElementById('dateToFilter').value;
 
             let filtered = allBookings;
+
+            // Namen-Filter (sucht in Name, Firma, E-Mail)
+            if (nameFilter) {
+                filtered = filtered.filter(b => {
+                    const name = (b.name || '').toLowerCase();
+                    const company = (b.company || '').toLowerCase();
+                    const email = (b.email || '').toLowerCase();
+                    return name.includes(nameFilter) || company.includes(nameFilter) || email.includes(nameFilter);
+                });
+            }
 
             // Status-Filter
             if (statusFilter !== 'alle') {
@@ -3033,6 +3261,7 @@
                             <div>
                                 <div style="font-weight: 700; font-size: 1.1em; color: #333; margin-bottom: 5px;">${booking.name || 'Unbekannt'}</div>
                                 <div style="font-size: 0.9em; color: #666; font-weight: 600;">${booking.company || ''}</div>
+                                ${booking.isNewFromEmail ? '<div style="margin-top: 8px;"><span class="new-email-badge" style="font-size: 0.7em; padding: 5px 10px;">📧 Neu eingetroffen!</span></div>' : ''}
                             </div>
                             <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.75em; padding: 5px 10px;">${booking.status || ''}</span>
                         </div>
@@ -3220,11 +3449,12 @@
 
             const eisUmsatz = guestCount * kugeln * pricePerKugel;
             const anfahrt = calculateTravelCost(distance);
+            const anfahrtMitMwst = anfahrt * 1.07; // Anfahrtskosten zzgl. 7% MwSt.
 
             return {
                 eis: eisUmsatz,
-                anfahrt: anfahrt,
-                gesamt: eisUmsatz + anfahrt
+                anfahrt: anfahrtMitMwst,
+                gesamt: eisUmsatz + anfahrtMitMwst
             };
         }
 
@@ -3270,12 +3500,16 @@
                 // Umsatz und Anfahrtskosten berechnen
                 const revenue = calculateRevenue(booking.guests, booking.kugelPerGuest, booking.distance);
                 const travelCost = calculateTravelCost(booking.distance);
+                const travelCostWithMwSt = travelCost * 1.07; // Anfahrtskosten zzgl. 7% MwSt.
 
                 card.innerHTML = `
                     <!-- 3-Punkte-Menü -->
                     <div class="card-menu">
                         <button class="card-menu-button" onclick="toggleCardMenu(event, '${booking.id}')">⋮</button>
                         <div class="card-menu-dropdown" id="menu-${booking.id}">
+                            <button class="card-menu-item" onclick="openOfferModal('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #667eea; font-weight: 600;">
+                                📋 Angebot erstellen
+                            </button>
                             ${booking.savedInvoice ? `
                             <button class="card-menu-item invoice" onclick="viewSavedInvoice('${booking.id}'); closeCardMenu('${booking.id}')">
                                 📄 Rechnung ansehen
@@ -3306,7 +3540,10 @@
                         <div>
                             <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
                             <div class="card-company">${booking.company || '-'}</div>
-                            <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
+                            <div>
+                                <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
+                                ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
+                            </div>
                         </div>
                         <div class="card-date">
                             <div class="card-date-day">${booking.date || '-'}</div>
@@ -3345,7 +3582,7 @@
                         ${travelCost > 0 && !(booking.guests && booking.kugelPerGuest) ? `
                         <div class="card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
                             <span>🚗</span>
-                            <span><strong>Anfahrtskosten:</strong> ${travelCost.toFixed(2)} €</span>
+                            <span><strong>Anfahrtskosten:</strong> ${travelCostWithMwSt.toFixed(2)} € (inkl. MwSt.)</span>
                         </div>
                         ` : ''}
                     </div>
@@ -3452,6 +3689,7 @@
         }
 
         // Event-Listener
+        document.getElementById('nameFilter').addEventListener('input', filterAndDisplay);
         document.getElementById('statusFilter').addEventListener('change', filterAndDisplay);
         document.getElementById('dateFromFilter').addEventListener('change', filterAndDisplay);
         document.getElementById('dateToFilter').addEventListener('change', filterAndDisplay);
@@ -3491,16 +3729,89 @@
             document.querySelector('#formModal h2').textContent = 'Neue Buchung hinzufügen';
             document.getElementById('formModal').style.display = 'block';
             document.getElementById('bookingForm').reset();
+
+            // Checkboxen zurücksetzen
+            document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.parentElement.style.opacity = '1';
+            });
+            document.getElementById('selectedFlavorsDisplay').innerHTML = '<span style="color: #999;">Wähle bis zu 3 Sorten aus</span>';
         });
 
         document.getElementById('closeFormBtn').addEventListener('click', function() {
             currentEditingBookingId = null;
             document.getElementById('formModal').style.display = 'none';
+            // Checkboxen zurücksetzen
+            document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.parentElement.style.opacity = '1';
+            });
         });
 
         document.getElementById('cancelFormBtn').addEventListener('click', function() {
             currentEditingBookingId = null;
             document.getElementById('formModal').style.display = 'none';
+            // Checkboxen zurücksetzen
+            document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.disabled = false;
+                checkbox.parentElement.style.opacity = '1';
+            });
+        });
+
+        // Eissorten-Auswahl Logik
+        function updateIceFlavorsSelection() {
+            const checkboxes = document.querySelectorAll('.ice-flavor-checkbox');
+            const selectedFlavors = [];
+
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedFlavors.push(checkbox.value);
+                }
+            });
+
+            // Display aktualisieren
+            const display = document.getElementById('selectedFlavorsDisplay');
+            if (selectedFlavors.length === 0) {
+                display.innerHTML = '<span style="color: #999;">Wähle bis zu 3 Sorten aus</span>';
+            } else {
+                display.innerHTML = `<span>${selectedFlavors.join(', ')}</span>`;
+            }
+
+            // Text-Input aktualisieren
+            document.getElementById('formWunschsorten').value = selectedFlavors.join(', ');
+
+            // Maximal 3 Sorten - andere Checkboxen deaktivieren
+            if (selectedFlavors.length >= 3) {
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.checked) {
+                        checkbox.disabled = true;
+                        checkbox.parentElement.style.opacity = '0.5';
+                    }
+                });
+            } else {
+                checkboxes.forEach(checkbox => {
+                    checkbox.disabled = false;
+                    checkbox.parentElement.style.opacity = '1';
+                });
+            }
+        }
+
+        // Event-Listener für alle Checkboxen
+        document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateIceFlavorsSelection);
+        });
+
+        // Manuelle Eingabe auch erlauben
+        document.getElementById('formWunschsorten').addEventListener('input', function() {
+            // Checkboxen zurücksetzen wenn manuell eingegeben wird
+            const manualInput = this.value;
+            if (manualInput && !document.querySelector('.ice-flavor-checkbox:checked')) {
+                // Keine Checkboxen ausgewählt, manuelle Eingabe erlauben
+                document.getElementById('selectedFlavorsDisplay').innerHTML = `<span>📝 Manuell: ${manualInput}</span>`;
+            }
         });
 
         // Formular absenden
@@ -3539,6 +3850,9 @@
                     booking.notizen = document.getElementById('formNotizen').value;
                     booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
                     booking.aktualisiertAm = updatedDate;
+
+                    // Entferne "Neu eingetroffen" Markierung wenn bearbeitet
+                    booking.isNewFromEmail = false;
 
                     alert('✓ Buchung wurde aktualisiert!');
                 }
@@ -3706,6 +4020,12 @@
                     const maxOldId = allBookings.length > 0 ? Math.max(...allBookings.map(b => parseInt(b.id) || 0)) : 0;
                     jsonData.forEach((booking, index) => {
                         booking.id = (maxOldId + index + 1).toString();
+
+                        // Setze Status auf "Neu eingetroffen" wenn E-Mail von eisfavorit@gmail.com kommt
+                        if (booking._email_from && booking._email_from.toLowerCase().includes('eisfavorit@gmail.com')) {
+                            booking.status = booking.status || 'Neu';
+                            booking.isNewFromEmail = true; // Markierung für neu eingegangene E-Mails
+                        }
 
                         // Entferne temporäre E-Mail-Felder wenn vorhanden
                         delete booking._email_subject;
@@ -3934,19 +4254,30 @@
             const rows = products.map(p => {
                 let netto, mwst, brutto;
 
+                // Sicherstellen, dass tax als Number behandelt wird
+                const taxRate = parseFloat(p.tax) || 7;
+
                 if (p.priceIncludesTax) {
                     // Preis enthält bereits MwSt (z.B. Kugel Eis: 1,80 € inkl. MwSt)
-                    brutto = p.price * p.quantity;
-                    netto = brutto / (1 + p.tax / 100);
+                    brutto = parseFloat(p.price) * parseFloat(p.quantity);
+                    netto = brutto / (1 + (taxRate / 100));
                     mwst = brutto - netto;
                 } else {
-                    // Preis ist netto (z.B. Anfahrt: 45,00 € netto)
-                    netto = p.price * p.quantity;
-                    mwst = netto * (p.tax / 100);
+                    // Preis ist netto (z.B. Anfahrt: 55,00 € netto + 7% MwSt. = 58,85 € brutto)
+                    netto = parseFloat(p.price) * parseFloat(p.quantity);
+                    mwst = netto * (taxRate / 100);
                     brutto = netto + mwst;
                 }
 
-                if (p.tax === 7) {
+                console.log(`Berechnung für ${p.name}:`, {
+                    netto: netto.toFixed(2),
+                    mwst: mwst.toFixed(2),
+                    brutto: brutto.toFixed(2),
+                    taxRate: taxRate,
+                    priceIncludesTax: p.priceIncludesTax
+                });
+
+                if (taxRate === 7) {
                     subtotalNetto7 += netto;
                     subtotalMwst7 += mwst;
                 } else {
@@ -3965,10 +4296,38 @@
                 `;
             }).join('');
 
-            const sumNetto = subtotalNetto7 + subtotalNetto19;
-            const mwst7 = subtotalMwst7;
-            const mwst19 = subtotalMwst19;
-            const sumBrutto = sumNetto + mwst7 + mwst19;
+            let sumNetto = subtotalNetto7 + subtotalNetto19;
+            let mwst7 = subtotalMwst7;
+            let mwst19 = subtotalMwst19;
+            let sumBrutto = sumNetto + mwst7 + mwst19;
+
+            // Mindestumsatz-Pauschale: Wenn Gesamtbetrag unter 200€, auf 200€ auffüllen
+            let mindestumsatzRow = '';
+            const MINDESTUMSATZ = 200.00;
+
+            if (sumBrutto < MINDESTUMSATZ) {
+                const fehlbetrag = MINDESTUMSATZ - sumBrutto;
+                // Pauschale mit 7% MwSt. berechnen (inkl.)
+                const pauschaleNetto = fehlbetrag / 1.07;
+                const pauschaleMwst = fehlbetrag - pauschaleNetto;
+
+                subtotalNetto7 += pauschaleNetto;
+                subtotalMwst7 += pauschaleMwst;
+
+                sumNetto += pauschaleNetto;
+                mwst7 += pauschaleMwst;
+                sumBrutto = MINDESTUMSATZ;
+
+                mindestumsatzRow = `
+                    <tr style="background: #fff3cd;">
+                        <td><strong>Mindestumsatz-Pauschale</strong><br>inkl. 7% Umsatzsteuer<br><small style="color: #856404;">Mindestumsatz 200,00 € wird erreicht</small></td>
+                        <td style="text-align: center;">1</td>
+                        <td style="text-align: right;">${pauschaleNetto.toFixed(2)} €</td>
+                        <td style="text-align: right;">${pauschaleMwst.toFixed(2)} €</td>
+                        <td style="text-align: right;"><strong>${fehlbetrag.toFixed(2)} €</strong></td>
+                    </tr>
+                `;
+            }
 
             const customerAddress = [
                 currentInvoiceBooking.street,
@@ -4032,6 +4391,7 @@
                         </thead>
                         <tbody>
                             ${rows}
+                            ${mindestumsatzRow}
                         </tbody>
                     </table>
 
@@ -4266,6 +4626,306 @@
             }
         });
 
+        // ==========================================
+        // ANGEBOTS-FUNKTIONEN
+        // ==========================================
+
+        let currentOfferBooking = null;
+
+        // Angebots-Modal öffnen
+        function openOfferModal(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('Buchung nicht gefunden!');
+                return;
+            }
+
+            currentOfferBooking = booking;
+
+            // Angebot generieren
+            const offerHTML = generateOfferHTML(booking);
+            document.getElementById('offerPreviewContent').innerHTML = offerHTML;
+            document.getElementById('offerModal').style.display = 'block';
+        }
+
+        // Angebots-HTML generieren
+        function generateOfferHTML(booking) {
+            const prices = loadPrices();
+            const today = new Date();
+            const offerNumber = `ANG-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+
+            const formatDate = (date) => {
+                return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            };
+
+            // Berechne Hauptangebot (Kugeln × Gäste)
+            const guests = parseInt(booking.guests) || 50;
+            const kugelPerGuest = parseInt(booking.kugelPerGuest) || 2;
+            const totalKugeln = guests * kugelPerGuest;
+            const kugelPrice = prices.kugel || 1.80;
+            const kugelTotal = totalKugeln * kugelPrice;
+
+            // Anfahrtskosten
+            const distance = parseFloat(booking.distance) || 0;
+            const travelCost = calculateTravelCost(distance);
+
+            // Kundenadresse
+            const customerAddress = [
+                booking.street,
+                `${booking.plz || ''} ${booking.city || ''}`.trim()
+            ].filter(x => x).join('<br>');
+
+            return `
+                <div class="invoice-preview" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                    <div class="invoice-header" style="border-bottom: 3px solid #667eea; padding-bottom: 20px; margin-bottom: 30px;">
+                        <div>
+                            <div class="invoice-logo" style="font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.7; color: #555;">
+                                <strong style="color: #333; font-size: 15px;">Eis Agnello</strong><br>
+                                Favoritenstrasse 11<br>
+                                76456 Kuppenheim<br>
+                                Deutschland<br>
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                                    <strong>Tel:</strong> 017656813172<br>
+                                    <strong>E-Mail:</strong> eisfavorit@gmail.com
+                                </div>
+                            </div>
+                        </div>
+                        <div class="invoice-title" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">ANGEBOT</div>
+                    </div>
+
+                    <div class="invoice-details" style="margin-bottom: 35px;">
+                        <div style="flex: 1;">
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                                <strong style="font-size: 18px; color: #667eea; display: block; margin-bottom: 15px;">${booking.company || booking.name || 'Kunde'}</strong>
+                                <div style="color: #555; line-height: 1.7; font-size: 14px;">
+                                    ${customerAddress || 'Adresse nicht angegeben'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex: 0 0 280px; margin-left: 30px;">
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0;">
+                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                    <tr>
+                                        <td style="color: #666;"><strong>Angebotsnummer:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${offerNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Datum:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${formatDate(today)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Veranstaltung:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: 600;">${booking.date || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Gültig bis:</strong></td>
+                                        <td style="text-align: right; color: #e74c3c; font-weight: 600; padding-top: 10px; border-top: 1px solid #ddd;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 35px 0 25px 0; padding: 15px 20px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 4px;">
+                        <p style="font-size: 15px; line-height: 1.8; color: #555; margin: 0;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                    </div>
+
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Position</th>
+                                <th style="text-align: center;">Menge</th>
+                                <th style="text-align: right;">Einzelpreis</th>
+                                <th style="text-align: right;">Gesamt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Kugel Eis</strong><br>
+                                    <small>${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</small><br>
+                                    <small style="color: #666;">inkl. 7% MwSt.</small>
+                                </td>
+                                <td style="text-align: center;">${totalKugeln}</td>
+                                <td style="text-align: right;">${kugelPrice.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${kugelTotal.toFixed(2)} €</strong></td>
+                            </tr>
+                            ${travelCost > 0 ? `
+                            <tr>
+                                <td><strong>Anfahrt & Service Pauschale</strong><br>
+                                    <small>Entfernung: ${distance.toFixed(0)} km</small><br>
+                                    <small style="color: #666;">zzgl. 7% MwSt.</small>
+                                </td>
+                                <td style="text-align: center;">1</td>
+                                <td style="text-align: right;">${travelCost.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${travelCost.toFixed(2)} €</strong></td>
+                            </tr>
+                            ` : ''}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 35px; padding: 25px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                        <h3 style="margin-bottom: 20px; color: #667eea; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">🌟</span>
+                            <span>Zusätzliche Spezialitäten</span>
+                        </h3>
+                        <p style="margin-bottom: 20px; font-size: 15px; color: #555; line-height: 1.7;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
+
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600;">Produkt</th>
+                                <th style="padding: 12px; text-align: right; font-weight: 600;">Preis</th>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍝 Spaghetti Eis</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍫 Schoko Becher</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>☕ Eiskaffee</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥤 Milchshake</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥛 Sahne (Extra)</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🎨 Streussel</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍓 Toppings</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
+                            </tr>
+                        </table>
+
+                        <p style="margin-top: 18px; font-size: 13px; color: #888; font-style: italic;">
+                            * Alle Preise verstehen sich inklusive 7% MwSt.
+                        </p>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 35px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);">
+                        <div style="font-size: 17px; margin-bottom: 8px; opacity: 0.95; font-weight: 500;">Gesamtpreis (Hauptangebot):</div>
+                        <div style="font-size: 42px; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: -1px;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
+                        <div style="font-size: 15px; margin-top: 8px; opacity: 0.9; font-weight: 500;">inkl. MwSt. | Gültig 7 Tage</div>
+                    </div>
+
+                    <div style="margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); border-left: 5px solid #ffc107; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #856404;">📝 Wichtige Hinweise:</p>
+                        <ul style="margin-left: 20px; line-height: 2; font-size: 14px; color: #555;">
+                            <li><strong>Gültigkeit:</strong> Dieses Angebot ist 7 Tage gültig</li>
+                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: 600;">200,00 € pro Veranstaltung</span></li>
+                            <li><strong>Mindestabnahme:</strong> 50 Gäste bei Veranstaltungen</li>
+                            <li><strong>Flexibilität:</strong> Zusätzliche Spezialitäten können jederzeit dazugebucht werden</li>
+                            <li><strong>Änderungen:</strong> Gästezahl kann bis 3 Tage vor Veranstaltung angepasst werden</li>
+                            <li><strong>Anfahrt:</strong> Berechnet ab Favoritenstrasse 11, 76456 Kuppenheim (zzgl. 7% MwSt.)</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-top: 40px; text-align: center; padding: 30px; background: linear-gradient(to bottom, white, #f8f9fa); border-top: 3px solid #667eea; border-radius: 8px;">
+                        <p style="font-size: 18px; color: #667eea; font-weight: 700; margin-bottom: 12px;">
+                            Wir freuen uns auf Ihre Veranstaltung! 🍦
+                        </p>
+                        <p style="font-size: 14px; color: #666; line-height: 1.7;">
+                            Bei Fragen oder individuellen Wünschen stehen wir Ihnen jederzeit gerne zur Verfügung.<br>
+                            <strong style="color: #667eea;">Kontaktieren Sie uns einfach!</strong>
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Angebot als PDF herunterladen
+        function downloadOfferPDF() {
+            const element = document.getElementById('offerPreviewContent');
+            const customerName = currentOfferBooking.company || currentOfferBooking.name || 'Kunde';
+
+            const opt = {
+                margin: 10,
+                filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Angebot per E-Mail senden
+        function sendOfferByEmail() {
+            if (!currentOfferBooking || !currentOfferBooking.email) {
+                alert('❌ Keine E-Mail-Adresse vorhanden!\n\nBitte trage zuerst eine E-Mail-Adresse in der Buchung ein.');
+                return;
+            }
+
+            const customerName = currentOfferBooking.company || currentOfferBooking.name || 'Kunde';
+            const email = currentOfferBooking.email;
+
+            // PDF generieren
+            const element = document.getElementById('offerPreviewContent');
+
+            const opt = {
+                margin: 10,
+                filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // PDF generieren und dann E-Mail öffnen
+            html2pdf().set(opt).from(element).output('blob').then(function(blob) {
+                // E-Mail-Text vorbereiten
+                const subject = encodeURIComponent(`Angebot für Ihre Veranstaltung - EisFavorite`);
+                const body = encodeURIComponent(
+                    `Sehr geehrte Damen und Herren,\n\n` +
+                    `vielen Dank für Ihre Anfrage!\n\n` +
+                    `Im Anhang finden Sie unser Angebot für Ihre Veranstaltung.\n\n` +
+                    `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
+                    `Mit freundlichen Grüßen\n` +
+                    `Ihr EisFavorite Team`
+                );
+
+                // Zuerst PDF herunterladen
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`;
+                link.click();
+
+                // Dann E-Mail-Client öffnen
+                setTimeout(() => {
+                    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+
+                    alert(
+                        `✓ PDF wurde heruntergeladen!\n\n` +
+                        `📧 E-Mail-Programm wird geöffnet...\n\n` +
+                        `Bitte hänge das heruntergeladene PDF manuell an die E-Mail an.`
+                    );
+                }, 500);
+            });
+        }
+
+        // Angebots-Modal schließen
+        function closeOfferModal() {
+            document.getElementById('offerModal').style.display = 'none';
+            currentOfferBooking = null;
+        }
+
+        // Event Listener für Angebots-Modal
+        document.getElementById('closeOfferBtn').addEventListener('click', closeOfferModal);
+
+        document.getElementById('offerModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeOfferModal();
+            }
+        });
+
         // Rechnung als bezahlt markieren
         function markAsPaid(bookingId) {
             const booking = allBookings.find(b => b.id === bookingId);
@@ -4319,6 +4979,22 @@
             document.getElementById('formWunschsorten').value = booking.wunschsorten || '';
             document.getElementById('formNotizen').value = booking.notizen || '';
             document.getElementById('formEigeneNotizen').value = booking.eigeneNotizen || '';
+
+            // Checkboxen für Wunschsorten vorauswählen
+            document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            if (booking.wunschsorten) {
+                const savedFlavors = booking.wunschsorten.toLowerCase();
+                document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
+                    const flavorName = checkbox.value.split(' ').slice(1).join(' ').toLowerCase();
+                    if (savedFlavors.includes(flavorName)) {
+                        checkbox.checked = true;
+                    }
+                });
+                updateIceFlavorsSelection();
+            }
 
             // Formular-Titel ändern
             document.querySelector('#formModal h2').textContent = 'Buchung bearbeiten';
@@ -4526,9 +5202,9 @@
             kugel: 1.80,
             spaghetti: 7.50,
             schokobecher: 7.50,
-            sahne: 1.50,
-            eiskaffee: 6.00,
-            milchshake: 5.50,
+            sahne: 1.80,
+            eiskaffee: 7.50,
+            milchshake: 6.00,
             streussel: 0.50,
             toppings: 1.00
         };
@@ -5042,6 +5718,46 @@
             document.getElementById('calendarGrid').innerHTML = html;
         }
 
+        // Funktion zum schnellen Markieren einer Buchung als "Gebucht"
+        function markAsGebucht(bookingId, overlayElement) {
+            console.log('📝 Markiere Buchung als Gebucht:', bookingId);
+
+            // Finde die Buchung im Array
+            const bookingIndex = allBookings.findIndex(b => b.id === bookingId);
+
+            if (bookingIndex === -1) {
+                alert('❌ Fehler: Buchung konnte nicht gefunden werden!');
+                return;
+            }
+
+            // Aktualisiere den Status
+            allBookings[bookingIndex].status = 'Gebucht';
+            allBookings[bookingIndex].aktualisiertAm = new Date().toLocaleString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            console.log('✓ Status geändert zu: Gebucht');
+
+            // Speichern
+            saveToLocalStorage();
+
+            // Overlay schließen
+            if (overlayElement) {
+                overlayElement.remove();
+            }
+
+            // Kalender und Buchungsliste aktualisieren
+            loadCalendar();
+            filterAndDisplay();
+
+            // Bestätigung
+            alert('✓ Buchung wurde als "Gebucht" markiert!');
+        }
+
         function showDayBookings(day) {
             const dateStr = String(day).padStart(2, '0') + '.' +
                           String(currentCalendarMonth + 1).padStart(2, '0') + '.' +
@@ -5083,6 +5799,12 @@
                             ${booking.guests ? `<strong>Gäste:</strong> ${booking.guests}<br>` : ''}
                             ${booking.address ? `<strong>Adresse:</strong> ${booking.address}` : ''}
                         </div>
+                        ${!isGebucht ? `
+                        <button onclick="markAsGebucht('${booking.id}', this.closest('[style*=\\'position: fixed\\']'))"
+                                style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9em; transition: all 0.3s ease;">
+                            ✓ Als Gebucht markieren
+                        </button>
+                        ` : ''}
                     </div>
                 `;
             });
@@ -5147,6 +5869,12 @@
 
         window.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 App wird geladen...');
+
+            // Automatisch zur Kartenansicht auf Mobile wechseln
+            if (window.innerWidth <= 768) {
+                currentView = 'cards';
+                console.log('📱 Mobile erkannt - Kartenansicht aktiviert');
+            }
 
             // Prüfe Firebase-Setup
             const hasFirebaseConfig = checkFirebaseSetup();
