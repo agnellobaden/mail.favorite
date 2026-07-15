@@ -9,6 +9,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
     <style>
         * {
@@ -1785,9 +1786,65 @@
                 gap: 3px !important;
             }
         }
+
+        /* Loading Spinner Animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Login Modal (Phone Auth) -->
+    <div id="loginModal" class="form-modal" style="display: none;">
+        <div class="form-container" style="max-width: 500px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="font-size: 2.5em; margin-bottom: 10px;">🍦</h1>
+                <h2 style="margin-bottom: 10px;">EisFavorite Login</h2>
+                <p style="color: #666;">Melde dich mit deiner Telefonnummer an</p>
+            </div>
+
+            <div id="phoneSignInForm" style="display: block;">
+                <div class="form-group">
+                    <label>Telefonnummer</label>
+                    <input type="tel" id="phoneNumber" placeholder="+49 123 4567890" style="width: 100%; font-size: 1.1em; padding: 12px;">
+                    <small style="color: #666; display: block; margin-top: 5px;">Format: +49 für Deutschland</small>
+                </div>
+
+                <div id="recaptcha-container" style="margin: 20px 0;"></div>
+
+                <button onclick="sendVerificationCode()" class="btn btn-primary" style="width: 100%; margin: 20px 0 0 0; padding: 15px; font-size: 1.1em;">
+                    📱 SMS-Code senden
+                </button>
+            </div>
+
+            <div id="codeVerificationForm" style="display: none;">
+                <div class="form-group">
+                    <label>SMS-Code</label>
+                    <input type="text" id="verificationCode" placeholder="123456" maxlength="6" style="width: 100%; font-size: 1.5em; text-align: center; padding: 15px; letter-spacing: 8px;">
+                    <small style="color: #666; display: block; margin-top: 5px;">Gib den 6-stelligen Code aus der SMS ein</small>
+                </div>
+
+                <button onclick="verifyCode()" class="btn btn-primary" style="width: 100%; margin: 20px 0 10px 0; padding: 15px; font-size: 1.1em;">
+                    ✓ Code bestätigen
+                </button>
+
+                <button onclick="backToPhone()" class="btn btn-secondary" style="width: 100%; margin: 0; padding: 12px;">
+                    ← Zurück
+                </button>
+            </div>
+
+            <div id="loginError" style="display: none; margin-top: 20px; padding: 15px; background: #ffebee; border-left: 4px solid #f44336; border-radius: 5px;">
+                <strong>Fehler:</strong> <span id="loginErrorText"></span>
+            </div>
+
+            <div id="loginLoading" style="display: none; margin-top: 20px; text-align: center;">
+                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #667eea; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <p style="margin-top: 10px; color: #667eea; font-weight: 600;">Wird gesendet...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase Setup Modal -->
     <div id="firebaseSetupModal" class="form-modal" style="display: none;">
         <div class="form-container" style="max-width: 600px;">
@@ -1884,6 +1941,10 @@
             <span>☰</span>
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
+            <div id="userInfo" style="padding: 10px 15px; border-bottom: 1px solid #ddd; background: #f8f9fa; display: none;">
+                <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">Angemeldet als:</div>
+                <div id="userPhone" style="font-weight: 600; color: #667eea;"></div>
+            </div>
             <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
             <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
             <button onclick="openPriceSettings(); closeBurgerMenu();">💰 Preise verwalten</button>
@@ -1891,6 +1952,7 @@
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mail Import (JSON)</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
+            <button onclick="logout(); closeBurgerMenu();" style="margin-top: 10px; border-top: 1px solid #ddd; background: #ff6b6b; color: white;">🚪 Abmelden</button>
         </div>
     </div>
 
@@ -2323,8 +2385,178 @@
         // ==========================================
 
         let db = null;
+        let auth = null;
         let firebaseInitialized = false;
         let isUpdatingFromFirebase = false;
+        let confirmationResult = null;
+        let currentUser = null;
+
+        // ==========================================
+        // PHONE AUTHENTICATION
+        // ==========================================
+
+        function initializeAuth() {
+            auth = firebase.auth();
+
+            // Auth State Observer
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    console.log('✓ Benutzer angemeldet:', user.phoneNumber);
+                    document.getElementById('userPhone').textContent = user.phoneNumber;
+                    document.getElementById('userInfo').style.display = 'block';
+                    hideLoginModal();
+                    loadApp();
+                } else {
+                    currentUser = null;
+                    console.log('✗ Benutzer nicht angemeldet');
+                    showLoginModal();
+                }
+            });
+
+            // reCAPTCHA initialisieren
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                'size': 'normal',
+                'callback': (response) => {
+                    console.log('✓ reCAPTCHA gelöst');
+                },
+                'expired-callback': () => {
+                    console.log('✗ reCAPTCHA abgelaufen');
+                    showLoginError('reCAPTCHA ist abgelaufen. Bitte neu laden.');
+                }
+            });
+
+            window.recaptchaVerifier.render();
+        }
+
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+            document.querySelector('.burger-menu').style.display = 'none';
+        }
+
+        function hideLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+            document.querySelector('.burger-menu').style.display = 'block';
+        }
+
+        function showLoginError(message) {
+            document.getElementById('loginErrorText').textContent = message;
+            document.getElementById('loginError').style.display = 'block';
+            document.getElementById('loginLoading').style.display = 'none';
+        }
+
+        function hideLoginError() {
+            document.getElementById('loginError').style.display = 'none';
+        }
+
+        async function sendVerificationCode() {
+            hideLoginError();
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+
+            if (!phoneNumber) {
+                showLoginError('Bitte gib deine Telefonnummer ein.');
+                return;
+            }
+
+            if (!phoneNumber.startsWith('+')) {
+                showLoginError('Telefonnummer muss mit + und Ländercode beginnen (z.B. +49 für Deutschland)');
+                return;
+            }
+
+            document.getElementById('loginLoading').style.display = 'block';
+
+            try {
+                const appVerifier = window.recaptchaVerifier;
+                confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
+
+                console.log('✓ SMS gesendet an:', phoneNumber);
+
+                // Zeige Code-Eingabe-Formular
+                document.getElementById('phoneSignInForm').style.display = 'none';
+                document.getElementById('codeVerificationForm').style.display = 'block';
+                document.getElementById('loginLoading').style.display = 'none';
+
+                // Fokus auf Code-Eingabefeld
+                document.getElementById('verificationCode').focus();
+            } catch (error) {
+                console.error('✗ Fehler beim Senden:', error);
+                document.getElementById('loginLoading').style.display = 'none';
+
+                if (error.code === 'auth/invalid-phone-number') {
+                    showLoginError('Ungültige Telefonnummer. Bitte prüfe das Format.');
+                } else if (error.code === 'auth/too-many-requests') {
+                    showLoginError('Zu viele Versuche. Bitte warte einige Minuten.');
+                } else {
+                    showLoginError('Fehler: ' + error.message);
+                }
+
+                // reCAPTCHA neu laden
+                window.recaptchaVerifier.render().then(function(widgetId) {
+                    grecaptcha.reset(widgetId);
+                });
+            }
+        }
+
+        async function verifyCode() {
+            hideLoginError();
+            const code = document.getElementById('verificationCode').value.trim();
+
+            if (!code || code.length !== 6) {
+                showLoginError('Bitte gib den 6-stelligen Code ein.');
+                return;
+            }
+
+            document.getElementById('loginLoading').style.display = 'block';
+
+            try {
+                const result = await confirmationResult.confirm(code);
+                console.log('✓ Anmeldung erfolgreich:', result.user.phoneNumber);
+                // onAuthStateChanged wird automatisch aufgerufen
+            } catch (error) {
+                console.error('✗ Fehler bei Code-Verifizierung:', error);
+                document.getElementById('loginLoading').style.display = 'none';
+
+                if (error.code === 'auth/invalid-verification-code') {
+                    showLoginError('Ungültiger Code. Bitte prüfe den Code aus der SMS.');
+                } else if (error.code === 'auth/code-expired') {
+                    showLoginError('Code ist abgelaufen. Bitte fordere einen neuen Code an.');
+                    backToPhone();
+                } else {
+                    showLoginError('Fehler: ' + error.message);
+                }
+            }
+        }
+
+        function backToPhone() {
+            hideLoginError();
+            document.getElementById('codeVerificationForm').style.display = 'none';
+            document.getElementById('phoneSignInForm').style.display = 'block';
+            document.getElementById('verificationCode').value = '';
+
+            // reCAPTCHA neu laden
+            window.recaptchaVerifier.render().then(function(widgetId) {
+                grecaptcha.reset(widgetId);
+            });
+        }
+
+        function logout() {
+            if (confirm('Möchtest du dich wirklich abmelden?')) {
+                auth.signOut().then(() => {
+                    console.log('✓ Abgemeldet');
+                    location.reload();
+                }).catch((error) => {
+                    console.error('✗ Fehler beim Abmelden:', error);
+                    alert('Fehler beim Abmelden: ' + error.message);
+                });
+            }
+        }
+
+        function loadApp() {
+            // Diese Funktion wird nach erfolgreichem Login aufgerufen
+            console.log('✓ App wird geladen...');
+        }
 
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
@@ -4885,6 +5117,13 @@
             // Prüfe Firebase-Setup
             const hasFirebaseConfig = checkFirebaseSetup();
             const firebaseSkipped = localStorage.getItem('firebaseSkipped');
+
+            // Initialisiere Phone Authentication
+            if (hasFirebaseConfig) {
+                setTimeout(() => {
+                    initializeAuth();
+                }, 500);
+            }
 
             // Zeige Setup-Modal nur, wenn Firebase nicht konfiguriert und nicht übersprungen
             if (!hasFirebaseConfig && firebaseSkipped !== 'true') {
