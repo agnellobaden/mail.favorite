@@ -2379,6 +2379,78 @@
         let currentView = 'cards'; // 'cards' oder 'table'
         let currentEmailChatBooking = null;
 
+        // ==========================================
+        // APP-STATE VERWALTUNG
+        // ==========================================
+
+        function saveAppState() {
+            try {
+                const state = {
+                    currentView: currentView,
+                    currentSort: currentSort,
+                    filters: {
+                        status: document.getElementById('statusFilter')?.value || 'alle',
+                        dateFrom: document.getElementById('dateFromFilter')?.value || '',
+                        dateTo: document.getElementById('dateToFilter')?.value || ''
+                    },
+                    scrollPosition: window.scrollY,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('eisfavorite_appState', JSON.stringify(state));
+                console.log('💾 App-Zustand gespeichert');
+            } catch (e) {
+                console.error('Fehler beim Speichern des App-Zustands:', e);
+            }
+        }
+
+        function restoreAppState() {
+            try {
+                const savedState = localStorage.getItem('eisfavorite_appState');
+                if (!savedState) return;
+
+                const state = JSON.parse(savedState);
+
+                // Ansicht wiederherstellen
+                currentView = state.currentView || 'cards';
+                if (currentView === 'cards') {
+                    document.getElementById('viewCards')?.classList.add('active');
+                    document.getElementById('viewTable')?.classList.remove('active');
+                } else {
+                    document.getElementById('viewTable')?.classList.add('active');
+                    document.getElementById('viewCards')?.classList.remove('active');
+                }
+
+                // Sortierung wiederherstellen
+                if (state.currentSort) {
+                    currentSort = state.currentSort;
+                }
+
+                // Filter wiederherstellen
+                if (state.filters) {
+                    if (document.getElementById('statusFilter')) {
+                        document.getElementById('statusFilter').value = state.filters.status || 'alle';
+                    }
+                    if (document.getElementById('dateFromFilter')) {
+                        document.getElementById('dateFromFilter').value = state.filters.dateFrom || '';
+                    }
+                    if (document.getElementById('dateToFilter')) {
+                        document.getElementById('dateToFilter').value = state.filters.dateTo || '';
+                    }
+                }
+
+                // Scroll-Position wiederherstellen nach kurzer Verzögerung
+                setTimeout(() => {
+                    if (state.scrollPosition) {
+                        window.scrollTo(0, state.scrollPosition);
+                    }
+                }, 200);
+
+                console.log('✓ App-Zustand wiederhergestellt');
+            } catch (e) {
+                console.error('Fehler beim Wiederherstellen des App-Zustands:', e);
+            }
+        }
+
         // Filter Toggle-Funktion
         function toggleFilters() {
             const filterContent = document.getElementById('filterContent');
@@ -2534,6 +2606,9 @@
                     console.error('✗ Fehler beim Firebase-Speichern:', e);
                 }
             }
+
+            // App-Zustand auch speichern
+            saveAppState();
         }
 
         async function saveToFirebase() {
@@ -2656,6 +2731,9 @@
             } else {
                 displayBookings(filtered);
             }
+
+            // App-Zustand speichern
+            saveAppState();
         }
 
         // Bevorstehende Termine diese Woche anzeigen
@@ -4745,8 +4823,27 @@
             // Lade Daten aus LocalStorage (funktioniert auch ohne Firebase)
             loadFromLocalStorage();
 
+            // App-Zustand wiederherstellen
+            setTimeout(() => {
+                restoreAppState();
+            }, 100);
+
             console.log('✓ App bereit!');
             console.log('Firebase aktiv:', firebaseInitialized ? 'Ja ✓' : 'Nein (nur lokal)');
+        });
+
+        // Scroll-Position speichern bei Änderungen
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                saveAppState();
+            }, 500);
+        });
+
+        // Vor dem Schließen des Fensters speichern
+        window.addEventListener('beforeunload', function() {
+            saveAppState();
         });
     </script>
 </body>
