@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Hintergrund Kreis -->
+  <circle cx="100" cy="100" r="95" fill="url(#gradient1)" stroke="#667eea" stroke-width="3"/>
+
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="iceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF69B4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Eiswaffel -->
+  <path d="M 85 120 L 100 160 L 115 120 Z" fill="#D2691E" stroke="#8B4513" stroke-width="2"/>
+  <path d="M 87 120 L 98 150 L 91 120 Z" fill="#A0522D" opacity="0.3"/>
+  <line x1="85" y1="130" x2="115" y2="130" stroke="#8B4513" stroke-width="1.5"/>
+  <line x1="87" y1="140" x2="113" y2="140" stroke="#8B4513" stroke-width="1.5"/>
+  <line x1="90" y1="150" x2="110" y2="150" stroke="#8B4513" stroke-width="1.5"/>
+
+  <!-- Eiskugeln -->
+  <!-- Untere Kugel (Pink) -->
+  <circle cx="100" cy="115" r="18" fill="#FF69B4" stroke="#FF1493" stroke-width="2"/>
+  <ellipse cx="95" cy="110" rx="6" ry="4" fill="#FFC0CB" opacity="0.6"/>
+
+  <!-- Mittlere Kugel (Orange) -->
+  <circle cx="100" cy="85" r="18" fill="#FFA500" stroke="#FF8C00" stroke-width="2"/>
+  <ellipse cx="95" cy="80" rx="6" ry="4" fill="#FFD700" opacity="0.6"/>
+
+  <!-- Obere Kugel (Gelb) -->
+  <circle cx="100" cy="55" r="18" fill="#FFD700" stroke="#FFA500" stroke-width="2"/>
+  <ellipse cx="95" cy="50" rx="6" ry="4" fill="#FFFFE0" opacity="0.7"/>
+
+  <!-- Verzierung - kleine Streusel -->
+  <circle cx="90" cy="55" r="2" fill="#FF6347"/>
+  <circle cx="108" cy="58" r="2" fill="#4169E1"/>
+  <circle cx="95" cy="62" r="2" fill="#32CD32"/>
+
+  <circle cx="92" cy="85" r="2" fill="#4169E1"/>
+  <circle cx="110" cy="87" r="2" fill="#FF6347"/>
+  <circle cx="97" cy="92" r="2" fill="#FFD700"/>
+
+  <circle cx="88" cy="115" r="2" fill="#32CD32"/>
+  <circle cx="107" cy="118" r="2" fill="#4169E1"/>
+  <circle cx="102" cy="122" r="2" fill="#FF6347"/>
+
+  <!-- Text -->
+  <text x="100" y="185" font-family="Arial, sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="white">EisFavorite</text>
+</svg>

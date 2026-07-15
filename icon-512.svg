@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Hintergrund -->
+  <rect width="512" height="512" fill="url(#bg512)" rx="100"/>
+
+  <!-- Eiswaffel -->
+  <path d="M 206 300 L 256 420 L 306 300 Z" fill="#D2691E" stroke="#8B4513" stroke-width="6"/>
+  <line x1="206" y1="320" x2="306" y2="320" stroke="#8B4513" stroke-width="5"/>
+  <line x1="210" y1="340" x2="302" y2="340" stroke="#8B4513" stroke-width="5"/>
+  <line x1="218" y1="360" x2="294" y2="360" stroke="#8B4513" stroke-width="5"/>
+  <line x1="226" y1="380" x2="286" y2="380" stroke="#8B4513" stroke-width="5"/>
+  <line x1="234" y1="400" x2="278" y2="400" stroke="#8B4513" stroke-width="5"/>
+
+  <!-- Eiskugeln -->
+  <circle cx="256" cy="285" r="58" fill="#FF69B4" stroke="#FF1493" stroke-width="6"/>
+  <ellipse cx="240" cy="270" rx="20" ry="13" fill="#FFC0CB" opacity="0.6"/>
+
+  <circle cx="256" cy="190" r="58" fill="#FFA500" stroke="#FF8C00" stroke-width="6"/>
+  <ellipse cx="240" cy="175" rx="20" ry="13" fill="#FFD700" opacity="0.6"/>
+
+  <circle cx="256" cy="95" r="58" fill="#FFD700" stroke="#FFA500" stroke-width="6"/>
+  <ellipse cx="240" cy="80" rx="20" ry="13" fill="#FFFFE0" opacity="0.7"/>
+
+  <!-- Streusel -->
+  <circle cx="230" cy="95" r="7" fill="#FF6347"/>
+  <circle cx="278" cy="100" r="7" fill="#4169E1"/>
+  <circle cx="243" cy="110" r="7" fill="#32CD32"/>
+  <circle cx="265" cy="85" r="7" fill="#FF1493"/>
+
+  <circle cx="232" cy="190" r="7" fill="#4169E1"/>
+  <circle cx="285" cy="195" r="7" fill="#FF6347"/>
+  <circle cx="248" cy="205" r="7" fill="#FFD700"/>
+  <circle cx="270" cy="180" r="7" fill="#32CD32"/>
+
+  <circle cx="225" cy="285" r="7" fill="#32CD32"/>
+  <circle cx="280" cy="290" r="7" fill="#4169E1"/>
+  <circle cx="245" cy="300" r="7" fill="#FF6347"/>
+</svg>

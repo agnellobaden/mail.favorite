@@ -1117,6 +1117,82 @@
             border-color: #667eea !important;
         }
 
+        /* Kalender Styles */
+        .calendar-day-header {
+            text-align: center;
+            font-weight: 700;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .calendar-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+
+        .calendar-day.empty {
+            background: #f8f9fa;
+            border-color: transparent;
+            cursor: default;
+        }
+
+        .calendar-day.empty:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .calendar-day.has-booking {
+            background: linear-gradient(135deg, #e8eeff 0%, #f0e8ff 100%);
+            border-color: #667eea;
+        }
+
+        .calendar-day.today {
+            border-color: #4CAF50;
+            border-width: 3px;
+        }
+
+        .calendar-day-number {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .calendar-booking-indicator {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        .calendar-booking-count {
+            font-size: 0.75em;
+            color: #667eea;
+            font-weight: 600;
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             * {
@@ -1719,12 +1795,45 @@
         </div>
     </div>
 
+    <!-- Calendar Modal -->
+    <div id="calendarModal" class="form-modal" style="display: none;">
+        <div class="form-container" style="max-width: 900px;">
+            <h2 style="margin-bottom: 20px;">📅 Buchungskalender</h2>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <button onclick="changeMonth(-1)" class="btn btn-secondary" style="margin: 0; padding: 10px 20px;">← Vorheriger Monat</button>
+                <h3 id="calendarMonthYear" style="margin: 0; font-size: 1.3em; color: #667eea;">Januar 2026</h3>
+                <button onclick="changeMonth(1)" class="btn btn-secondary" style="margin: 0; padding: 10px 20px;">Nächster Monat →</button>
+            </div>
+
+            <div id="calendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 20px;">
+                <!-- Dynamisch gefüllt -->
+            </div>
+
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 12px; height: 12px; background: #667eea; border-radius: 50%;"></div>
+                        <span style="font-size: 0.9em;">Buchung vorhanden</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 12px; height: 12px; background: #ddd; border-radius: 50%;"></div>
+                        <span style="font-size: 0.9em;">Kein Termin</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeCalendar()" class="btn btn-primary" style="width: 100%; margin: 0;">Schließen</button>
+        </div>
+    </div>
+
     <!-- Burger Menu -->
     <div class="burger-menu">
         <div class="burger-icon" id="burgerIcon">
             <span>☰</span>
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
+            <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
             <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
             <button onclick="openPriceSettings(); closeBurgerMenu();">💰 Preise verwalten</button>
             <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
@@ -4315,6 +4424,166 @@
 
         function openFirebaseSetup() {
             document.getElementById('firebaseSetupModal').style.display = 'block';
+        }
+
+        // ==========================================
+        // KALENDER FUNKTIONEN
+        // ==========================================
+
+        let currentCalendarMonth = new Date().getMonth();
+        let currentCalendarYear = new Date().getFullYear();
+
+        function openCalendar() {
+            document.getElementById('calendarModal').style.display = 'block';
+            // Setze auf aktuellen Monat
+            currentCalendarMonth = new Date().getMonth();
+            currentCalendarYear = new Date().getFullYear();
+            renderCalendar();
+        }
+
+        function closeCalendar() {
+            document.getElementById('calendarModal').style.display = 'none';
+        }
+
+        function changeMonth(direction) {
+            currentCalendarMonth += direction;
+            if (currentCalendarMonth > 11) {
+                currentCalendarMonth = 0;
+                currentCalendarYear++;
+            } else if (currentCalendarMonth < 0) {
+                currentCalendarMonth = 11;
+                currentCalendarYear--;
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                               'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+            // Update header
+            document.getElementById('calendarMonthYear').textContent =
+                `${monthNames[currentCalendarMonth]} ${currentCalendarYear}`;
+
+            // Get first day of month and total days
+            const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1);
+            const lastDay = new Date(currentCalendarYear, currentCalendarMonth + 1, 0);
+            const totalDays = lastDay.getDate();
+
+            // Adjust day of week (Monday = 0, Sunday = 6)
+            let startDayOfWeek = firstDay.getDay() - 1;
+            if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+            // Count bookings per day
+            const bookingsByDay = {};
+            allBookings.forEach(booking => {
+                if (booking.date) {
+                    // Parse German date format (DD.MM.YYYY)
+                    const parts = booking.date.split('.');
+                    if (parts.length === 3) {
+                        const day = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1;
+                        const year = parseInt(parts[2]);
+
+                        if (month === currentCalendarMonth && year === currentCalendarYear) {
+                            if (!bookingsByDay[day]) {
+                                bookingsByDay[day] = [];
+                            }
+                            bookingsByDay[day].push(booking);
+                        }
+                    }
+                }
+            });
+
+            // Build calendar grid
+            let html = '';
+
+            // Add day headers
+            dayNames.forEach(day => {
+                html += `<div class="calendar-day-header">${day}</div>`;
+            });
+
+            // Add empty cells before first day
+            for (let i = 0; i < startDayOfWeek; i++) {
+                html += '<div class="calendar-day empty"></div>';
+            }
+
+            // Get today for highlighting
+            const today = new Date();
+            const isCurrentMonth = today.getMonth() === currentCalendarMonth &&
+                                   today.getFullYear() === currentCalendarYear;
+
+            // Add days
+            for (let day = 1; day <= totalDays; day++) {
+                const hasBookings = bookingsByDay[day] && bookingsByDay[day].length > 0;
+                const isToday = isCurrentMonth && today.getDate() === day;
+                const bookingCount = hasBookings ? bookingsByDay[day].length : 0;
+
+                let classes = 'calendar-day';
+                if (hasBookings) classes += ' has-booking';
+                if (isToday) classes += ' today';
+
+                html += `
+                    <div class="${classes}" onclick="${hasBookings ? `showDayBookings(${day})` : ''}">
+                        <div class="calendar-day-number">${day}</div>
+                        ${hasBookings ? `
+                            <div class="calendar-booking-indicator"></div>
+                            <div class="calendar-booking-count">${bookingCount} ${bookingCount === 1 ? 'Termin' : 'Termine'}</div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('calendarGrid').innerHTML = html;
+        }
+
+        function showDayBookings(day) {
+            const dateStr = String(day).padStart(2, '0') + '.' +
+                          String(currentCalendarMonth + 1).padStart(2, '0') + '.' +
+                          currentCalendarYear;
+
+            const dayBookings = allBookings.filter(booking => booking.date === dateStr);
+
+            if (dayBookings.length === 0) return;
+
+            // Create a nice display of bookings for this day
+            let bookingsHTML = `
+                <div style="background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 20px auto;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📅 Termine am ${dateStr}</h3>
+            `;
+
+            dayBookings.forEach(booking => {
+                const statusEmoji = booking.status === 'GEBUCHT' ? '✅' : '🆕';
+                bookingsHTML += `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
+                        <div style="font-weight: 700; color: #333; margin-bottom: 5px;">
+                            ${statusEmoji} ${booking.name || 'Unbekannt'}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666;">
+                            <strong>Uhrzeit:</strong> ${booking.time || '-'} ${booking.timeEnd ? '- ' + booking.timeEnd : ''}<br>
+                            ${booking.email ? `<strong>E-Mail:</strong> ${booking.email}<br>` : ''}
+                            ${booking.phone ? `<strong>Telefon:</strong> ${booking.phone}<br>` : ''}
+                            ${booking.guests ? `<strong>Gäste:</strong> ${booking.guests}<br>` : ''}
+                            ${booking.address ? `<strong>Adresse:</strong> ${booking.address}` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            bookingsHTML += `
+                    <button onclick="this.parentElement.remove()" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Schließen</button>
+                </div>
+            `;
+
+            // Show in modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;';
+            overlay.innerHTML = bookingsHTML;
+            overlay.onclick = (e) => {
+                if (e.target === overlay) overlay.remove();
+            };
+            document.body.appendChild(overlay);
         }
 
         // Firebase Config Form Handler
