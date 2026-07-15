@@ -1647,6 +1647,7 @@
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
             <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
+            <button onclick="openPriceSettings(); closeBurgerMenu();">💰 Preise verwalten</button>
             <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mail Import (JSON)</button>
@@ -1976,6 +1977,96 @@
                     </div>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="addEmailToChat()" style="margin-top: 15px;">➕ E-Mail hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preismanagement Modal -->
+    <div class="form-modal" id="priceSettingsModal" style="display: none;">
+        <div class="form-container" style="max-width: 700px;">
+            <div class="form-header">
+                <h2>💰 Produktpreise verwalten</h2>
+                <button class="close-btn" id="closePriceSettingsBtn">&times;</button>
+            </div>
+
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
+                <p style="margin-bottom: 5px; font-weight: 600;">ℹ️ Hinweis</p>
+                <p style="font-size: 0.95em; line-height: 1.6;">
+                    Lege hier die Preise für deine Produkte fest. Diese werden für die Strichliste während des Events verwendet.
+                </p>
+            </div>
+
+            <form id="priceSettingsForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="priceKugel">Kugel Eis (€)</label>
+                        <input type="number" id="priceKugel" step="0.01" min="0" value="1.80" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceSpaghetti">Spaghetti Eis (€)</label>
+                        <input type="number" id="priceSpaghetti" step="0.01" min="0" value="7.50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceSchokobecher">Schoko Becher (€)</label>
+                        <input type="number" id="priceSchokobecher" step="0.01" min="0" value="7.50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceSahne">Sahne (€)</label>
+                        <input type="number" id="priceSahne" step="0.01" min="0" value="1.50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceEiskaffee">Eiskaffee (€)</label>
+                        <input type="number" id="priceEiskaffee" step="0.01" min="0" value="6.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceMilchshake">Milchshake (€)</label>
+                        <input type="number" id="priceMilchshake" step="0.01" min="0" value="5.50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceStreussel">Streussel (€)</label>
+                        <input type="number" id="priceStreussel" step="0.01" min="0" value="0.50" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="priceToppings">Toppings (€)</label>
+                        <input type="number" id="priceToppings" step="0.01" min="0" value="1.00" required>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 25px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePriceSettings()">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">💾 Preise speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Strichlisten Modal -->
+    <div class="invoice-modal" id="tallyModal" style="display: none;">
+        <div class="invoice-form-container" style="max-width: 900px;">
+            <div class="form-header">
+                <h2>📋 Strichliste</h2>
+                <button class="close-btn" id="closeTallyBtn">&times;</button>
+            </div>
+
+            <div id="tallyBookingInfo" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #667eea;">
+                <!-- Dynamisch gefüllt mit Buchungs-Info -->
+            </div>
+
+            <div id="tallyContent" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <!-- Dynamisch gefüllt mit Produkten -->
+            </div>
+
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 1.5em; font-weight: 700;">GESAMTBETRAG:</span>
+                    <span id="tallyTotal" style="font-size: 2em; font-weight: 700;">0.00 €</span>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeTally()">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="saveTally()">💾 Strichliste speichern</button>
+                <button type="button" class="btn btn-primary" onclick="resetTally()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);">🔄 Zurücksetzen</button>
             </div>
         </div>
     </div>
@@ -2614,6 +2705,9 @@
                                 💰 Als bezahlt markieren
                             </button>
                             ` : ''}
+                            <button class="card-menu-item" onclick="openTally('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #28a745;">
+                                📋 Strichliste
+                            </button>
                             <button class="card-menu-item edit" onclick="editBooking('${booking.id}'); closeCardMenu('${booking.id}')">
                                 ✏️ Bearbeiten
                             </button>
@@ -3832,6 +3926,263 @@
             if (e.target === this) {
                 this.style.display = 'none';
                 currentEmailChatBooking = null;
+            }
+        });
+
+        // ==========================================
+        // PREISMANAGEMENT
+        // ==========================================
+
+        // Standard-Preise
+        const DEFAULT_PRICES = {
+            kugel: 1.80,
+            spaghetti: 7.50,
+            schokobecher: 7.50,
+            sahne: 1.50,
+            eiskaffee: 6.00,
+            milchshake: 5.50,
+            streussel: 0.50,
+            toppings: 1.00
+        };
+
+        // Preise laden
+        function loadPrices() {
+            const saved = localStorage.getItem('productPrices');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            return { ...DEFAULT_PRICES };
+        }
+
+        // Preise speichern
+        function savePrices(prices) {
+            localStorage.setItem('productPrices', JSON.stringify(prices));
+        }
+
+        // Preismanagement öffnen
+        function openPriceSettings() {
+            const prices = loadPrices();
+
+            document.getElementById('priceKugel').value = prices.kugel;
+            document.getElementById('priceSpaghetti').value = prices.spaghetti;
+            document.getElementById('priceSchokobecher').value = prices.schokobecher;
+            document.getElementById('priceSahne').value = prices.sahne;
+            document.getElementById('priceEiskaffee').value = prices.eiskaffee;
+            document.getElementById('priceMilchshake').value = prices.milchshake;
+            document.getElementById('priceStreussel').value = prices.streussel;
+            document.getElementById('priceToppings').value = prices.toppings;
+
+            document.getElementById('priceSettingsModal').style.display = 'block';
+        }
+
+        // Preismanagement schließen
+        function closePriceSettings() {
+            document.getElementById('priceSettingsModal').style.display = 'none';
+        }
+
+        // Preisformular absenden
+        document.getElementById('priceSettingsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const prices = {
+                kugel: parseFloat(document.getElementById('priceKugel').value),
+                spaghetti: parseFloat(document.getElementById('priceSpaghetti').value),
+                schokobecher: parseFloat(document.getElementById('priceSchokobecher').value),
+                sahne: parseFloat(document.getElementById('priceSahne').value),
+                eiskaffee: parseFloat(document.getElementById('priceEiskaffee').value),
+                milchshake: parseFloat(document.getElementById('priceMilchshake').value),
+                streussel: parseFloat(document.getElementById('priceStreussel').value),
+                toppings: parseFloat(document.getElementById('priceToppings').value)
+            };
+
+            savePrices(prices);
+            closePriceSettings();
+            alert('✓ Preise wurden gespeichert!');
+        });
+
+        // Event Listener für Preismanagement Modal
+        document.getElementById('closePriceSettingsBtn').addEventListener('click', closePriceSettings);
+
+        document.getElementById('priceSettingsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePriceSettings();
+            }
+        });
+
+        // ==========================================
+        // STRICHLISTE
+        // ==========================================
+
+        let currentTallyBooking = null;
+        let currentTallyCounts = {};
+
+        const PRODUCTS_LIST = [
+            { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
+            { id: 'spaghetti', name: 'Spaghetti Eis', emoji: '🍝' },
+            { id: 'schokobecher', name: 'Schoko Becher', emoji: '🍫' },
+            { id: 'sahne', name: 'Sahne', emoji: '🥛' },
+            { id: 'eiskaffee', name: 'Eiskaffee', emoji: '☕' },
+            { id: 'milchshake', name: 'Milchshake', emoji: '🥤' },
+            { id: 'streussel', name: 'Streussel', emoji: '🎨' },
+            { id: 'toppings', name: 'Toppings', emoji: '🍓' }
+        ];
+
+        // Strichliste öffnen
+        function openTally(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) return;
+
+            currentTallyBooking = booking;
+
+            // Lade gespeicherte Strichliste oder initialisiere neu
+            if (booking.tally) {
+                currentTallyCounts = { ...booking.tally };
+            } else {
+                currentTallyCounts = {};
+                PRODUCTS_LIST.forEach(p => {
+                    currentTallyCounts[p.id] = 0;
+                });
+            }
+
+            displayTally();
+            document.getElementById('tallyModal').style.display = 'block';
+        }
+
+        // Strichliste anzeigen
+        function displayTally() {
+            if (!currentTallyBooking) return;
+
+            const prices = loadPrices();
+
+            // Buchungs-Info anzeigen
+            const infoDiv = document.getElementById('tallyBookingInfo');
+            infoDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <div style="font-size: 1.3em; font-weight: 700; color: #333; margin-bottom: 5px;">${currentTallyBooking.name}</div>
+                        <div style="font-size: 0.95em; color: #666; font-weight: 600;">${currentTallyBooking.company || '-'} | ${currentTallyBooking.date} ${currentTallyBooking.time || ''}</div>
+                    </div>
+                    <div>
+                        <span class="status-badge status-${(currentTallyBooking.status || '').toLowerCase().replace(/ /g, '-')}">${currentTallyBooking.status || '-'}</span>
+                    </div>
+                </div>
+            `;
+
+            // Produkte anzeigen
+            const contentDiv = document.getElementById('tallyContent');
+            let html = '';
+
+            PRODUCTS_LIST.forEach(product => {
+                const count = currentTallyCounts[product.id] || 0;
+                const price = prices[product.id] || 0;
+                const total = count * price;
+
+                html += `
+                    <div style="background: white; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-size: 2em;">${product.emoji}</span>
+                            <span style="font-size: 0.85em; color: #666; font-weight: 600;">${price.toFixed(2)} €</span>
+                        </div>
+                        <div style="font-weight: 700; font-size: 1.05em; color: #333; text-align: center;">${product.name}</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #f8f9fa; padding: 10px; border-radius: 8px;">
+                            <button onclick="decrementTally('${product.id}')" style="width: 40px; height: 40px; border: none; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; border-radius: 50%; font-size: 1.5em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" ${count === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>−</button>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 2em; font-weight: 700; color: #667eea;">${count}</div>
+                            </div>
+                            <button onclick="incrementTally('${product.id}')" style="width: 40px; height: 40px; border: none; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 50%; font-size: 1.5em; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">+</button>
+                        </div>
+                        <div style="text-align: center; font-size: 1.1em; font-weight: 700; color: #667eea; padding-top: 5px; border-top: 2px solid #e0e0e0;">
+                            ${total.toFixed(2)} €
+                        </div>
+                    </div>
+                `;
+            });
+
+            contentDiv.innerHTML = html;
+
+            // Gesamtbetrag berechnen
+            updateTallyTotal();
+        }
+
+        // Produkt erhöhen
+        function incrementTally(productId) {
+            currentTallyCounts[productId] = (currentTallyCounts[productId] || 0) + 1;
+            displayTally();
+        }
+
+        // Produkt verringern
+        function decrementTally(productId) {
+            if (currentTallyCounts[productId] > 0) {
+                currentTallyCounts[productId]--;
+                displayTally();
+            }
+        }
+
+        // Gesamtbetrag aktualisieren
+        function updateTallyTotal() {
+            const prices = loadPrices();
+            let total = 0;
+
+            PRODUCTS_LIST.forEach(product => {
+                const count = currentTallyCounts[product.id] || 0;
+                const price = prices[product.id] || 0;
+                total += count * price;
+            });
+
+            document.getElementById('tallyTotal').textContent = total.toFixed(2) + ' €';
+        }
+
+        // Strichliste speichern
+        function saveTally() {
+            if (!currentTallyBooking) return;
+
+            const prices = loadPrices();
+            let total = 0;
+
+            PRODUCTS_LIST.forEach(product => {
+                const count = currentTallyCounts[product.id] || 0;
+                const price = prices[product.id] || 0;
+                total += count * price;
+            });
+
+            // Speichere Strichliste in Buchung
+            currentTallyBooking.tally = { ...currentTallyCounts };
+            currentTallyBooking.tallyTotal = total;
+            currentTallyBooking.tallyUpdatedAt = new Date().toISOString();
+
+            saveToLocalStorage();
+            filterAndDisplay();
+
+            alert(`✓ Strichliste gespeichert!\n\nGesamtbetrag: ${total.toFixed(2)} €`);
+            closeTally();
+        }
+
+        // Strichliste zurücksetzen
+        function resetTally() {
+            if (!confirm('Möchtest du die Strichliste wirklich zurücksetzen?')) return;
+
+            PRODUCTS_LIST.forEach(p => {
+                currentTallyCounts[p.id] = 0;
+            });
+
+            displayTally();
+        }
+
+        // Strichliste schließen
+        function closeTally() {
+            document.getElementById('tallyModal').style.display = 'none';
+            currentTallyBooking = null;
+            currentTallyCounts = {};
+        }
+
+        // Event Listener für Strichlisten Modal
+        document.getElementById('closeTallyBtn').addEventListener('click', closeTally);
+
+        document.getElementById('tallyModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                if (confirm('Möchtest du die Strichliste schließen? Nicht gespeicherte Änderungen gehen verloren.')) {
+                    closeTally();
+                }
             }
         });
 
