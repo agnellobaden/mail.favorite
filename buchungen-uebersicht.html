@@ -1733,6 +1733,57 @@
                 font-size: 0.85em !important;
                 padding: 10px 15px !important;
             }
+
+            /* Kalender Mobile Optimierung */
+            #calendarModal .form-container {
+                max-width: 100% !important;
+                margin: 10px !important;
+                padding: 15px !important;
+            }
+
+            #calendarModal h2 {
+                font-size: 1.2em !important;
+                margin-bottom: 15px !important;
+            }
+
+            #calendarModal h3 {
+                font-size: 1em !important;
+            }
+
+            #calendarModal .btn {
+                font-size: 0.85em !important;
+                padding: 8px 12px !important;
+            }
+
+            .calendar-day-header {
+                padding: 6px !important;
+                font-size: 0.75em !important;
+            }
+
+            .calendar-day {
+                padding: 4px !important;
+                min-height: 50px;
+            }
+
+            .calendar-day-number {
+                font-size: 0.9em !important;
+                margin-bottom: 2px !important;
+            }
+
+            .calendar-booking-indicator {
+                width: 6px !important;
+                height: 6px !important;
+                top: 3px !important;
+                right: 3px !important;
+            }
+
+            .calendar-booking-count {
+                font-size: 0.65em !important;
+            }
+
+            #calendarGrid {
+                gap: 3px !important;
+            }
         }
     </style>
 </head>
@@ -4549,30 +4600,32 @@
 
             // Create a nice display of bookings for this day
             let bookingsHTML = `
-                <div style="background: white; padding: 20px; border-radius: 10px; max-width: 600px; margin: 20px auto;">
-                    <h3 style="color: #667eea; margin-bottom: 15px;">📅 Termine am ${dateStr}</h3>
+                <div style="background: white; padding: 15px; border-radius: 10px; max-width: 600px; width: calc(100vw - 40px); margin: 10px auto; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">📅 Termine am ${dateStr}</h3>
             `;
 
             dayBookings.forEach(booking => {
-                const isGebucht = booking.status === 'GEBUCHT';
+                // Trim status to remove whitespace and check if it contains "GEBUCHT"
+                const statusCheck = booking.status ? booking.status.trim().toUpperCase() : '';
+                const isGebucht = statusCheck === 'GEBUCHT' || statusCheck.includes('GEBUCHT');
                 const bgColor = isGebucht ? '#e8f5e9' : '#e3f2fd';
                 const borderColor = isGebucht ? '#4CAF50' : '#667eea';
                 const statusLabel = isGebucht ? 'Gebucht' : 'NEU';
                 const statusColor = isGebucht ? '#4CAF50' : '#667eea';
 
                 bookingsHTML += `
-                    <div style="background: ${bgColor}; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor};">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <div style="font-weight: 700; color: #333;">
+                    <div style="background: ${bgColor}; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
+                            <div style="font-weight: 700; color: #333; flex: 1; word-break: break-word;">
                                 ${booking.name || 'Unbekannt'}
                             </div>
-                            <div style="background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75em; font-weight: 700;">
+                            <div style="background: ${statusColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.7em; font-weight: 700; white-space: nowrap;">
                                 ${statusLabel}
                             </div>
                         </div>
-                        <div style="font-size: 0.9em; color: #666;">
+                        <div style="font-size: 0.85em; color: #666; line-height: 1.6; word-break: break-word;">
                             <strong>Uhrzeit:</strong> ${booking.time || '-'} ${booking.timeEnd ? '- ' + booking.timeEnd : ''}<br>
-                            ${booking.email ? `<strong>E-Mail:</strong> ${booking.email}<br>` : ''}
+                            ${booking.email ? `<strong>E-Mail:</strong> <span style="word-break: break-all;">${booking.email}</span><br>` : ''}
                             ${booking.phone ? `<strong>Telefon:</strong> ${booking.phone}<br>` : ''}
                             ${booking.guests ? `<strong>Gäste:</strong> ${booking.guests}<br>` : ''}
                             ${booking.address ? `<strong>Adresse:</strong> ${booking.address}` : ''}
