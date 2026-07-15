@@ -334,6 +334,7 @@
             padding: 20px;
             transition: transform 0.2s, box-shadow 0.2s;
             border: 3px solid #667eea;
+            position: relative;
         }
 
         .booking-card.alternate {
@@ -443,6 +444,111 @@
         .card-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* 3-Punkte-Menü */
+        .card-menu {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 10;
+        }
+
+        .card-menu-button {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            transition: all 0.2s;
+        }
+
+        .card-menu-button:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: scale(1.1);
+        }
+
+        .card-menu-dropdown {
+            display: none;
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            min-width: 220px;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .card-menu-dropdown.active {
+            display: block;
+        }
+
+        .card-menu-item {
+            display: block;
+            width: 100%;
+            padding: 14px 18px;
+            border: none;
+            background: white;
+            text-align: left;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .card-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .card-menu-item:hover {
+            background: #f8f9fa;
+        }
+
+        .card-menu-item.invoice {
+            color: #f39c12;
+        }
+
+        .card-menu-item.email {
+            color: #667eea;
+        }
+
+        .card-menu-item.paid {
+            color: #28a745;
+        }
+
+        .card-menu-item.edit {
+            color: #FFA500;
+        }
+
+        body.dark-mode .card-menu-button {
+            background: rgba(102, 126, 234, 0.2);
+            color: #88a3ff;
+        }
+
+        body.dark-mode .card-menu-dropdown {
+            background: #1a1f2e;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        body.dark-mode .card-menu-item {
+            background: #1a1f2e;
+            color: #e0e0e0;
+            border-bottom-color: #2d3748;
+        }
+
+        body.dark-mode .card-menu-item:hover {
+            background: #2d3748;
         }
 
         .date-filter-row {
@@ -2339,6 +2445,33 @@
                 const travelCost = calculateTravelCost(booking.distance);
 
                 card.innerHTML = `
+                    <!-- 3-Punkte-Menü -->
+                    <div class="card-menu">
+                        <button class="card-menu-button" onclick="toggleCardMenu(event, '${booking.id}')">⋮</button>
+                        <div class="card-menu-dropdown" id="menu-${booking.id}">
+                            ${booking.savedInvoice ? `
+                            <button class="card-menu-item invoice" onclick="viewSavedInvoice('${booking.id}'); closeCardMenu('${booking.id}')">
+                                📄 Rechnung ansehen
+                            </button>
+                            ` : `
+                            <button class="card-menu-item invoice" onclick="openInvoiceModal('${booking.id}'); closeCardMenu('${booking.id}')">
+                                📄 Rechnung erstellen
+                            </button>
+                            `}
+                            <button class="card-menu-item email" onclick="openEmailChat('${booking.id}'); closeCardMenu('${booking.id}')">
+                                💬 E-Mail Verlauf
+                            </button>
+                            ${booking.status === 'Rechnung versendet' ? `
+                            <button class="card-menu-item paid" onclick="markAsPaid('${booking.id}'); closeCardMenu('${booking.id}')">
+                                💰 Als bezahlt markieren
+                            </button>
+                            ` : ''}
+                            <button class="card-menu-item edit" onclick="editBooking('${booking.id}'); closeCardMenu('${booking.id}')">
+                                ✏️ Bearbeiten
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="card-header">
                         <div>
                             <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
@@ -2393,26 +2526,6 @@
                         <a href="${mapsUrl}" target="_blank" class="card-button navigate" ${!address ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                             🗺️ Navigation
                         </a>
-                        ${booking.savedInvoice ? `
-                        <button class="card-button" onclick="viewSavedInvoice('${booking.id}')" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
-                            📄 Rechnung ansehen
-                        </button>
-                        ` : `
-                        <button class="card-button invoice" onclick="openInvoiceModal('${booking.id}')">
-                            📄 Rechnung erstellen
-                        </button>
-                        `}
-                        <button class="card-button" onclick="openEmailChat('${booking.id}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                            💬 E-Mail Verlauf
-                        </button>
-                        ${booking.status === 'Rechnung versendet' ? `
-                        <button class="card-button" onclick="markAsPaid('${booking.id}')" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
-                            💰 Als bezahlt markieren
-                        </button>
-                        ` : ''}
-                        <button class="card-button" onclick="editBooking('${booking.id}')" style="background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%); color: white;">
-                            ✏️ Bearbeiten
-                        </button>
                     </div>
                 `;
 
@@ -3383,6 +3496,41 @@
             // Formular öffnen
             document.getElementById('formModal').style.display = 'block';
         }
+
+        // ==================== KARTEN-MENÜ ====================
+
+        // 3-Punkte-Menü öffnen/schließen
+        function toggleCardMenu(event, bookingId) {
+            event.stopPropagation();
+
+            // Alle anderen Menüs schließen
+            document.querySelectorAll('.card-menu-dropdown').forEach(menu => {
+                if (menu.id !== `menu-${bookingId}`) {
+                    menu.classList.remove('active');
+                }
+            });
+
+            // Aktuelles Menü togglen
+            const menu = document.getElementById(`menu-${bookingId}`);
+            menu.classList.toggle('active');
+        }
+
+        // Menü schließen
+        function closeCardMenu(bookingId) {
+            const menu = document.getElementById(`menu-${bookingId}`);
+            if (menu) {
+                menu.classList.remove('active');
+            }
+        }
+
+        // Alle Menüs schließen beim Klick außerhalb
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.card-menu')) {
+                document.querySelectorAll('.card-menu-dropdown').forEach(menu => {
+                    menu.classList.remove('active');
+                });
+            }
+        });
 
         // ==================== BURGER MENU ====================
 
