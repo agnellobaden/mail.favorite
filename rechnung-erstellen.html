@@ -1099,13 +1099,13 @@
                 const quantity = row.querySelector('.item-quantity').value;
                 const netto = row.querySelector('.item-netto').value;
                 const mwst = row.querySelector('.item-mwst').value;
-                const brutto = row.querySelector('.item-brutto').value;
+                const bruttoTotal = row.querySelector('.item-brutto-total').value;
 
                 doc.text(description.replace('\n', ' '), 22, y);
                 doc.text(quantity, 110, y, { align: 'right' });
                 doc.text(netto, 135, y, { align: 'right' });
                 doc.text(mwst, 160, y, { align: 'right' });
-                doc.text(brutto + ' €', 185, y, { align: 'right' });
+                doc.text(bruttoTotal, 185, y, { align: 'right' });
                 y += 6;
             });
 
@@ -1176,21 +1176,35 @@
         }
 
         async function sendInvoiceByEmail() {
-            const customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
-            if (!customerEmail) return;
-
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
             const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
+
+            // E-Mail aus Buchungsdaten laden
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            let customerEmail = '';
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const booking = bookings.find(b => b.id === bookingId);
+                if (booking && booking.email) {
+                    customerEmail = booking.email;
+                }
+            }
+
+            // Falls keine E-Mail in Buchung: Nachfragen
+            if (!customerEmail) {
+                customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
+                if (!customerEmail) return;
+            }
 
             try {
                 // PDF generieren
                 generatePDF();
 
                 // Buchungsstatus aktualisieren
-                const urlParams = new URLSearchParams(window.location.search);
-                const bookingId = urlParams.get('bookingId');
-
                 if (bookingId) {
                     const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
                     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
@@ -1229,13 +1243,20 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`);
 
-                window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+                // E-Mail-Client öffnen (mit BCC-Kopie an eisfavorit@gmail.com)
+                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${subject}&body=${body}`;
+                console.log('📧 Öffne E-Mail-Client für:', customerEmail);
+                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
+                window.location.href = mailtoLink;
 
-                alert('✓ PDF wurde heruntergeladen!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nBitte hängen Sie das PDF manuell an die E-Mail an.');
+                // Erfolgsmeldung nach kurzer Verzögerung
+                setTimeout(() => {
+                    alert('✓ PDF wurde heruntergeladen!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte hängen Sie das PDF manuell an die E-Mail an.');
+                }, 500);
 
             } catch (error) {
-                console.error('Fehler:', error);
-                alert('Fehler beim Erstellen der E-Mail.');
+                console.error('Fehler beim Erstellen der E-Mail:', error);
+                alert('Fehler beim Erstellen der E-Mail.\n\nDetails: ' + error.message + '\n\nBitte versuchen Sie es erneut oder verwenden Sie "Als versendet markieren".');
             }
         }
 
