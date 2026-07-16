@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rechnung erstellen - EisFavorite</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .no-print {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .search-section {
+            margin-bottom: 15px;
+        }
+
+        #bookingSearch {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        #bookingSelect {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            color: white;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        /* Rechnung Layout */
+        .invoice-container {
+            background: white;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20mm;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: 297mm;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .company-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .company-logo {
+            font-size: 60px;
+        }
+
+        .company-details h1 {
+            font-size: 36px;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .company-details p {
+            margin: 3px 0;
+            font-size: 15px;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .invoice-title {
+            text-align: right;
+        }
+
+        .invoice-title h2 {
+            font-size: 56px;
+            font-weight: bold;
+            margin: 0;
+            color: #333;
+            letter-spacing: 2px;
+        }
+
+        .invoice-addresses {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            gap: 30px;
+        }
+
+        .customer-address {
+            border: 3px solid #333;
+            padding: 25px;
+            border-radius: 8px;
+            min-width: 300px;
+            background: #f9f9f9;
+        }
+
+        .customer-address h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .customer-address p {
+            margin: 6px 0;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .invoice-details {
+            text-align: right;
+            flex-grow: 1;
+        }
+
+        .invoice-details p {
+            margin: 12px 0;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .invoice-details strong {
+            display: inline-block;
+            min-width: 160px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .invoice-details span {
+            font-weight: normal;
+        }
+
+        .invoice-intro {
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .invoice-table thead {
+            background: #333;
+            color: white;
+        }
+
+        .invoice-table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .invoice-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        .invoice-table input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+
+        .invoice-table .desc-col {
+            width: 35%;
+        }
+
+        .invoice-table .qty-col {
+            width: 10%;
+            text-align: right;
+        }
+
+        .invoice-table .price-col {
+            width: 18%;
+            text-align: right;
+        }
+
+        .invoice-table .tax-col {
+            width: 15%;
+            text-align: right;
+        }
+
+        .invoice-table .total-col {
+            width: 18%;
+            text-align: right;
+        }
+
+        .invoice-table .action-col {
+            width: 4%;
+            text-align: center;
+        }
+
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-item-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .invoice-totals {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .totals-table {
+            width: 400px;
+        }
+
+        .totals-table tr td {
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .totals-table tr:last-child td {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #333;
+            padding-top: 12px;
+        }
+
+        .final-amount {
+            margin-top: 40px;
+            padding: 25px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .final-amount .label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .final-amount .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .totals-table .label {
+            text-align: right;
+            padding-right: 20px;
+        }
+
+        .totals-table .value {
+            text-align: right;
+        }
+
+        .invoice-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            font-size: 13px;
+        }
+
+        .footer-section {
+            margin-bottom: 20px;
+        }
+
+        .footer-section h4 {
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .footer-section p {
+            margin: 4px 0;
+            line-height: 1.6;
+        }
+
+        .editable-field {
+            border: 1px dashed #ccc;
+            padding: 2px 5px;
+            min-width: 80px;
+            display: inline-block;
+            cursor: text;
+        }
+
+        .editable-field:hover {
+            background: #f9f9f9;
+        }
+
+        .status-banner {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 15mm;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .invoice-container {
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+                min-height: auto;
+            }
+
+            .editable-field {
+                border: none !important;
+                padding: 0 !important;
+                background: transparent !important;
+            }
+
+            [contenteditable] {
+                border: none !important;
+                background: transparent !important;
+            }
+
+            input {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+
+            .remove-btn {
+                display: none !important;
+            }
+
+            .add-item-btn {
+                display: none !important;
+            }
+
+            .invoice-header {
+                page-break-after: avoid;
+            }
+
+            .invoice-table {
+                page-break-inside: avoid;
+            }
+
+            .invoice-footer {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .invoice-header {
+                flex-direction: column;
+            }
+            .invoice-title {
+                text-align: left;
+                margin-top: 20px;
+            }
+            .invoice-addresses {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .invoice-details {
+                text-align: left;
+            }
+            .invoice-table {
+                font-size: 12px;
+            }
+            .invoice-table th,
+            .invoice-table td {
+                padding: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Steuerungsbereich (nicht drucken) -->
+    <div class="no-print">
+        <a href="buchungen-uebersicht.html" class="back-button">← Zurück zur Übersicht</a>
+
+        <div id="invoiceStatusBanner" class="status-banner" style="display: none;">
+            <strong>✅ Rechnung bereits versendet</strong>
+            <p id="invoiceStatusDetails"></p>
+        </div>
+
+        <div class="search-section">
+            <label><strong>Buchung suchen:</strong></label>
+            <input type="text" id="bookingSearch" placeholder="Name, Datum oder Ort eingeben...">
+            <select id="bookingSelect" size="5" style="display: none;">
+            </select>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-secondary" onclick="resetForm()">Formular zurücksetzen</button>
+            <button class="btn btn-primary" onclick="window.print()">🖨️ Drucken</button>
+            <button class="btn btn-primary" onclick="generatePDF()">📄 PDF herunterladen</button>
+            <button class="btn btn-success" onclick="sendInvoiceByEmail()">📧 Per E-Mail senden</button>
+            <button class="btn btn-warning" onclick="markInvoiceAsSent()">✅ Als versendet markieren</button>
+        </div>
+    </div>
+
+    <!-- Rechnung -->
+    <div class="invoice-container" id="invoice">
+        <!-- Header -->
+        <div class="invoice-header">
+            <div class="company-info">
+                <div class="company-logo">🍦</div>
+                <div class="company-details">
+                    <h1>EisFavorite</h1>
+                    <p><strong contenteditable="true" class="editable-field" id="senderName">Eis Agnello</strong></p>
+                    <p contenteditable="true" class="editable-field" id="senderStreet">Favoritenstrasse 11</p>
+                    <p contenteditable="true" class="editable-field" id="senderCity">76456 Kuppenheim</p>
+                    <p>Deutschland</p>
+                </div>
+            </div>
+            <div class="invoice-title">
+                <h2>RECHNUNG</h2>
+            </div>
+        </div>
+
+        <!-- Adressen und Details -->
+        <div class="invoice-addresses">
+            <div class="customer-address">
+                <h3 contenteditable="true" id="customerCompany">Kundenname</h3>
+                <p contenteditable="true" id="customerContact"></p>
+                <p contenteditable="true" id="customerStreet">Straße Hausnummer</p>
+                <p><span contenteditable="true" id="customerPostalCode">PLZ</span> <span contenteditable="true" id="customerCity">Ort</span></p>
+            </div>
+            <div class="invoice-details">
+                <p><strong>Rechnungsnummer:</strong> <span contenteditable="true" id="invoiceNumber">2026075205</span></p>
+                <p><strong>Ausgestellt:</strong> <span contenteditable="true" id="invoiceDate"></span></p>
+                <p><strong>Zahlungsziel:</strong> <span contenteditable="true" id="paymentDue"></span></p>
+            </div>
+        </div>
+
+        <!-- Intro Text -->
+        <div class="invoice-intro">
+            <p>Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:</p>
+        </div>
+
+        <!-- Tabelle -->
+        <table class="invoice-table" id="invoiceTable">
+            <thead>
+                <tr>
+                    <th class="desc-col">BESCHREIBUNG</th>
+                    <th class="qty-col">MENGE</th>
+                    <th class="price-col">PREIS<br>(NETTO)</th>
+                    <th class="tax-col">MWST</th>
+                    <th class="total-col">GESAMT<br>(BRUTTO)</th>
+                    <th class="action-col no-print"></th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody">
+            </tbody>
+        </table>
+
+        <button class="add-item-btn no-print" onclick="addItem()">+ Position hinzufügen</button>
+
+        <!-- Summen -->
+        <div class="invoice-totals">
+            <table class="totals-table">
+                <tr>
+                    <td class="label">SUMME NETTO</td>
+                    <td class="value" id="totalNetto">0,00 €</td>
+                </tr>
+                <tr>
+                    <td class="label">zzgl. 7% MwSt</td>
+                    <td class="value" id="totalMwst">0,00 €</td>
+                </tr>
+                <tr>
+                    <td class="label">GESAMT (BRUTTO)</td>
+                    <td class="value" id="totalBrutto">0,00 €</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Finaler Gesamtbetrag -->
+        <div class="final-amount">
+            <div class="label">GESAMTBETRAG<br>ZU BEZAHLEN</div>
+            <div class="value" id="finalTotal">0,00 €</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="invoice-footer">
+            <div class="footer-section">
+                <h4>INHABER</h4>
+                <p><span contenteditable="true" id="ownerName">Eis Agnello</span></p>
+                <p><span contenteditable="true" id="ownerStreet">Favoritenstrasse 11</span></p>
+                <p><span contenteditable="true" id="ownerCity">76456 Kuppenheim</span></p>
+            </div>
+
+            <div class="footer-section">
+                <h4>KONTAKT</h4>
+                <p>St-Nr.: <span contenteditable="true" id="taxId">39102/26343</span></p>
+                <p>Handy: <span contenteditable="true" id="phone">+49 176 56813172</span></p>
+            </div>
+
+            <div class="footer-section">
+                <h4>BANKVERBINDUNG</h4>
+                <p>Empfänger: <span contenteditable="true" id="bankRecipient">Andrea Agnello</span></p>
+                <p>Bank: <span contenteditable="true" id="bankName">Sparkasse Baden Baden</span></p>
+                <p>IBAN: <span contenteditable="true" id="iban">DE72 6625 0030 0030 4713 20</span></p>
+                <p>BIC/SWIFT: <span contenteditable="true" id="bic">SOLADES1BAD</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allBookings = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Datum setzen
+            const today = new Date();
+            const invoiceDate = formatDate(today);
+            document.getElementById('invoiceDate').textContent = invoiceDate;
+
+            // Zahlungsziel (7 Tage)
+            const paymentDueDate = new Date(today);
+            paymentDueDate.setDate(paymentDueDate.getDate() + 7);
+            document.getElementById('paymentDue').textContent = formatDate(paymentDueDate);
+
+            // Rechnungsnummer generieren
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            const invoiceNumber = `${year}${month}${day}${random}`;
+            document.getElementById('invoiceNumber').textContent = invoiceNumber;
+            document.getElementById('paymentReference').textContent = `Rechnung ${invoiceNumber}`;
+
+            // Buchungen laden
+            loadBookings();
+
+            // URL-Parameter prüfen
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (bookingId) {
+                document.querySelector('.search-section').style.display = 'none';
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const booking = bookings.find(b => b.id === bookingId);
+                if (booking) {
+                    loadBookingData(booking);
+                }
+            } else {
+                addItem();
+            }
+        });
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        function loadBookings() {
+            allBookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+
+            // Sortiere nach Datum (deutsches Format DD.MM.YYYY)
+            allBookings.sort((a, b) => {
+                const dateA = a.date ? a.date.split('.').reverse().join('-') : '';
+                const dateB = b.date ? b.date.split('.').reverse().join('-') : '';
+                return new Date(dateA) - new Date(dateB);
+            });
+
+            const searchInput = document.getElementById('bookingSearch');
+            const select = document.getElementById('bookingSelect');
+
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+
+                if (searchTerm === '') {
+                    select.style.display = 'none';
+                    select.innerHTML = '';
+                    return;
+                }
+
+                const filtered = allBookings.filter(booking => {
+                    const name = (booking.name || '').toLowerCase();
+                    const date = (booking.date || '').toLowerCase();
+                    const city = (booking.city || '').toLowerCase();
+                    const street = (booking.street || '').toLowerCase();
+
+                    return name.includes(searchTerm) ||
+                           date.includes(searchTerm) ||
+                           city.includes(searchTerm) ||
+                           street.includes(searchTerm);
+                });
+
+                select.innerHTML = '';
+
+                if (filtered.length > 0) {
+                    select.style.display = 'block';
+
+                    filtered.forEach((booking) => {
+                        const option = document.createElement('option');
+                        option.value = allBookings.indexOf(booking);
+
+                        let statusText = '';
+                        if (booking.invoiceSent) {
+                            statusText = ' ✅';
+                        } else if (booking.tally && Object.keys(booking.tally).length > 0) {
+                            statusText = ' 📋';
+                        }
+
+                        const location = booking.city || booking.street || '';
+                        const displayText = location ?
+                            `${booking.name} - ${booking.date} - ${location}${statusText}` :
+                            `${booking.name} - ${booking.date}${statusText}`;
+                        option.textContent = displayText;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.style.display = 'block';
+                    const option = document.createElement('option');
+                    option.textContent = 'Keine Buchungen gefunden';
+                    option.disabled = true;
+                    select.appendChild(option);
+                }
+            });
+
+            select.addEventListener('change', function() {
+                if (this.value !== '' && !isNaN(this.value)) {
+                    loadBookingData(allBookings[this.value]);
+                    searchInput.value = '';
+                    select.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !select.contains(e.target)) {
+                    select.style.display = 'none';
+                }
+            });
+        }
+
+        function formatDateFromString(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return formatDate(date);
+        }
+
+        function loadBookingData(booking) {
+            // Status-Banner
+            const statusBanner = document.getElementById('invoiceStatusBanner');
+            const statusDetails = document.getElementById('invoiceStatusDetails');
+
+            if (booking.invoiceSent) {
+                statusBanner.style.display = 'block';
+                const sentDate = booking.invoiceSentDate ? new Date(booking.invoiceSentDate).toLocaleString('de-DE') : 'Unbekannt';
+                const invoiceNum = booking.invoiceNumber || 'N/A';
+                statusDetails.textContent = `Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+            } else {
+                statusBanner.style.display = 'none';
+            }
+
+            // Kundendaten
+            const companyName = booking.company || booking.name || 'Kundenname';
+            const contactPerson = booking.contactPerson ? `z. Hd. ${booking.contactPerson}` : '';
+            const street = booking.street || 'Straße Hausnummer';
+            const postalCode = booking.plz || 'PLZ';
+            const city = booking.city || 'Ort';
+
+            document.getElementById('customerCompany').textContent = companyName;
+            document.getElementById('customerContact').textContent = contactPerson;
+            document.getElementById('customerStreet').textContent = street;
+            document.getElementById('customerPostalCode').textContent = postalCode;
+            document.getElementById('customerCity').textContent = city;
+
+            console.log('Booking geladen:', {
+                company: booking.company,
+                name: booking.name,
+                street: booking.street,
+                plz: booking.plz,
+                city: booking.city
+            });
+
+            // Items löschen
+            document.getElementById('itemsBody').innerHTML = '';
+
+            // Strichliste laden
+            let tallyData = null;
+
+            if (booking.tally && typeof booking.tally === 'object') {
+                tallyData = booking.tally;
+            } else {
+                const tallyKey = `tally_${booking.date}_${booking.name}`;
+                tallyData = JSON.parse(localStorage.getItem(tallyKey) || '{}');
+            }
+
+            // Eissorten
+            if (tallyData && Object.keys(tallyData).length > 0) {
+                for (const [flavor, count] of Object.entries(tallyData)) {
+                    if (count > 0) {
+                        addItem(`Kugel Eis\ninkl. 7% Umsatzsteuer`, count, '1.80');
+                    }
+                }
+            } else if (booking.gaeste && booking.kugeln) {
+                const totalKugeln = booking.gaeste * booking.kugeln;
+                addItem('Kugel Eis\ninkl. 7% Umsatzsteuer', totalKugeln, '1.80');
+            }
+
+            // Anfahrtskosten
+            const distance = parseFloat(booking.distance) || 0;
+            let anfahrtskosten = 0;
+
+            if (distance >= 6) {
+                anfahrtskosten = 45;
+                if (distance >= 10) {
+                    anfahrtskosten = 55;
+                    const additionalKm = Math.floor((distance - 10) / 10);
+                    anfahrtskosten += additionalKm * 10;
+                }
+            }
+
+            if (anfahrtskosten > 0) {
+                addItem(`Eiskaffee\ninkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+            }
+
+            calculateTotals();
+        }
+
+        function addItem(description = '', quantity = '', bruttoPrice = '') {
+            const tbody = document.getElementById('itemsBody');
+            const row = tbody.insertRow();
+
+            row.innerHTML = `
+                <td class="desc-col">
+                    <input type="text" class="item-description" value="${description}">
+                </td>
+                <td class="qty-col">
+                    <input type="number" class="item-quantity" value="${quantity}" min="0" step="1" onchange="calculateTotals()">
+                </td>
+                <td class="price-col">
+                    <input type="text" class="item-netto" readonly style="background: #f5f5f5; text-align: right;">
+                </td>
+                <td class="tax-col">
+                    <input type="text" class="item-mwst" readonly style="background: #f5f5f5; text-align: right;">
+                </td>
+                <td class="total-col">
+                    <input type="number" class="item-brutto" value="${bruttoPrice}" min="0" step="0.01" onchange="calculateTotals()" style="text-align: right;">
+                </td>
+                <td class="action-col no-print">
+                    <button class="remove-btn" onclick="removeItem(this)">×</button>
+                </td>
+            `;
+
+            calculateTotals();
+        }
+
+        function removeItem(button) {
+            const row = button.closest('tr');
+            row.remove();
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            const rows = document.querySelectorAll('#itemsBody tr');
+            let totalNetto = 0;
+            let totalMwst = 0;
+            let totalBrutto = 0;
+
+            rows.forEach(row => {
+                const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+                const brutto = parseFloat(row.querySelector('.item-brutto').value) || 0;
+
+                // Berechnung: Brutto enthält bereits 7% MwSt.
+                const netto = brutto / 1.07;
+                const mwst = brutto - netto;
+
+                // Einzelwerte
+                const totalItemBrutto = quantity * brutto;
+                const totalItemNetto = quantity * netto;
+                const totalItemMwst = quantity * mwst;
+
+                // In Felder eintragen
+                row.querySelector('.item-netto').value = formatCurrency(totalItemNetto);
+                row.querySelector('.item-mwst').value = formatCurrency(totalItemMwst);
+
+                // Zu Gesamtsummen addieren
+                totalNetto += totalItemNetto;
+                totalMwst += totalItemMwst;
+                totalBrutto += totalItemBrutto;
+            });
+
+            // Gesamtsummen anzeigen
+            document.getElementById('totalNetto').textContent = formatCurrency(totalNetto);
+            document.getElementById('totalMwst').textContent = formatCurrency(totalMwst);
+            document.getElementById('totalBrutto').textContent = formatCurrency(totalBrutto);
+            document.getElementById('finalTotal').textContent = formatCurrency(totalBrutto);
+        }
+
+        function formatCurrency(amount) {
+            return amount.toFixed(2).replace('.', ',') + ' €';
+        }
+
+        function resetForm() {
+            if (confirm('Möchten Sie wirklich alle Felder zurücksetzen?')) {
+                location.reload();
+            }
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Header
+            let y = 20;
+            doc.setFontSize(24);
+            doc.setFont(undefined, 'bold');
+            doc.text('EisFavorite', 20, y);
+            doc.setFontSize(18);
+            doc.text('RECHNUNG', 190, y, { align: 'right' });
+
+            y += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(document.getElementById('senderName').textContent, 20, y);
+            doc.text(document.getElementById('senderStreet').textContent, 20, y + 5);
+            doc.text(document.getElementById('senderCity').textContent, 20, y + 10);
+
+            // Kunde
+            y = 50;
+            doc.setFont(undefined, 'bold');
+            doc.text(document.getElementById('customerCompany').textContent, 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            const contact = document.getElementById('customerContact').textContent;
+            if (contact) {
+                doc.text(contact, 20, y);
+                y += 5;
+            }
+            doc.text(document.getElementById('customerStreet').textContent, 20, y);
+            y += 5;
+            doc.text(`${document.getElementById('customerPostalCode').textContent} ${document.getElementById('customerCity').textContent}`, 20, y);
+
+            // Details
+            y = 50;
+            doc.text(`Rechnungsnummer: ${document.getElementById('invoiceNumber').textContent}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Ausgestellt: ${document.getElementById('invoiceDate').textContent}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Zahlungsziel: ${document.getElementById('paymentDue').textContent}`, 190, y, { align: 'right' });
+
+            // Intro
+            y = 85;
+            doc.text('Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:', 20, y);
+
+            // Tabelle
+            y = 95;
+            doc.setFont(undefined, 'bold');
+            doc.setFillColor(51, 51, 51);
+            doc.rect(20, y - 5, 170, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('Beschreibung', 22, y);
+            doc.text('Menge', 110, y, { align: 'right' });
+            doc.text('Netto', 135, y, { align: 'right' });
+            doc.text('MwSt.', 160, y, { align: 'right' });
+            doc.text('Brutto', 185, y, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+
+            y += 8;
+            doc.setFont(undefined, 'normal');
+
+            const rows = document.querySelectorAll('#itemsBody tr');
+            rows.forEach(row => {
+                const description = row.querySelector('.item-description').value;
+                const quantity = row.querySelector('.item-quantity').value;
+                const netto = row.querySelector('.item-netto').value;
+                const mwst = row.querySelector('.item-mwst').value;
+                const brutto = row.querySelector('.item-brutto').value;
+
+                doc.text(description.replace('\n', ' '), 22, y);
+                doc.text(quantity, 110, y, { align: 'right' });
+                doc.text(netto, 135, y, { align: 'right' });
+                doc.text(mwst, 160, y, { align: 'right' });
+                doc.text(brutto + ' €', 185, y, { align: 'right' });
+                y += 6;
+            });
+
+            // Summen
+            y += 5;
+            doc.line(20, y, 190, y);
+            y += 8;
+
+            doc.text('Gesamtnetto:', 135, y);
+            doc.text(document.getElementById('totalNetto').textContent, 185, y, { align: 'right' });
+            y += 6;
+
+            doc.text('Gesamte MwSt. (7%):', 135, y);
+            doc.text(document.getElementById('totalMwst').textContent, 185, y, { align: 'right' });
+            y += 6;
+
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(12);
+            doc.text('Gesamtbetrag:', 135, y);
+            doc.text(document.getElementById('totalBrutto').textContent, 185, y, { align: 'right' });
+
+            // Finaler Betrag
+            y += 15;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('GESAMTBETRAG ZU BEZAHLEN', 20, y);
+            doc.text(document.getElementById('finalTotal').textContent, 185, y, { align: 'right' });
+
+            // Footer
+            y += 15;
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            doc.text('INHABER', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(document.getElementById('ownerName').textContent, 20, y);
+            y += 4;
+            doc.text(document.getElementById('ownerStreet').textContent, 20, y);
+            y += 4;
+            doc.text(document.getElementById('ownerCity').textContent, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('KONTAKT', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`St-Nr.: ${document.getElementById('taxId').textContent}`, 20, y);
+            y += 4;
+            doc.text(`Handy: ${document.getElementById('phone').textContent}`, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('BANKVERBINDUNG', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`Empfänger: ${document.getElementById('bankRecipient').textContent}`, 20, y);
+            y += 4;
+            doc.text(`Bank: ${document.getElementById('bankName').textContent}`, 20, y);
+            y += 4;
+            doc.text(`IBAN: ${document.getElementById('iban').textContent}`, 20, y);
+            y += 4;
+            doc.text(`BIC/SWIFT: ${document.getElementById('bic').textContent}`, 20, y);
+
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerName = document.getElementById('customerCompany').textContent;
+            const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
+            doc.save(filename);
+        }
+
+        async function sendInvoiceByEmail() {
+            const customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
+            if (!customerEmail) return;
+
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
+
+            try {
+                // PDF generieren
+                generatePDF();
+
+                // Buchungsstatus aktualisieren
+                const urlParams = new URLSearchParams(window.location.search);
+                const bookingId = urlParams.get('bookingId');
+
+                if (bookingId) {
+                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                    if (bookingIndex !== -1) {
+                        bookings[bookingIndex].invoiceSent = true;
+                        bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                    }
+                }
+
+                // E-Mail öffnen
+                const subject = encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`);
+                const recipient = customerContact || customerCompany;
+                const body = encodeURIComponent(`Liebe/r ${recipient},
+
+herzlichen Dank für Ihren Auftrag und das entgegengebrachte Vertrauen!
+
+Es hat uns große Freude bereitet, Ihre Veranstaltung mit unserem Eis zu bereichern. Wir hoffen sehr, dass alles zu Ihrer vollsten Zufriedenheit verlaufen ist und alle Gäste einen schönen Tag hatten.
+
+Anbei erhalten Sie die Rechnung ${invoiceNumber} im Anhang.
+
+Falls Sie mit unserem Service zufrieden waren, würden wir uns sehr über eine positive Bewertung freuen. Ihr Feedback hilft uns, unseren Service stetig zu verbessern und anderen Kunden bei ihrer Entscheidung zu helfen.
+
+Bei Fragen zur Rechnung oder für zukünftige Veranstaltungen stehen wir Ihnen jederzeit gerne zur Verfügung.
+
+Nochmals vielen Dank und bis hoffentlich bald!
+
+Mit herzlichen Grüßen
+Ihr Eis Agnello Team
+
+---
+Eis Agnello
+Favoritenstrasse 11
+76456 Kuppenheim
+Tel: +49 176 56813172`);
+
+                window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+
+                alert('✓ PDF wurde heruntergeladen!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nBitte hängen Sie das PDF manuell an die E-Mail an.');
+
+            } catch (error) {
+                console.error('Fehler:', error);
+                alert('Fehler beim Erstellen der E-Mail.');
+            }
+        }
+
+        function markInvoiceAsSent() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+
+            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany} als versendet markieren?`)) {
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].invoiceSent = true;
+                    bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    alert('✅ Rechnung wurde als versendet markiert!');
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
+                }
+            } else {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+            }
+        }
+    </script>
+</body>
+</html>
