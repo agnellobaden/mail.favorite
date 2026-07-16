@@ -1095,18 +1095,30 @@
 
             const rows = document.querySelectorAll('#itemsBody tr');
             rows.forEach(row => {
-                const description = row.querySelector('.item-description').value;
+                let description = row.querySelector('.item-description').value;
                 const quantity = row.querySelector('.item-quantity').value;
                 const netto = row.querySelector('.item-netto').value;
                 const mwst = row.querySelector('.item-mwst').value;
                 const bruttoTotal = row.querySelector('.item-brutto-total').value;
 
-                doc.text(description.replace('\n', ' '), 22, y);
+                // Emojis und Zeilenumbrüche entfernen für bessere PDF-Lesbarkeit
+                description = description
+                    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Emojis entfernen
+                    .replace(/\n/g, ' ')                     // Zeilenumbrüche durch Leerzeichen ersetzen
+                    .trim();                                  // Leerzeichen am Anfang/Ende entfernen
+
+                // Beschreibung in mehrere Zeilen umbrechen, falls zu lang
+                const maxWidth = 80;
+                const lines = doc.splitTextToSize(description, maxWidth);
+
+                doc.text(lines, 22, y);
                 doc.text(quantity, 110, y, { align: 'right' });
                 doc.text(netto, 135, y, { align: 'right' });
                 doc.text(mwst, 160, y, { align: 'right' });
                 doc.text(bruttoTotal, 185, y, { align: 'right' });
-                y += 6;
+
+                // Erhöhe y basierend auf Anzahl der Zeilen
+                y += (lines.length * 5) + 2;
             });
 
             // Summen
