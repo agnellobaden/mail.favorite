@@ -1201,9 +1201,6 @@
             }
 
             try {
-                // PDF generieren
-                generatePDF();
-
                 // Buchungsstatus aktualisieren
                 if (bookingId) {
                     const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
@@ -1217,10 +1214,9 @@
                     }
                 }
 
-                // E-Mail öffnen
-                const subject = encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`);
+                // E-Mail-Text vorbereiten
                 const recipient = customerContact || customerCompany;
-                const body = encodeURIComponent(`Liebe/r ${recipient},
+                const emailBody = `Liebe/r ${recipient},
 
 herzlichen Dank für Ihren Auftrag und das entgegengebrachte Vertrauen!
 
@@ -1241,18 +1237,19 @@ Ihr Eis Agnello Team
 Eis Agnello
 Favoritenstrasse 11
 76456 Kuppenheim
-Tel: +49 176 56813172`);
+Tel: +49 176 56813172`;
 
-                // E-Mail-Client öffnen (mit BCC-Kopie an eisfavorit@gmail.com)
-                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${subject}&body=${body}`;
-                console.log('📧 Öffne E-Mail-Client für:', customerEmail);
+                // Gmail-Link erstellen (mit BCC-Kopie an eisfavorit@gmail.com)
+                const gmailLink = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(customerEmail)}&bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+
+                console.log('📧 Öffne Gmail für:', customerEmail);
                 console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
-                window.location.href = mailtoLink;
 
-                // Erfolgsmeldung nach kurzer Verzögerung
-                setTimeout(() => {
-                    alert('✓ PDF wurde heruntergeladen!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte hängen Sie das PDF manuell an die E-Mail an.');
-                }, 500);
+                // Gmail in neuem Tab öffnen
+                window.open(gmailLink, '_blank');
+
+                // Erfolgsmeldung
+                alert('✓ Gmail wurde geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte laden Sie das PDF herunter (PDF-Button) und hängen Sie es an die E-Mail an.');
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
