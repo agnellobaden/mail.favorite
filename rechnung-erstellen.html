@@ -472,7 +472,7 @@
 <body>
     <!-- Steuerungsbereich (nicht drucken) -->
     <div class="no-print">
-        <a href="buchungen-uebersicht.html" class="back-button">← Zurück zur Übersicht</a>
+        <button onclick="goBack()" class="back-button" style="border: none; cursor: pointer;">← Zurück</button>
 
         <div id="invoiceStatusBanner" class="status-banner" style="display: none;">
             <strong>✅ Rechnung bereits versendet</strong>
@@ -538,8 +538,10 @@
         <table class="invoice-table" id="invoiceTable">
             <thead>
                 <tr>
+                    <th class="no-print" style="width: 12%;">PRODUKT</th>
                     <th class="desc-col">BESCHREIBUNG</th>
                     <th class="qty-col">MENGE</th>
+                    <th class="price-col">EINZELPREIS<br>(BRUTTO)</th>
                     <th class="price-col">PREIS<br>(NETTO)</th>
                     <th class="tax-col">MWST</th>
                     <th class="total-col">GESAMT<br>(BRUTTO)</th>
@@ -604,6 +606,45 @@
     <script>
         let allBookings = [];
 
+        // Zurück-Funktion: Immer einen Schritt zurück im Verlauf
+        function goBack() {
+            console.log('🔙 Gehe einen Schritt zurück im Browser-Verlauf');
+            window.history.back();
+        }
+
+        // Produktliste (wie in buchungen-uebersicht.html)
+        const PRODUCTS_LIST = [
+            { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
+            { id: 'spaghetti', name: 'Spaghetti Eis', emoji: '🍝' },
+            { id: 'schokobecher', name: 'Schoko Becher', emoji: '🍫' },
+            { id: 'sahne', name: 'Sahne', emoji: '🥛' },
+            { id: 'eiskaffee', name: 'Eiskaffee', emoji: '☕' },
+            { id: 'milchshake', name: 'Milchshake', emoji: '🥤' },
+            { id: 'streussel', name: 'Streussel', emoji: '🎨' },
+            { id: 'toppings', name: 'Toppings', emoji: '🍓' }
+        ];
+
+        // Standard-Preise
+        const DEFAULT_PRICES = {
+            kugel: 1.80,
+            spaghetti: 7.50,
+            schokobecher: 7.50,
+            sahne: 1.80,
+            eiskaffee: 7.50,
+            milchshake: 6.00,
+            streussel: 0.50,
+            toppings: 1.00
+        };
+
+        // Preise laden
+        function loadPrices() {
+            const saved = localStorage.getItem('productPrices');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            return { ...DEFAULT_PRICES };
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Datum setzen
             const today = new Date();
@@ -622,25 +663,37 @@
             const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
             const invoiceNumber = `${year}${month}${day}${random}`;
             document.getElementById('invoiceNumber').textContent = invoiceNumber;
-            document.getElementById('paymentReference').textContent = `Rechnung ${invoiceNumber}`;
-
-            // Buchungen laden
-            loadBookings();
 
             // URL-Parameter prüfen
             const urlParams = new URLSearchParams(window.location.search);
             const bookingId = urlParams.get('bookingId');
 
+            console.log('🔍 URL bookingId:', bookingId);
+
             if (bookingId) {
+                // Buchung direkt aus localStorage laden (nicht auf loadBookings() warten)
+                console.log('📋 Lade Buchung mit ID:', bookingId);
                 document.querySelector('.search-section').style.display = 'none';
+
                 const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                console.log('📦 Verfügbare Buchungen:', bookings.length);
+
                 const booking = bookings.find(b => b.id === bookingId);
+
                 if (booking) {
+                    console.log('✅ Buchung gefunden:', booking.name);
                     loadBookingData(booking);
+                } else {
+                    console.error('❌ Buchung nicht gefunden für ID:', bookingId);
+                    alert('Buchung konnte nicht gefunden werden!');
                 }
             } else {
+                console.log('ℹ️ Keine bookingId in URL - zeige Suchfeld');
                 addItem();
             }
+
+            // Buchungen für Suche laden
+            loadBookings();
         });
 
         function formatDate(date) {
@@ -752,8 +805,28 @@
             }
 
             // Kundendaten
-            const companyName = booking.company || booking.name || 'Kundenname';
-            const contactPerson = booking.contactPerson ? `z. Hd. ${booking.contactPerson}` : '';
+            // Wenn keine Firma angegeben: Name als Firmenname verwenden
+            let companyName = '';
+            let contactPerson = '';
+
+            if (booking.company) {
+                // Firma vorhanden: Firma anzeigen
+                companyName = booking.company;
+                // Ansprechpartner: entweder contactPerson oder name (falls unterschiedlich)
+                if (booking.contactPerson) {
+                    contactPerson = `z. Hd. ${booking.contactPerson}`;
+                } else if (booking.name) {
+                    contactPerson = booking.name;
+                }
+            } else {
+                // Keine Firma: Name als Firmenname verwenden
+                companyName = booking.name || 'Kundenname';
+                // contactPerson bleibt leer, da Name schon als Firma angezeigt wird
+                if (booking.contactPerson) {
+                    contactPerson = `z. Hd. ${booking.contactPerson}`;
+                }
+            }
+
             const street = booking.street || 'Straße Hausnummer';
             const postalCode = booking.plz || 'PLZ';
             const city = booking.city || 'Ort';
@@ -775,6 +848,9 @@
             // Items löschen
             document.getElementById('itemsBody').innerHTML = '';
 
+            // Preise laden
+            const prices = loadPrices();
+
             // Strichliste laden
             let tallyData = null;
 
@@ -785,19 +861,27 @@
                 tallyData = JSON.parse(localStorage.getItem(tallyKey) || '{}');
             }
 
-            // Eissorten
+            // Strichliste: Alle Produkte mit ihren echten Namen und Preisen
             if (tallyData && Object.keys(tallyData).length > 0) {
-                for (const [flavor, count] of Object.entries(tallyData)) {
+                console.log('📋 Lade Strichliste:', tallyData);
+
+                PRODUCTS_LIST.forEach(product => {
+                    const count = tallyData[product.id] || 0;
                     if (count > 0) {
-                        addItem(`Kugel Eis\ninkl. 7% Umsatzsteuer`, count, '1.80');
+                        const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                        const productName = `${product.emoji} ${product.name}`;
+                        addItem(`${productName}\ninkl. 7% Umsatzsteuer`, count, price.toFixed(2));
+                        console.log(`  ✓ ${productName}: ${count}x à ${price.toFixed(2)} €`);
                     }
-                }
+                });
             } else if (booking.gaeste && booking.kugeln) {
+                // Fallback: Wenn keine Strichliste vorhanden, nutze Gäste × Kugeln
                 const totalKugeln = booking.gaeste * booking.kugeln;
-                addItem('Kugel Eis\ninkl. 7% Umsatzsteuer', totalKugeln, '1.80');
+                const kugelPrice = prices.kugel || DEFAULT_PRICES.kugel;
+                addItem('🍨 Kugel Eis\ninkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
             }
 
-            // Anfahrtskosten
+            // Anfahrtskosten berechnen und hinzufügen
             const distance = parseFloat(booking.distance) || 0;
             let anfahrtskosten = 0;
 
@@ -811,7 +895,8 @@
             }
 
             if (anfahrtskosten > 0) {
-                addItem(`Eiskaffee\ninkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+                console.log(`🚗 Anfahrtskosten: ${distance} km → ${anfahrtskosten.toFixed(2)} €`);
+                addItem(`🚗 Anfahrtskosten (${distance} km)\ninkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
             }
 
             calculateTotals();
@@ -820,13 +905,31 @@
         function addItem(description = '', quantity = '', bruttoPrice = '') {
             const tbody = document.getElementById('itemsBody');
             const row = tbody.insertRow();
+            const rowIndex = row.rowIndex;
+
+            // Erstelle Produkt-Dropdown
+            const prices = loadPrices();
+            let productOptions = '<option value="">-- Produkt wählen --</option>';
+            PRODUCTS_LIST.forEach(product => {
+                const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                productOptions += `<option value="${product.id}" data-price="${price.toFixed(2)}">${product.emoji} ${product.name}</option>`;
+            });
+            productOptions += '<option value="custom">✏️ Eigene Position</option>';
 
             row.innerHTML = `
+                <td class="no-print">
+                    <select class="product-select" onchange="fillProductData(this)" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 14px;">
+                        ${productOptions}
+                    </select>
+                </td>
                 <td class="desc-col">
-                    <input type="text" class="item-description" value="${description}">
+                    <input type="text" class="item-description" value="${description}" ${description ? '' : 'placeholder="Beschreibung eingeben..."'}>
                 </td>
                 <td class="qty-col">
-                    <input type="number" class="item-quantity" value="${quantity}" min="0" step="1" onchange="calculateTotals()">
+                    <input type="number" class="item-quantity" value="${quantity || 1}" min="0" step="1" onchange="calculateTotals()">
+                </td>
+                <td class="price-col">
+                    <input type="number" class="item-brutto-single" value="${bruttoPrice}" min="0" step="0.01" onchange="calculateTotals()" style="text-align: right;" ${bruttoPrice ? '' : 'placeholder="0.00"'}>
                 </td>
                 <td class="price-col">
                     <input type="text" class="item-netto" readonly style="background: #f5f5f5; text-align: right;">
@@ -835,7 +938,7 @@
                     <input type="text" class="item-mwst" readonly style="background: #f5f5f5; text-align: right;">
                 </td>
                 <td class="total-col">
-                    <input type="number" class="item-brutto" value="${bruttoPrice}" min="0" step="0.01" onchange="calculateTotals()" style="text-align: right;">
+                    <input type="text" class="item-brutto-total" readonly style="background: #f5f5f5; text-align: right;">
                 </td>
                 <td class="action-col no-print">
                     <button class="remove-btn" onclick="removeItem(this)">×</button>
@@ -843,6 +946,36 @@
             `;
 
             calculateTotals();
+        }
+
+        // Produkt-Daten automatisch ausfüllen
+        function fillProductData(selectElement) {
+            const row = selectElement.closest('tr');
+            const selectedValue = selectElement.value;
+
+            if (selectedValue === '' || selectedValue === 'custom') {
+                // Leere Felder für eigene Position
+                row.querySelector('.item-description').value = '';
+                row.querySelector('.item-brutto-single').value = '';
+                row.querySelector('.item-quantity').value = 1;
+                calculateTotals();
+                return;
+            }
+
+            const prices = loadPrices();
+            const product = PRODUCTS_LIST.find(p => p.id === selectedValue);
+
+            if (product) {
+                const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                const productName = `${product.emoji} ${product.name}`;
+
+                row.querySelector('.item-description').value = `${productName}\ninkl. 7% Umsatzsteuer`;
+                row.querySelector('.item-brutto-single').value = price.toFixed(2);
+                row.querySelector('.item-quantity').value = 1;
+
+                console.log(`✅ Produkt gewählt: ${productName} - ${price.toFixed(2)} €`);
+                calculateTotals();
+            }
         }
 
         function removeItem(button) {
@@ -859,20 +992,21 @@
 
             rows.forEach(row => {
                 const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
-                const brutto = parseFloat(row.querySelector('.item-brutto').value) || 0;
+                const bruttoSingle = parseFloat(row.querySelector('.item-brutto-single').value) || 0;
 
                 // Berechnung: Brutto enthält bereits 7% MwSt.
-                const netto = brutto / 1.07;
-                const mwst = brutto - netto;
+                const netto = bruttoSingle / 1.07;
+                const mwst = bruttoSingle - netto;
 
-                // Einzelwerte
-                const totalItemBrutto = quantity * brutto;
+                // Einzelwerte (Menge × Stückpreis)
+                const totalItemBrutto = quantity * bruttoSingle;
                 const totalItemNetto = quantity * netto;
                 const totalItemMwst = quantity * mwst;
 
                 // In Felder eintragen
                 row.querySelector('.item-netto').value = formatCurrency(totalItemNetto);
                 row.querySelector('.item-mwst').value = formatCurrency(totalItemMwst);
+                row.querySelector('.item-brutto-total').value = formatCurrency(totalItemBrutto);
 
                 // Zu Gesamtsummen addieren
                 totalNetto += totalItemNetto;

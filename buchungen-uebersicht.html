@@ -18,7 +18,7 @@
         }
 
         html {
-            overflow-x: hidden;
+            overflow-x: clip;
         }
 
         body {
@@ -26,7 +26,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
             min-height: 100vh;
-            overflow-x: hidden;
+            overflow-x: clip;
             width: 100%;
             font-size: 18px;
             font-weight: 500;
@@ -64,7 +64,7 @@
             border-radius: 10px;
             overflow: visible;
             position: sticky;
-            top: 0;
+            top: 20px;
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
@@ -290,6 +290,11 @@
         .status-storniert {
             background-color: #f8d7da;
             color: #721c24;
+        }
+
+        .status-event-beendet {
+            background-color: #e2e3e5;
+            color: #383d41;
         }
 
         .new-email-badge {
@@ -2013,17 +2018,57 @@
             <span>☰</span>
         </div>
         <div class="burger-dropdown" id="burgerDropdown">
+            <button onclick="switchToCardsView(); closeBurgerMenu();">🎴 Karten-Ansicht</button>
+            <button onclick="switchToTableView(); closeBurgerMenu();">📋 Tabellen-Ansicht</button>
+            <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
             <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
             <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
             <button onclick="openPriceSettings(); closeBurgerMenu();">💰 Preise verwalten</button>
             <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
-            <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mail Import (JSON)</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
         </div>
     </div>
 
     <div class="container">
+        <div class="filter-section">
+            <div class="filter-header" onclick="toggleFilters()">
+                <h3>🔍 Filter</h3>
+                <span class="filter-toggle-icon collapsed" id="filterToggleIcon">▼</span>
+            </div>
+            <div class="filter-content collapsed" id="filterContent">
+                <div class="date-filter-row">
+                    <div>
+                        <label for="statusFilter">Status:</label>
+                        <select id="statusFilter">
+                            <option value="alle" selected>Alle</option>
+                            <option value="Anfrage">Anfrage</option>
+                            <option value="Neu">Neu</option>
+                            <option value="Gebucht">Gebucht</option>
+                            <option value="Rechnung versendet">Rechnung versendet</option>
+                            <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
+                            <option value="Event beendet">Event beendet</option>
+                            <option value="Archiviert">Archiviert</option>
+                            <option value="Storniert">Storniert</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="nameFilter">Name suchen:</label>
+                        <input type="text" id="nameFilter" placeholder="Name, Firma...">
+                    </div>
+                    <div>
+                        <label for="dateFromFilter">Von Datum:</label>
+                        <input type="date" id="dateFromFilter">
+                    </div>
+                    <div>
+                        <label for="dateToFilter">Bis Datum:</label>
+                        <input type="date" id="dateToFilter">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
             <div>
                 <h1>📊 Buchungsübersicht</h1>
@@ -2035,98 +2080,63 @@
             </div>
         </div>
 
-        <div id="dataInfo" style="display: none; margin-bottom: 20px; padding: 15px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 5px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <strong>Geladene Einträge:</strong> <span id="totalEntries">0</span> von <span id="csvLines">0</span> CSV-Zeilen
-                    <br>
-                    <strong>Angezeigte Einträge:</strong> <span id="displayedEntries">0</span>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="document.getElementById('csvImportInput').click()" class="btn btn-secondary" style="margin: 0;">📤 CSV importieren</button>
-                    <button onclick="document.getElementById('jsonImportInput').click()" class="btn btn-secondary" style="margin: 0;">📧 E-Mail Import (JSON)</button>
-                    <button onclick="exportToCSV()" class="btn btn-primary" style="margin: 0;">📥 CSV exportieren</button>
-                </div>
-            </div>
+        <!-- Import/Export Bereich ausgeblendet - Funktionen sind im Burger-Menü verfügbar -->
+        <div id="dataInfo" style="display: none !important;">
+            <span id="totalEntries" style="display: none;">0</span>
+            <span id="csvLines" style="display: none;">0</span>
+            <span id="displayedEntries" style="display: none;">0</span>
         </div>
 
         <input type="file" id="csvImportInput" accept=".csv" style="display: none;">
         <input type="file" id="jsonImportInput" accept=".json" style="display: none;">
+        <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
 
-        <div id="fileUploadSection" style="margin-bottom: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px; text-align: center;">
-            <label for="csvFileInput" style="cursor: pointer; display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; font-weight: 600; transition: transform 0.2s;">
-                📁 CSV-Datei auswählen
-                <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
-            </label>
-            <p style="margin-top: 10px; color: #666; font-size: 0.9em;">Bitte wähle die Datei "anfragen-export-2026-07-14 (1).csv" aus</p>
+        <!-- File Upload Section ausgeblendet - Funktionen sind im Burger-Menü verfügbar -->
+        <div id="fileUploadSection" style="display: none !important;">
         </div>
 
-        <div class="stats" id="stats">
-            <div class="stat-card gebucht">
-                <h3>GEBUCHT</h3>
-                <div class="number" id="stat-gebucht">0</div>
-            </div>
-            <div class="stat-card neu">
-                <h3>NEU</h3>
-                <div class="number" id="stat-neu">0</div>
-            </div>
-            <div class="stat-card email" onclick="document.getElementById('jsonImportInput').click()" title="Klicken um E-Mails zu prüfen">
-                <h3>📧 E-MAILS</h3>
-                <div class="number" id="stat-email">0</div>
-            </div>
-            <div class="stat-card gesamt">
-                <h3>GESAMT</h3>
-                <div class="number" id="stat-gesamt">0</div>
+        <!-- Statistik klappbar -->
+        <div style="margin: 20px 0; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+            <h3 onclick="toggleStats()" style="margin: 0; padding: 15px 20px; font-size: 1.1em; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <span>📊 Statistik</span>
+                <span id="statsToggleIcon" style="font-size: 1.2em; transition: transform 0.3s;">▶</span>
+            </h3>
+            <div id="statsContainer" style="display: none;">
+                <div class="stats" id="stats" style="margin: 0;">
+                    <div class="stat-card gebucht">
+                        <h3>GEBUCHT</h3>
+                        <div class="number" id="stat-gebucht">0</div>
+                    </div>
+                    <div class="stat-card neu">
+                        <h3>NEU</h3>
+                        <div class="number" id="stat-neu">0</div>
+                    </div>
+                    <div class="stat-card email" onclick="document.getElementById('jsonImportInput').click()" title="Klicken um E-Mails zu prüfen">
+                        <h3>📧 E-MAILS</h3>
+                        <div class="number" id="stat-email">0</div>
+                    </div>
+                    <div class="stat-card gesamt">
+                        <h3>GESAMT</h3>
+                        <div class="number" id="stat-gesamt">0</div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="view-toggle">
+        <!-- View-Toggle ausgeblendet - Funktionen sind im Burger-Menü verfügbar -->
+        <div class="view-toggle" style="display: none;">
             <button id="viewCards" class="active">🎴 Karten-Ansicht</button>
             <button id="viewTable">📋 Tabellen-Ansicht</button>
-            <button onclick="document.getElementById('jsonImportInput').click()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%); border-color: #ff6b6b;">📧 E-Mails prüfen</button>
         </div>
 
         <!-- Bevorstehende Termine diese Woche -->
-        <div id="upcomingWeekPreview" style="display: none; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-            <h3 style="color: white; margin-bottom: 15px; font-size: 1.1em;">📅 Bevorstehende Termine diese Woche</h3>
-            <div id="upcomingWeekContainer" style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px;">
+        <div id="upcomingWeekPreview" style="display: none; margin: 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <h3 onclick="toggleUpcomingWeek()" style="color: white; margin: 0; padding: 15px; font-size: 1.1em; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+                <span>📅 Bevorstehende Termine diese Woche</span>
+                <span id="upcomingWeekToggleIcon" style="font-size: 1.2em; transition: transform 0.3s;">▶</span>
+            </h3>
+            <div id="upcomingWeekContainer" style="display: none; padding: 0 15px 15px 15px; gap: 15px; overflow-x: auto;">
                 <!-- Dynamisch gefüllt -->
-            </div>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-header" onclick="toggleFilters()">
-                <h3>🔍 Filter</h3>
-                <span class="filter-toggle-icon collapsed" id="filterToggleIcon">▼</span>
-            </div>
-            <div class="filter-content collapsed" id="filterContent">
-                <div class="date-filter-row">
-                    <div>
-                        <label for="nameFilter">Name suchen:</label>
-                        <input type="text" id="nameFilter" placeholder="Name, Firma...">
-                    </div>
-                    <div>
-                        <label for="statusFilter">Status:</label>
-                        <select id="statusFilter">
-                            <option value="alle" selected>Alle</option>
-                            <option value="Anfrage">Anfrage</option>
-                            <option value="Neu">Neu</option>
-                            <option value="Gebucht">Gebucht</option>
-                            <option value="Rechnung versendet">Rechnung versendet</option>
-                            <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
-                            <option value="Archiviert">Archiviert</option>
-                            <option value="Storniert">Storniert</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="dateFromFilter">Von Datum:</label>
-                        <input type="date" id="dateFromFilter">
-                    </div>
-                    <div>
-                        <label for="dateToFilter">Bis Datum:</label>
-                        <input type="date" id="dateToFilter">
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -2189,6 +2199,7 @@
                             <option value="Gebucht">Gebucht</option>
                             <option value="Rechnung versendet">Rechnung versendet</option>
                             <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
+                            <option value="Event beendet">Event beendet</option>
                             <option value="Archiviert">Archiviert</option>
                             <option value="Storniert">Storniert</option>
                         </select>
@@ -2202,8 +2213,8 @@
                         <input type="email" id="formEmail">
                     </div>
                     <div class="form-group">
-                        <label for="formPhone">Telefon</label>
-                        <input type="tel" id="formPhone">
+                        <label for="formPhone">Telefon <span style="color: red;">*</span></label>
+                        <input type="tel" id="formPhone" required>
                     </div>
                     <div class="form-group">
                         <label for="formCompany">Firma</label>
@@ -2234,16 +2245,16 @@
                         <input type="text" id="formStreet">
                     </div>
                     <div class="form-group">
-                        <label for="formPLZ">PLZ</label>
-                        <input type="text" id="formPLZ">
+                        <label for="formPLZ">PLZ <span style="color: red;">*</span></label>
+                        <input type="text" id="formPLZ" required>
                     </div>
                     <div class="form-group">
-                        <label for="formCity">Stadt</label>
-                        <input type="text" id="formCity">
+                        <label for="formCity">Stadt <span style="color: red;">*</span></label>
+                        <input type="text" id="formCity" required>
                     </div>
                     <div class="form-group">
-                        <label for="formLocation">Veranstaltungsort</label>
-                        <input type="text" id="formLocation" placeholder="z.B. Garten, Halle">
+                        <label for="formLocation">Veranstaltungsort <span style="color: red;">*</span></label>
+                        <input type="text" id="formLocation" placeholder="z.B. Garten, Halle" required>
                     </div>
                     <div class="form-group">
                         <label for="formDistance">Entfernung (km)</label>
@@ -3213,7 +3224,8 @@
             }
 
             // Sortieren
-            sortBookings(filtered);
+            let isFiltered = (nameFilter !== '' || statusFilter !== 'alle' || dateFrom !== '' || dateTo !== '');
+            sortBookings(filtered, isFiltered);
 
             // Bevorstehende Termine diese Woche anzeigen
             displayUpcomingWeek();
@@ -3250,6 +3262,7 @@
 
             const container = document.getElementById('upcomingWeekContainer');
             const preview = document.getElementById('upcomingWeekPreview');
+            const icon = document.getElementById('upcomingWeekToggleIcon');
 
             if (upcomingThisWeek.length === 0) {
                 preview.style.display = 'none';
@@ -3257,6 +3270,17 @@
             }
 
             preview.style.display = 'block';
+
+            // Status aus localStorage laden (standardmäßig zugeklappt)
+            const isExpanded = localStorage.getItem('upcomingWeekExpanded') === 'true';
+
+            if (isExpanded) {
+                container.style.display = 'flex';
+                icon.textContent = '▼';
+            } else {
+                container.style.display = 'none';
+                icon.textContent = '▶';
+            }
 
             container.innerHTML = upcomingThisWeek.map((booking, index) => {
                 const dateTime = parseDateTime(booking.date, booking.time);
@@ -3298,23 +3322,93 @@
             }).join('');
         }
 
+        // Toggle für bevorstehende Termine
+        function toggleUpcomingWeek() {
+            const container = document.getElementById('upcomingWeekContainer');
+            const icon = document.getElementById('upcomingWeekToggleIcon');
+            const isExpanded = container.style.display === 'flex';
+
+            if (isExpanded) {
+                container.style.display = 'none';
+                icon.textContent = '▶';
+                icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('upcomingWeekExpanded', 'false');
+            } else {
+                container.style.display = 'flex';
+                icon.textContent = '▼';
+                icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('upcomingWeekExpanded', 'true');
+            }
+        }
+
+        // Toggle für Statistik
+        function toggleStats() {
+            const container = document.getElementById('statsContainer');
+            const icon = document.getElementById('statsToggleIcon');
+            const isExpanded = container.style.display === 'block';
+
+            if (isExpanded) {
+                container.style.display = 'none';
+                icon.textContent = '▶';
+                icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('statsExpanded', 'false');
+            } else {
+                container.style.display = 'block';
+                icon.textContent = '▼';
+                icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('statsExpanded', 'true');
+            }
+        }
+
+        // Statistik-Status beim Laden wiederherstellen
+        document.addEventListener('DOMContentLoaded', function() {
+            const statsExpanded = localStorage.getItem('statsExpanded') === 'true';
+            const container = document.getElementById('statsContainer');
+            const icon = document.getElementById('statsToggleIcon');
+
+            if (statsExpanded) {
+                container.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                container.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        });
+
+        // Helper-Funktionen für View-Toggle im Burger-Menü
+        function switchToCardsView() {
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+            filterAndDisplay();
+        }
+
+        function switchToTableView() {
+            currentView = 'table';
+            document.getElementById('viewTable').classList.add('active');
+            document.getElementById('viewCards').classList.remove('active');
+            filterAndDisplay();
+        }
+
         // Sortieren
-        function sortBookings(bookings) {
+        function sortBookings(bookings, isFiltered = false) {
             const now = new Date();
 
             // Finde den nächsten zukünftigen Termin (nur Datum, ohne Uhrzeit)
             let nextDate = null;
-            bookings.forEach(booking => {
-                const bookingDateTime = parseDateTime(booking.date, booking.time);
-                const isUpcoming = bookingDateTime >= now && (booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage');
+            if (!isFiltered) {
+                bookings.forEach(booking => {
+                    const bookingDateTime = parseDateTime(booking.date, booking.time);
+                    const isUpcoming = bookingDateTime >= now && (booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage');
 
-                if (isUpcoming) {
-                    const bookingDateOnly = parseDate(booking.date);
-                    if (!nextDate || bookingDateOnly < nextDate) {
-                        nextDate = bookingDateOnly;
+                    if (isUpcoming) {
+                        const bookingDateOnly = parseDate(booking.date);
+                        if (!nextDate || bookingDateOnly < nextDate) {
+                            nextDate = bookingDateOnly;
+                        }
                     }
-                }
-            });
+                });
+            }
 
             bookings.sort((a, b) => {
                 const aDateTime = parseDateTime(a.date, a.time);
@@ -3322,35 +3416,40 @@
                 const aDateOnly = parseDate(a.date);
                 const bDateOnly = parseDate(b.date);
 
-                // Prüfe ob Termin in der Zukunft ist und Status aktiv
-                const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
-                const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
+                if (!isFiltered) {
+                    // Prüfe ob Termin in der Zukunft ist und Status aktiv
+                    const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
+                    const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
 
-                // Prüfe ob Termin am nächsten Tag ist
-                const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsUpcoming;
-                const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsUpcoming;
+                    // Prüfe ob Termin am nächsten Tag ist
+                    const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsUpcoming;
+                    const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsUpcoming;
 
-                // Termine am nächsten Tag kommen GANZ OBEN
-                if (aIsNextDay && !bIsNextDay) return -1;
-                if (!aIsNextDay && bIsNextDay) return 1;
+                    // Termine am nächsten Tag kommen GANZ OBEN
+                    if (aIsNextDay && !bIsNextDay) return -1;
+                    if (!aIsNextDay && bIsNextDay) return 1;
 
-                // Wenn beide am nächsten Tag sind, sortiere nach Uhrzeit
-                if (aIsNextDay && bIsNextDay) {
-                    return aDateTime - bDateTime;
-                }
+                    // Wenn beide am nächsten Tag sind, sortiere nach Uhrzeit
+                    if (aIsNextDay && bIsNextDay) {
+                        return aDateTime - bDateTime;
+                    }
 
-                // Andere bevorstehende Termine kommen danach
-                if (aIsUpcoming && !bIsUpcoming) return -1;
-                if (!aIsUpcoming && bIsUpcoming) return 1;
+                    // Andere bevorstehende Termine kommen danach
+                    if (aIsUpcoming && !bIsUpcoming) return -1;
+                    if (!aIsUpcoming && bIsUpcoming) return 1;
 
-                // Wenn beide bevorstehend, sortiere nach Datum
-                if (aIsUpcoming && bIsUpcoming) {
-                    return aDateTime - bDateTime;
-                }
+                    // Wenn beide bevorstehend, sortiere nach Datum
+                    if (aIsUpcoming && bIsUpcoming) {
+                        return aDateTime - bDateTime;
+                    }
 
-                // Vergangene Termine kommen zuletzt
-                if (!aIsUpcoming && !bIsUpcoming) {
-                    return bDateTime - aDateTime; // Neueste vergangene zuerst
+                    // Vergangene Termine kommen zuletzt
+                    if (!aIsUpcoming && !bIsUpcoming) {
+                        return bDateTime - aDateTime; // Neueste vergangene zuerst
+                    }
+                } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
+                    // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
+                    return bDateTime - aDateTime;
                 }
 
                 // Wenn beide in dieser Woche oder beide nicht, nach der gewählten Spalte sortieren
@@ -3831,15 +3930,20 @@
             const now = new Date();
             const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
 
+            // Firma-Feld: Wenn leer, Name verwenden (für Rechnung)
+            const name = document.getElementById('formName').value;
+            const companyField = document.getElementById('formCompany').value.trim();
+            const company = companyField || name;
+
             if (currentEditingBookingId) {
                 // BEARBEITEN - Bestehende Buchung aktualisieren
                 const booking = allBookings.find(b => b.id === currentEditingBookingId);
                 if (booking) {
                     booking.status = document.getElementById('formStatus').value;
-                    booking.name = document.getElementById('formName').value;
+                    booking.name = name;
                     booking.email = document.getElementById('formEmail').value;
                     booking.phone = document.getElementById('formPhone').value;
-                    booking.company = document.getElementById('formCompany').value;
+                    booking.company = company;
                     booking.date = formattedDate;
                     booking.time = document.getElementById('formTime').value;
                     booking.timeEnd = document.getElementById('formTimeEnd').value;
@@ -3870,10 +3974,10 @@
                 const newBooking = {
                     id: newId.toString(),
                     status: document.getElementById('formStatus').value,
-                    name: document.getElementById('formName').value,
+                    name: name,
                     email: document.getElementById('formEmail').value,
                     phone: document.getElementById('formPhone').value,
-                    company: document.getElementById('formCompany').value,
+                    company: company,
                     date: formattedDate,
                     time: document.getElementById('formTime').value,
                     timeEnd: document.getElementById('formTimeEnd').value,
