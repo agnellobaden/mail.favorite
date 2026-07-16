@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Export Tool - Anleitung</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+
+        .step h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .step ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .step li {
+            margin: 10px 0;
+            line-height: 1.8;
+        }
+
+        .code-box {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin: 5px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍦 Gmail Export Tool</h1>
+        <p class="subtitle">Schritt-für-Schritt Anleitung für EisFavorite</p>
+
+        <div class="step">
+            <h2><span class="step-number">1</span> Python & Pakete installieren</h2>
+            <ul>
+                <li>📥 Falls noch nicht installiert: <a href="https://www.python.org/downloads/" target="_blank" class="button">Python herunterladen</a></li>
+                <li>⚠️ Bei Installation <strong>"Add Python to PATH"</strong> anhaken!</li>
+                <li>🔧 Doppelklick auf <strong>INSTALL.bat</strong></li>
+            </ul>
+            <div class="success">
+                <strong>✅ Fertig?</strong> Du solltest "Installation erfolgreich!" sehen
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">2</span> Google Cloud Console öffnen</h2>
+            <ul>
+                <li>🌐 Öffne: <a href="https://console.cloud.google.com/" target="_blank" class="button">Google Cloud Console</a></li>
+                <li>🔐 Melde dich mit <strong>eisfavorit@gmail.com</strong> an</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">3</span> Neues Projekt erstellen</h2>
+            <ul>
+                <li>Klicke oben links auf <strong>"Projekt auswählen"</strong></li>
+                <li>Klicke auf <strong>"NEUES PROJEKT"</strong></li>
+                <li>Name: <code>EisFavorite Mail Export</code></li>
+                <li>Klicke auf <strong>"ERSTELLEN"</strong></li>
+            </ul>
+            <div class="info">
+                ℹ️ Das Projekt kann einige Sekunden dauern, bis es erstellt ist
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">4</span> Gmail API aktivieren</h2>
+            <ul>
+                <li>Gehe zu <strong>"APIs & Dienste" → "Bibliothek"</strong></li>
+                <li>🔍 Suche nach <strong>"Gmail API"</strong></li>
+                <li>Klicke darauf und dann auf <strong>"AKTIVIEREN"</strong></li>
+            </ul>
+            <div class="success">
+                ✅ Die Gmail API ist jetzt aktiv für dein Projekt
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">5</span> OAuth-Zustimmungsbildschirm einrichten</h2>
+            <ul>
+                <li>Gehe zu <strong>"APIs & Dienste" → "OAuth-Zustimmungsbildschirm"</strong></li>
+                <li>Wähle <strong>"Extern"</strong> und klicke auf <strong>"ERSTELLEN"</strong></li>
+                <li>Fülle aus:
+                    <ul>
+                        <li>App-Name: <code>EisFavorite Mail Export</code></li>
+                        <li>Nutzer-Support-E-Mail: <code>eisfavorit@gmail.com</code></li>
+                        <li>Entwickler-Kontakt: <code>eisfavorit@gmail.com</code></li>
+                    </ul>
+                </li>
+                <li>Klicke auf <strong>"SPEICHERN UND FORTFAHREN"</strong></li>
+                <li>Bei "Bereiche": <strong>"BEREICHE HINZUFÜGEN"</strong></li>
+                <li>Suche <strong>"Gmail API"</strong> und wähle:
+                    <div class="code-box">.../auth/gmail.readonly</div>
+                </li>
+                <li><strong>"SPEICHERN UND FORTFAHREN"</strong></li>
+                <li>Bei "Testnutzer": <strong>"NUTZER HINZUFÜGEN"</strong></li>
+                <li>Füge hinzu: <code>eisfavorit@gmail.com</code></li>
+                <li><strong>"SPEICHERN UND FORTFAHREN"</strong></li>
+            </ul>
+            <div class="warning">
+                ⚠️ <strong>Wichtig:</strong> Vergiss nicht, dich selbst als Testnutzer hinzuzufügen!
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">6</span> OAuth-Client-ID erstellen</h2>
+            <ul>
+                <li>Gehe zu <strong>"APIs & Dienste" → "Anmeldedaten"</strong></li>
+                <li>Klicke auf <strong>"+ ANMELDEDATEN ERSTELLEN"</strong></li>
+                <li>Wähle <strong>"OAuth-Client-ID"</strong></li>
+                <li>Anwendungstyp: <strong>"Desktopanwendung"</strong></li>
+                <li>Name: <code>EisFavorite Desktop Client</code></li>
+                <li>Klicke auf <strong>"ERSTELLEN"</strong></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">7</span> Credentials herunterladen</h2>
+            <ul>
+                <li>📥 Klicke auf das Download-Symbol (↓) neben der Client-ID</li>
+                <li>💾 Speichere die Datei als <strong>credentials.json</strong> hier:
+                    <div class="code-box">c:\Users\aagne\OneDrive\Desktop\mail.eisfavorite\credentials.json</div>
+                </li>
+            </ul>
+            <div class="success">
+                ✅ <strong>credentials.json</strong> sollte jetzt im Projektordner sein
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">8</span> Tool starten!</h2>
+            <ul>
+                <li>🚀 Doppelklick auf <strong>START.bat</strong></li>
+                <li>🌐 Ein Browser-Fenster öffnet sich automatisch</li>
+                <li>🔐 Melde dich mit <strong>eisfavorit@gmail.com</strong> an</li>
+                <li>✅ Klicke auf <strong>"Zulassen"</strong></li>
+                <li>🎯 Wähle deine Such-Option (z.B. "1" für letzte 30 Tage)</li>
+            </ul>
+            <div class="success">
+                <strong>🎉 Fertig!</strong> Das Tool exportiert jetzt deine E-Mails als JSON
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">9</span> JSON importieren</h2>
+            <ul>
+                <li>📄 Eine Datei wie <code>buchungen-export-2026-07-15.json</code> wurde erstellt</li>
+                <li>🌐 Öffne: <a href="https://maileisfavorite.vercel.app" target="_blank" class="button">Buchungsverwaltung</a></li>
+                <li>📧 Klicke auf <strong>"E-Mails prüfen"</strong></li>
+                <li>📁 Wähle die JSON-Datei aus</li>
+                <li>✨ Alle Buchungen werden mit "📧 Neu eingetroffen!" Badge angezeigt!</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <strong>💡 Tipp:</strong> Nach dem ersten Setup musst du nur noch <strong>START.bat</strong> ausführen - die Authentifizierung wird gespeichert!
+        </div>
+
+        <div class="links">
+            <h3>📚 Weitere Ressourcen</h3>
+            <a href="SETUP.md" class="button">📖 Detaillierte Anleitung</a>
+            <a href="README-GMAIL-TOOL.md" class="button">ℹ️ README</a>
+            <a href="https://console.cloud.google.com/" target="_blank" class="button">☁️ Google Cloud</a>
+            <a href="https://maileisfavorite.vercel.app" target="_blank" class="button">🍦 Buchungsverwaltung</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; color: #999; padding-top: 30px; border-top: 2px solid #eee;">
+            <p>Erstellt mit ❤️ für EisFavorite 🍦</p>
+            <p style="margin-top: 10px;">Bei Fragen oder Problemen: Überprüfe alle Schritte oder lies die detaillierte Anleitung</p>
+        </div>
+    </div>
+</body>
+</html>

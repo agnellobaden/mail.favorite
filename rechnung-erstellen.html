@@ -6,6 +6,7 @@
     <title>Rechnung erstellen - EisFavorite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1213,24 +1214,60 @@
             }
 
             try {
-                // Zuerst PDF automatisch generieren und herunterladen
-                console.log('📄 Generiere PDF automatisch...');
-                generatePDF();
+                // Zeige Ladeanzeige
+                alert('📧 E-Mail wird vorbereitet...\n\nBitte warten Sie einen Moment, das PDF wird generiert und die E-Mail wird versendet.');
 
-                // Buchungsstatus aktualisieren
-                if (bookingId) {
-                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+                // PDF als Base64 generieren (OHNE Download)
+                console.log('📄 Generiere PDF...');
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
 
-                    if (bookingIndex !== -1) {
-                        bookings[bookingIndex].invoiceSent = true;
-                        bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
-                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-                    }
-                }
+                // PDF-Inhalt erstellen (gekürzte Version - nur die wichtigsten Infos)
+                doc.setFontSize(24);
+                doc.text('EisFavorite', 20, 20);
+                doc.setFontSize(18);
+                doc.text('RECHNUNG', 150, 20);
 
-                // E-Mail-Text vorbereiten
+                doc.setFontSize(10);
+                doc.text('Eis Agnello', 20, 35);
+                doc.text('Favoritenstrasse 11', 20, 40);
+                doc.text('76456 Kuppenheim', 20, 45);
+
+                // Kunde
+                doc.setFontSize(12);
+                doc.text(customerCompany, 20, 60);
+                if (customerContact) doc.text(customerContact, 20, 65);
+                doc.text(document.getElementById('customerStreet').textContent, 20, 70);
+                doc.text(`${document.getElementById('customerPostalCode').textContent} ${document.getElementById('customerCity').textContent}`, 20, 75);
+
+                // Rechnungsdetails
+                doc.setFontSize(10);
+                doc.text(`Rechnungsnummer: ${invoiceNumber}`, 150, 60, { align: 'right' });
+                doc.text(`Datum: ${document.getElementById('invoiceDate').textContent}`, 150, 65, { align: 'right' });
+
+                // Positionen (vereinfacht)
+                let y = 95;
+                doc.text('Positionen:', 20, y);
+                y += 10;
+
+                const rows = document.querySelectorAll('#itemsBody tr');
+                rows.forEach(row => {
+                    const desc = row.querySelector('.item-description').value.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/\n/g, ' ').trim();
+                    const qty = row.querySelector('.item-quantity').value;
+                    const total = row.querySelector('.item-brutto-total').value;
+                    doc.text(`${desc} (${qty}x): ${total}`, 20, y);
+                    y += 6;
+                });
+
+                // Summen
+                y += 10;
+                doc.text(`Gesamt (Brutto): ${document.getElementById('totalBrutto').textContent}`, 20, y);
+
+                // PDF als Base64-String speichern
+                const pdfBase64 = doc.output('dataurlstring').split(',')[1];
+                const filename = `Rechnung_${invoiceNumber}_${customerCompany.replace(/\s+/g, '_')}.pdf`;
+
+                // E-Mail-Text
                 const recipient = customerContact || customerCompany;
                 const emailBody = `Liebe/r ${recipient},
 
@@ -1255,25 +1292,55 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // Gmail-Link erstellen (mit BCC-Kopie an eisfavorit@gmail.com)
-                const gmailLink = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(customerEmail)}&bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+                // EmailJS initialisieren und E-Mail senden
+                emailjs.init('YOUR_PUBLIC_KEY_HERE'); // WICHTIG: Hier deinen EmailJS Public Key eintragen!
 
-                console.log('📧 Öffne Gmail für:', customerEmail);
-                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
+                const templateParams = {
+                    to_email: customerEmail,
+                    bcc_email: 'eisfavorit@gmail.com',
+                    subject: `Rechnung ${invoiceNumber} - Vielen Dank!`,
+                    message: emailBody,
+                    attachment: pdfBase64,
+                    filename: filename
+                };
 
-                // Gmail nach kurzer Verzögerung öffnen (damit PDF-Download zuerst startet)
-                setTimeout(() => {
-                    window.open(gmailLink, '_blank');
-                }, 500);
+                console.log('📧 Sende E-Mail an:', customerEmail);
+                const response = await emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams);
 
-                // Erfolgsmeldung
-                setTimeout(() => {
-                    alert('✓ PDF wurde heruntergeladen!\n✓ Gmail wurde geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nDas PDF wurde heruntergeladen - bitte hängen Sie es jetzt in Gmail an die E-Mail an (📎 Anhang hinzufügen).');
-                }, 1000);
+                // Buchungsstatus aktualisieren
+                if (bookingId) {
+                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                    if (bookingIndex !== -1) {
+                        bookings[bookingIndex].invoiceSent = true;
+                        bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                    }
+                }
+
+                alert('✅ E-Mail erfolgreich versendet!\n\n✓ Rechnung wurde an ' + customerEmail + ' gesendet\n✓ BCC-Kopie an eisfavorit@gmail.com\n✓ PDF automatisch angehängt\n✓ Status gespeichert');
 
             } catch (error) {
-                console.error('Fehler beim Erstellen der E-Mail:', error);
-                alert('Fehler beim Erstellen der E-Mail.\n\nDetails: ' + error.message + '\n\nBitte versuchen Sie es erneut oder verwenden Sie "Als versendet markieren".');
+                console.error('Fehler beim E-Mail-Versand:', error);
+
+                // Fallback zu Gmail wenn EmailJS nicht konfiguriert ist
+                if (error.message && error.message.includes('YOUR_')) {
+                    alert('⚠️ EmailJS ist noch nicht konfiguriert!\n\nÖffne Gmail als Fallback...');
+
+                    // PDF normal herunterladen
+                    generatePDF();
+
+                    // Gmail öffnen
+                    const recipient = customerContact || customerCompany;
+                    const emailBody = `Liebe/r ${recipient},\n\nherzlichen Dank für Ihren Auftrag...`;
+                    const gmailLink = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(customerEmail)}&bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+
+                    setTimeout(() => window.open(gmailLink, '_blank'), 500);
+                } else {
+                    alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message + '\n\nBitte versuche es erneut oder verwende "Als versendet markieren".');
+                }
             }
         }
 

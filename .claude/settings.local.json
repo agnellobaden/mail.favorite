@@ -7,7 +7,21 @@
       "Bash(head:*)",
       "Bash(git init:*)",
       "Bash(dir:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: EisFavorite Buchungsverwaltung\n\nNeue Features:\n- Sortierung: Aktuelle Termine bis Ende der Woche ganz oben\n- E-Mail-Adresse vollständig anzeigen und als anklickbarer Link\n- Telefonnummer als anklickbarer Link (tel:)\n- Geschätzter Umsatz: Gäste × Kugeln × 1,80€\n- Anfahrtskosten-Berechnung:\n  * Ab 6 km: 45 Euro\n  * Ab 10 km: 55 Euro  \n  * Dann jeden weiteren 10 km: +10 Euro\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh:*)",
+      "Bash(nul)",
+      "Bash(vercel --version:*)",
+      "Bash(npm install:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(vercel:*)",
+      "Bash(start \"\" \"https://maileisfavorite.vercel.app\")",
+      "Bash(git revert:*)",
+      "Bash(start \"\" \"C:\\Users\\aagne\\OneDrive\\Desktop\\mail.eisfavorite\\ANLEITUNG.html\")",
+      "Bash(start \"\" \"C:\\Users\\aagne\\OneDrive\\Desktop\\mail.eisfavorite\\email-zu-json.html\")",
+      "Bash(start \"\" \"C:\\Users\\aagne\\OneDrive\\Desktop\\mail.eisfavorite\\rechnung-erstellen.html\")"
     ],
     "deny": [],
     "ask": []

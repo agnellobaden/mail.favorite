@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Mail zu JSON Konverter - EisFavorite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+        }
+
+        .instructions h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px 5px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .button.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        .preview {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #667eea;
+        }
+
+        .stat-box .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-box .label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #155724;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .example {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .example strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 E-Mail zu JSON Konverter</h1>
+        <p class="subtitle">Kopiere E-Mail-Texte und konvertiere sie zu JSON für die Buchungsverwaltung</p>
+
+        <div class="instructions">
+            <h3>🚀 So einfach geht's:</h3>
+            <ol>
+                <li><strong>Öffne Gmail</strong> und gehe zu eisfavorit@gmail.com</li>
+                <li><strong>Öffne eine Buchungsanfrage</strong></li>
+                <li><strong>Markiere den gesamten E-Mail-Text</strong> (Strg+A)</li>
+                <li><strong>Kopiere ihn</strong> (Strg+C)</li>
+                <li><strong>Füge ihn unten ein</strong> (Strg+V)</li>
+                <li><strong>Füge weitere E-Mails hinzu</strong> (eine E-Mail pro "Neue E-Mail hinzufügen")</li>
+                <li><strong>Klicke auf "JSON erstellen"</strong></li>
+                <li><strong>Klicke auf "JSON herunterladen"</strong></li>
+                <li><strong>Importiere die JSON-Datei</strong> in die Buchungsverwaltung</li>
+            </ol>
+
+            <div class="example">
+                <strong>💡 Tipp:</strong> Du kannst mehrere E-Mails nacheinander hinzufügen. Jede E-Mail wird als separate Buchung exportiert!
+            </div>
+        </div>
+
+        <div class="input-section">
+            <h3>📝 E-Mail #<span id="emailCount">1</span></h3>
+            <div id="emailInputs">
+                <div class="email-input-wrapper">
+                    <textarea id="emailText0" placeholder="Füge hier den kompletten E-Mail-Text ein...
+
+📧 BEISPIEL - So könnte eine E-Mail aussehen:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Von: Sarah Weber <sarah.weber@hochzeit-events.de>
+Betreff: Buchungsanfrage - Hochzeitsfeier August 2026
+
+Sehr geehrtes EisFavorite Team,
+
+vielen Dank für Ihre schnelle Rückmeldung! Wir möchten für unsere
+Hochzeitsfeier am 15.08.2026 ab 14:30 Uhr gerne Ihr köstliches Eis
+für unsere Gäste buchen.
+
+📅 Details zur Veranstaltung:
+• Datum: 15. August 2026
+• Uhrzeit: 14:30 bis 18:00 Uhr
+• Anzahl Gäste: ca. 120 Personen
+• Anlass: Hochzeitsfeier
+
+📍 Veranstaltungsort:
+Schloss Favorite - Roter Saal
+Schlossallee 5
+76437 Rastatt
+
+Unsere Wunschsorten wären:
+🍦 Vanille (klassisch)
+🍫 Schokolade (sehr beliebt!)
+🍓 Erdbeere (für die Kinder)
+
+Optional würden wir auch gerne Pistazie oder Stracciatella
+als Alternativen anbieten, falls verfügbar.
+
+📞 Kontaktdaten:
+Tel: 07222 / 384756
+Mobil: 0171 8529634
+E-Mail: sarah.weber@hochzeit-events.de
+
+Firma: Weber Event Planning GmbH
+
+Besondere Wünsche:
+- Bitte 2 Kugeln pro Person einrechnen
+- Gibt es auch vegane Sorten?
+- Können Sie auch Becher und Löffel mitbringen?
+
+Bitte senden Sie uns ein unverbindliches Angebot zu.
+
+Mit freundlichen Grüßen
+Sarah Weber
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👆 Einfach diesen Text kopieren und HIER einfügen!
+Oder deine eigene E-Mail aus Gmail hierher kopieren."></textarea>
+                </div>
+            </div>
+            <button class="button secondary" onclick="addEmailInput()">➕ Neue E-Mail hinzufügen</button>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="button" onclick="convertToJSON()">✨ JSON erstellen</button>
+            <button class="button secondary" onclick="clearAll()">🗑️ Alles löschen</button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="success-message">
+                ✅ <strong>JSON erfolgreich erstellt!</strong>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="number" id="statCount">0</div>
+                    <div class="label">Buchungen</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number" id="statWithPhone">0</div>
+                    <div class="label">Mit Telefon</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number" id="statWithDate">0</div>
+                    <div class="label">Mit Datum</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number" id="statWithAddress">0</div>
+                    <div class="label">Mit Adresse</div>
+                </div>
+            </div>
+
+            <h3>📄 Vorschau:</h3>
+            <div class="preview" id="jsonPreview"></div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="button" onclick="downloadJSON()">💾 JSON herunterladen</button>
+                <button class="button secondary" onclick="copyToClipboard()">📋 In Zwischenablage kopieren</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let emailCounter = 1;
+        let currentJSON = [];
+
+        function addEmailInput() {
+            const container = document.getElementById('emailInputs');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'email-input-wrapper';
+            wrapper.style.marginTop = '20px';
+
+            const textarea = document.createElement('textarea');
+            textarea.id = `emailText${emailCounter}`;
+            textarea.placeholder = `E-Mail #${emailCounter + 1} hier einfügen...`;
+
+            wrapper.appendChild(textarea);
+            container.appendChild(wrapper);
+
+            emailCounter++;
+            document.getElementById('emailCount').textContent = emailCounter;
+
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function extractBookingData(emailText) {
+            const booking = {
+                status: 'Neu',
+                name: '',
+                email: '',
+                phone: '',
+                company: '',
+                date: '',
+                time: '',
+                timeEnd: '',
+                guests: '',
+                kugelPerGuest: '2',
+                street: '',
+                plz: '',
+                city: '',
+                distance: '',
+                location: '',
+                wunschsorten: '',
+                notizen: emailText.substring(0, 500),
+                eigeneNotizen: ''
+            };
+
+            // E-Mail-Adresse extrahieren
+            const emailMatch = emailText.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+            if (emailMatch) {
+                booking.email = emailMatch[0];
+            }
+
+            // Name extrahieren (vor E-Mail oder aus "Von:" Zeile)
+            const fromMatch = emailText.match(/(?:Von|From):\s*(.+?)\s*<?[\w\.-]+@/i);
+            if (fromMatch) {
+                booking.name = fromMatch[1].trim();
+            }
+
+            // Telefonnummer
+            const phonePatterns = [
+                /(?:Tel|Telefon|Phone|Handy|Mobil)[\s:]*([0-9\s\-\+\(\)\/]{8,})/i,
+                /(?:^|\n)(\+?49\s*\(?0?\)?[\s\-]?\d{2,4}[\s\-]?\d{3,})/,
+                /(?:^|\n)(0\d{2,5}[\s\-]?\d{3,})/
+            ];
+            for (const pattern of phonePatterns) {
+                const match = emailText.match(pattern);
+                if (match) {
+                    booking.phone = match[1].trim();
+                    break;
+                }
+            }
+
+            // Datum
+            const dateMatch = emailText.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+            if (dateMatch) {
+                booking.date = `${dateMatch[1].padStart(2, '0')}.${dateMatch[2].padStart(2, '0')}.${dateMatch[3]}`;
+            }
+
+            // Uhrzeit
+            const timeMatch = emailText.match(/(\d{1,2}):(\d{2})\s*(?:Uhr)?/);
+            if (timeMatch) {
+                booking.time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+            }
+
+            // Gästeanzahl
+            const guestsPatterns = [
+                /(\d+)\s*(?:Gäste|Personen|Leute)/i,
+                /(?:für|ca\.?)\s*(\d+)\s*(?:Gäste|Personen)/i
+            ];
+            for (const pattern of guestsPatterns) {
+                const match = emailText.match(pattern);
+                if (match) {
+                    booking.guests = match[1];
+                    break;
+                }
+            }
+
+            // Straße
+            const streetMatch = emailText.match(/([A-ZÄÖÜ][a-zäöüß]+(?:straße|str\.|weg|platz|allee))\s*(\d+[a-z]?)/i);
+            if (streetMatch) {
+                booking.street = `${streetMatch[1]} ${streetMatch[2]}`;
+            }
+
+            // PLZ und Stadt
+            const plzMatch = emailText.match(/(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[a-zäöüß]+)?)/);
+            if (plzMatch) {
+                booking.plz = plzMatch[1];
+                booking.city = plzMatch[2];
+            }
+
+            // Firma
+            const companyKeywords = ['GmbH', 'AG', 'UG', 'KG', 'OHG', 'e.V.', 'Verein', 'Club'];
+            for (const keyword of companyKeywords) {
+                if (emailText.includes(keyword)) {
+                    const companyMatch = emailText.match(new RegExp(`([A-ZÄÖÜ][A-Za-zäöüß\\s&]+${keyword})`, 'i'));
+                    if (companyMatch) {
+                        booking.company = companyMatch[1].trim();
+                        break;
+                    }
+                }
+            }
+
+            // Veranstaltungsort
+            const locationPatterns = [
+                /(?:Veranstaltungsort|Ort|Location)[\s:]+(.+?)(?:\n|$)/i,
+                /(?:in|im|am)\s+([A-ZÄÖÜ][a-zäöüß\s]+(?:Saal|Halle|Garten|Park|Hotel))/i,
+            ];
+            for (const pattern of locationPatterns) {
+                const match = emailText.match(pattern);
+                if (match) {
+                    booking.location = match[1].trim();
+                    break;
+                }
+            }
+
+            // Eissorten
+            const iceFlavors = ['Vanille', 'Schokolade', 'Erdbeere', 'Pistazie', 'Stracciatella',
+                               'Banane', 'Haselnuss', 'Kokos', 'Mango', 'Zitrone', 'Himbeere'];
+            const foundFlavors = [];
+            for (const flavor of iceFlavors) {
+                if (new RegExp(`\\b${flavor}\\b`, 'i').test(emailText)) {
+                    foundFlavors.push(flavor);
+                }
+            }
+            if (foundFlavors.length > 0) {
+                booking.wunschsorten = foundFlavors.slice(0, 3).join(', ');
+            }
+
+            return booking;
+        }
+
+        function convertToJSON() {
+            currentJSON = [];
+
+            // Alle E-Mail-Textfelder durchgehen
+            for (let i = 0; i < emailCounter; i++) {
+                const textarea = document.getElementById(`emailText${i}`);
+                if (textarea && textarea.value.trim()) {
+                    const booking = extractBookingData(textarea.value);
+                    currentJSON.push(booking);
+                }
+            }
+
+            if (currentJSON.length === 0) {
+                alert('❌ Bitte füge mindestens eine E-Mail ein!');
+                return;
+            }
+
+            // Statistiken berechnen
+            const withPhone = currentJSON.filter(b => b.phone).length;
+            const withDate = currentJSON.filter(b => b.date).length;
+            const withAddress = currentJSON.filter(b => b.plz && b.city).length;
+
+            document.getElementById('statCount').textContent = currentJSON.length;
+            document.getElementById('statWithPhone').textContent = withPhone;
+            document.getElementById('statWithDate').textContent = withDate;
+            document.getElementById('statWithAddress').textContent = withAddress;
+
+            // JSON Preview
+            document.getElementById('jsonPreview').textContent = JSON.stringify(currentJSON, null, 2);
+
+            // Result Section anzeigen
+            document.getElementById('resultSection').classList.add('show');
+
+            // Zu Result scrollen
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function downloadJSON() {
+            if (currentJSON.length === 0) {
+                alert('❌ Erstelle zuerst JSON mit "JSON erstellen"');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `buchungen-export-${timestamp}.json`;
+
+            const blob = new Blob([JSON.stringify(currentJSON, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert(`✅ JSON-Datei "${filename}" wurde heruntergeladen!\n\n📌 Nächster Schritt:\n1. Öffne https://maileisfavorite.vercel.app\n2. Klicke auf "📧 E-Mails prüfen"\n3. Wähle die Datei aus`);
+        }
+
+        function copyToClipboard() {
+            if (currentJSON.length === 0) {
+                alert('❌ Erstelle zuerst JSON mit "JSON erstellen"');
+                return;
+            }
+
+            const text = JSON.stringify(currentJSON, null, 2);
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ JSON wurde in die Zwischenablage kopiert!');
+            });
+        }
+
+        function clearAll() {
+            if (confirm('🗑️ Wirklich alles löschen?')) {
+                document.getElementById('emailInputs').innerHTML = `
+                    <div class="email-input-wrapper">
+                        <textarea id="emailText0" placeholder="Füge hier den kompletten E-Mail-Text ein..."></textarea>
+                    </div>
+                `;
+                emailCounter = 1;
+                document.getElementById('emailCount').textContent = '1';
+                currentJSON = [];
+                document.getElementById('resultSection').classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>
