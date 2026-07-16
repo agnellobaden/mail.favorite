@@ -1201,6 +1201,10 @@
             }
 
             try {
+                // Zuerst PDF automatisch generieren und herunterladen
+                console.log('📄 Generiere PDF automatisch...');
+                generatePDF();
+
                 // Buchungsstatus aktualisieren
                 if (bookingId) {
                     const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
@@ -1245,11 +1249,15 @@ Tel: +49 176 56813172`;
                 console.log('📧 Öffne Gmail für:', customerEmail);
                 console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
 
-                // Gmail in neuem Tab öffnen
-                window.open(gmailLink, '_blank');
+                // Gmail nach kurzer Verzögerung öffnen (damit PDF-Download zuerst startet)
+                setTimeout(() => {
+                    window.open(gmailLink, '_blank');
+                }, 500);
 
                 // Erfolgsmeldung
-                alert('✓ Gmail wurde geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte laden Sie das PDF herunter (PDF-Button) und hängen Sie es an die E-Mail an.');
+                setTimeout(() => {
+                    alert('✓ PDF wurde heruntergeladen!\n✓ Gmail wurde geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nDas PDF wurde heruntergeladen - bitte hängen Sie es jetzt in Gmail an die E-Mail an (📎 Anhang hinzufügen).');
+                }, 1000);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
