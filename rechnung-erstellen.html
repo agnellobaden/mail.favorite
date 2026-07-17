@@ -492,6 +492,7 @@
             <button class="btn btn-primary" onclick="generatePDF()">📄 PDF herunterladen</button>
             <button class="btn btn-success" onclick="sendInvoiceByEmail()">📧 Per E-Mail senden</button>
             <button class="btn btn-warning" onclick="markInvoiceAsSent()">✅ Als versendet markieren</button>
+            <button class="btn btn-success" onclick="markInvoiceAsPaid()" style="background: #28a745;">💰 Als bezahlt markieren</button>
         </div>
     </div>
 
@@ -795,11 +796,23 @@
             const statusBanner = document.getElementById('invoiceStatusBanner');
             const statusDetails = document.getElementById('invoiceStatusDetails');
 
-            if (booking.invoiceSent) {
+            if (booking.invoicePaid) {
+                // BEZAHLT hat höchste Priorität
                 statusBanner.style.display = 'block';
+                statusBanner.style.background = '#d4edda';
+                statusBanner.style.border = '2px solid #28a745';
+                const paidDate = booking.invoicePaidDate ? new Date(booking.invoicePaidDate).toLocaleString('de-DE') : 'Unbekannt';
+                const invoiceNum = booking.invoiceNumber || 'N/A';
+                const amount = booking.invoiceAmount || '0,00 €';
+                statusDetails.innerHTML = `<strong>✅ Rechnung BEZAHLT</strong><br>Rechnungsnummer: ${invoiceNum} | Betrag: ${amount} | Bezahlt am: ${paidDate}`;
+            } else if (booking.invoiceSent) {
+                // VERSENDET
+                statusBanner.style.display = 'block';
+                statusBanner.style.background = '#d4edda';
+                statusBanner.style.border = '2px solid #28a745';
                 const sentDate = booking.invoiceSentDate ? new Date(booking.invoiceSentDate).toLocaleString('de-DE') : 'Unbekannt';
                 const invoiceNum = booking.invoiceNumber || 'N/A';
-                statusDetails.textContent = `Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+                statusDetails.innerHTML = `<strong>✅ Rechnung versendet</strong><br>Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
             } else {
                 statusBanner.style.display = 'none';
             }
@@ -1311,6 +1324,42 @@ Tel: +49 176 56813172`;
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
                     alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!');
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
+                }
+            } else {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+            }
+        }
+
+        function markInvoiceAsPaid() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
+
+            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany}\nBetrag: ${totalBrutto}\n\nals BEZAHLT markieren?`)) {
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].invoicePaid = true;
+                    bookings[bookingIndex].invoicePaidDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
+                    bookings[bookingIndex].status = 'Bezahlte Rechnung';
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
+
+                    // Seite neu laden, um Status-Banner anzuzeigen
+                    location.reload();
                 } else {
                     alert('❌ Fehler: Buchung nicht gefunden.');
                 }
