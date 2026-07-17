@@ -2069,14 +2069,17 @@
             </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
             <div>
                 <h1>📊 Buchungsübersicht</h1>
                 <p class="subtitle">Alle Buchungen im Überblick</p>
             </div>
-            <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f8f9fa; border-radius: 8px; margin-top: 10px;">
-                <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
-                <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <a href="dashboard.html" class="btn btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; font-weight: 600; transition: all 0.3s;">💰 Dashboard</a>
+                <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f8f9fa; border-radius: 8px;">
+                    <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
+                    <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
+                </div>
             </div>
         </div>
 
