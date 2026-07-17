@@ -1242,9 +1242,11 @@
                     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
                     if (bookingIndex !== -1) {
+                        const totalBrutto = document.getElementById('totalBrutto').textContent;
                         bookings[bookingIndex].invoiceSent = true;
                         bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
                         bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                        bookings[bookingIndex].invoiceAmount = totalBrutto;
                         bookings[bookingIndex].status = 'Rechnung versendet';
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
                     }
@@ -1314,8 +1316,9 @@ Tel: +49 176 56813172`;
         function markInvoiceAsSent() {
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
 
-            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany} als versendet markieren?`)) {
+            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany}\nBetrag: ${totalBrutto}\n\nals versendet markieren?`)) {
                 return;
             }
 
@@ -1330,10 +1333,11 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].invoiceSent = true;
                     bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
                     bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
                     bookings[bookingIndex].status = 'Rechnung versendet';
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!');
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto);
                 } else {
                     alert('❌ Fehler: Buchung nicht gefunden.');
                 }
