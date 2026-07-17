@@ -2148,11 +2148,11 @@
             </h3>
             <div id="statsContainer" style="display: none;">
                 <div class="stats" id="stats" style="margin: 0;">
-                    <div class="stat-card gebucht">
+                    <div class="stat-card gebucht" onclick="filterByStatus('Gebucht')" style="cursor: pointer;" title="Klicken um nur gebuchte Anfragen zu sehen">
                         <h3>GEBUCHT</h3>
                         <div class="number" id="stat-gebucht">0</div>
                     </div>
-                    <div class="stat-card neu">
+                    <div class="stat-card neu" onclick="handleNewRequestsClick()" style="cursor: pointer;" title="Klicken um nur neue Anfragen zu sehen">
                         <h3>NEU</h3>
                         <div class="number" id="stat-neu">0</div>
                     </div>
@@ -2160,7 +2160,7 @@
                         <h3>📧 E-MAILS</h3>
                         <div class="number" id="stat-email">0</div>
                     </div>
-                    <div class="stat-card gesamt">
+                    <div class="stat-card gesamt" onclick="showAllBookings()" style="cursor: pointer;" title="Klicken um alle Buchungen zu sehen">
                         <h3>GESAMT</h3>
                         <div class="number" id="stat-gesamt">0</div>
                     </div>
@@ -2286,8 +2286,8 @@
                         <input type="number" id="formKugelPerGuest" min="0">
                     </div>
                     <div class="form-group full-width">
-                        <label for="formStreet">Straße</label>
-                        <input type="text" id="formStreet">
+                        <label for="formStreet">Straße <span style="color: red;">*</span></label>
+                        <input type="text" id="formStreet" required>
                     </div>
                     <div class="form-group">
                         <label for="formPLZ">PLZ <span style="color: red;">*</span></label>
@@ -2298,8 +2298,8 @@
                         <input type="text" id="formCity" required>
                     </div>
                     <div class="form-group">
-                        <label for="formLocation">Veranstaltungsort <span style="color: red;">*</span></label>
-                        <input type="text" id="formLocation" placeholder="z.B. Garten, Halle" required>
+                        <label for="formLocation">Veranstaltungsort</label>
+                        <input type="text" id="formLocation" placeholder="z.B. Garten, Halle">
                     </div>
                     <div class="form-group">
                         <label for="formDistance">Entfernung (km)</label>
@@ -2442,32 +2442,50 @@
                                     font-family: inherit;
                                 "></textarea>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <select id="formEmailDirection" style="
-                                    border: 1px solid #d1d1d1;
-                                    border-radius: 8px;
-                                    padding: 8px 12px;
-                                    font-size: 0.9em;
-                                    background: white;
-                                ">
-                                    <option value="received">Von Kunde</option>
-                                    <option value="sent">Von mir</option>
-                                </select>
-                                <button type="button" onclick="addEmailToFormChat()" style="
-                                    background: #25D366;
+                            <div style="display: flex; gap: 8px; align-items: flex-end;">
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <select id="formEmailDirection" style="
+                                        border: 1px solid #d1d1d1;
+                                        border-radius: 8px;
+                                        padding: 8px 12px;
+                                        font-size: 0.9em;
+                                        background: white;
+                                    ">
+                                        <option value="received">Von Kunde</option>
+                                        <option value="sent">Von mir</option>
+                                    </select>
+                                    <button type="button" onclick="addEmailToFormChat()" style="
+                                        background: #25D366;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 50%;
+                                        width: 45px;
+                                        height: 45px;
+                                        font-size: 1.5em;
+                                        cursor: pointer;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                                    " onmouseover="this.style.background='#20BA5A'" onmouseout="this.style.background='#25D366'">
+                                        ➤
+                                    </button>
+                                </div>
+                                <button type="button" onclick="sendEmailToCustomer()" title="Als E-Mail an Kunde senden" style="
+                                    background: #667eea;
                                     color: white;
                                     border: none;
                                     border-radius: 50%;
                                     width: 45px;
                                     height: 45px;
-                                    font-size: 1.5em;
+                                    font-size: 1.3em;
                                     cursor: pointer;
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
                                     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                                " onmouseover="this.style.background='#20BA5A'" onmouseout="this.style.background='#25D366'">
-                                    ➤
+                                " onmouseover="this.style.background='#5568d3'" onmouseout="this.style.background='#667eea'">
+                                    📧
                                 </button>
                             </div>
                         </div>
@@ -5657,6 +5675,57 @@
             }
         }
 
+        // E-Mail an Kunde senden
+        function sendEmailToCustomer() {
+            if (!currentEditingBookingId) return;
+
+            const booking = allBookings.find(b => b.id === currentEditingBookingId);
+            if (!booking) return;
+
+            const message = document.getElementById('formEmailMessage').value;
+
+            if (!message.trim()) {
+                alert('Bitte gib eine Nachricht ein!');
+                return;
+            }
+
+            if (!booking.email) {
+                alert('Keine E-Mail-Adresse für diesen Kunden vorhanden!');
+                return;
+            }
+
+            // E-Mail-Client öffnen mit vorausgefüllten Daten
+            const subject = 'Eisfavorite';
+            const body = message.trim();
+            const mailtoLink = `mailto:${booking.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            // E-Mail-Client öffnen
+            window.location.href = mailtoLink;
+
+            // Nachricht im Chat speichern
+            if (!booking.emailHistory) {
+                booking.emailHistory = [];
+            }
+
+            booking.emailHistory.push({
+                message: message.trim(),
+                direction: 'sent', // Von mir gesendet
+                timestamp: new Date().toISOString()
+            });
+
+            // Felder zurücksetzen
+            document.getElementById('formEmailMessage').value = '';
+
+            // Speichern und anzeigen
+            saveToLocalStorage();
+            displayFormEmailChat();
+
+            // Hinweis für den Benutzer
+            setTimeout(() => {
+                alert('✓ E-Mail-Client geöffnet!\n\nDie Nachricht wurde auch im Chat gespeichert.\n\nBitte sende die E-Mail in deinem E-Mail-Programm ab.');
+            }, 500);
+        }
+
         // ==========================================
         // PREISMANAGEMENT
         // ==========================================
@@ -6528,8 +6597,56 @@
         // ==========================================
 
         function handleNewRequestsClick() {
-            // Zeigt die Liste immer an, auch wenn es nur eine Anfrage gibt
-            toggleNewRequestsSection();
+            // Filter auf Status "Neu" setzen
+            document.getElementById('statusFilter').value = 'Neu';
+
+            // Filter anwenden
+            filterAndDisplay();
+
+            // Zur Tabelle scrollen
+            setTimeout(() => {
+                const tableSection = document.querySelector('.table-container');
+                if (tableSection) {
+                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        // Filter nach Status
+        function filterByStatus(status) {
+            // Filter auf gewählten Status setzen
+            document.getElementById('statusFilter').value = status;
+
+            // Filter anwenden
+            filterAndDisplay();
+
+            // Zur Tabelle scrollen
+            setTimeout(() => {
+                const tableSection = document.querySelector('.table-container');
+                if (tableSection) {
+                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        // Alle Buchungen anzeigen (Filter zurücksetzen)
+        function showAllBookings() {
+            // Alle Filter zurücksetzen
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('nameFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+
+            // Filter anwenden
+            filterAndDisplay();
+
+            // Zur Tabelle scrollen
+            setTimeout(() => {
+                const tableSection = document.querySelector('.table-container');
+                if (tableSection) {
+                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
         }
 
         function toggleNewRequestsSection() {
