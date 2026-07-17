@@ -1222,7 +1222,7 @@
                         bookings[bookingIndex].invoiceSent = true;
                         bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
                         bookings[bookingIndex].invoiceNumber = invoiceNumber;
-                        bookings[bookingIndex].invoiceStatus = 'Rechnung versendet';
+                        bookings[bookingIndex].status = 'Rechnung versendet';
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
                     }
                 }
@@ -1307,10 +1307,10 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].invoiceSent = true;
                     bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
                     bookings[bookingIndex].invoiceNumber = invoiceNumber;
-                    bookings[bookingIndex].invoiceStatus = 'Rechnung versendet';
+                    bookings[bookingIndex].status = 'Rechnung versendet';
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status: "Rechnung versendet"');
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!');
                 } else {
                     alert('❌ Fehler: Buchung nicht gefunden.');
                 }
