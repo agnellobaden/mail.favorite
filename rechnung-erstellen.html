@@ -493,6 +493,7 @@
             <button class="btn btn-success" onclick="sendInvoiceByEmail()">📧 Per E-Mail senden</button>
             <button class="btn btn-warning" onclick="markInvoiceAsSent()">✅ Als versendet markieren</button>
             <button class="btn btn-success" onclick="markInvoiceAsPaid()" style="background: #28a745;">💰 Als bezahlt markieren</button>
+            <button class="btn btn-warning" onclick="sendPaymentReminder()" style="background: #ff9800; display: none;" id="reminderBtn">⏰ Zahlungserinnerung senden</button>
         </div>
     </div>
 
@@ -795,6 +796,7 @@
             // Status-Banner
             const statusBanner = document.getElementById('invoiceStatusBanner');
             const statusDetails = document.getElementById('invoiceStatusDetails');
+            const reminderBtn = document.getElementById('reminderBtn');
 
             if (booking.invoicePaid) {
                 // BEZAHLT hat höchste Priorität
@@ -805,16 +807,24 @@
                 const invoiceNum = booking.invoiceNumber || 'N/A';
                 const amount = booking.invoiceAmount || '0,00 €';
                 statusDetails.innerHTML = `<strong>✅ Rechnung BEZAHLT</strong><br>Rechnungsnummer: ${invoiceNum} | Betrag: ${amount} | Bezahlt am: ${paidDate}`;
+
+                // Erinnerungs-Button verstecken (bereits bezahlt)
+                if (reminderBtn) reminderBtn.style.display = 'none';
             } else if (booking.invoiceSent) {
-                // VERSENDET
+                // VERSENDET aber NICHT BEZAHLT
                 statusBanner.style.display = 'block';
                 statusBanner.style.background = '#d4edda';
                 statusBanner.style.border = '2px solid #28a745';
                 const sentDate = booking.invoiceSentDate ? new Date(booking.invoiceSentDate).toLocaleString('de-DE') : 'Unbekannt';
                 const invoiceNum = booking.invoiceNumber || 'N/A';
                 statusDetails.innerHTML = `<strong>✅ Rechnung versendet</strong><br>Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+
+                // Erinnerungs-Button ANZEIGEN (versendet, aber nicht bezahlt)
+                if (reminderBtn) reminderBtn.style.display = 'inline-block';
             } else {
                 statusBanner.style.display = 'none';
+                // Erinnerungs-Button verstecken (noch nicht versendet)
+                if (reminderBtn) reminderBtn.style.display = 'none';
             }
 
             // Kundendaten
@@ -1365,6 +1375,116 @@ Tel: +49 176 56813172`;
                 }
             } else {
                 alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+            }
+        }
+
+        function sendPaymentReminder() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
+            const paymentDue = document.getElementById('paymentDue').textContent;
+
+            // E-Mail aus Buchungsdaten laden
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (!bookingId) {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+                return;
+            }
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const booking = bookings.find(b => b.id === bookingId);
+
+            if (!booking) {
+                alert('❌ Fehler: Buchung nicht gefunden.');
+                return;
+            }
+
+            let customerEmail = booking.email;
+
+            // Falls keine E-Mail: Nachfragen
+            if (!customerEmail) {
+                customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
+                if (!customerEmail) return;
+            }
+
+            // Überfälligkeitsprüfung
+            const dueDateParts = paymentDue.split('.');
+            const dueDate = new Date(dueDateParts[2], dueDateParts[1] - 1, dueDateParts[0]);
+            const today = new Date();
+            const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+            const isOverdue = daysOverdue > 0;
+
+            let overdueInfo = '';
+            if (isOverdue) {
+                overdueInfo = `⚠️ Die Rechnung ist ${daysOverdue} Tag(e) überfällig.\n\n`;
+            }
+
+            if (!confirm(`${overdueInfo}Zahlungserinnerung für Rechnung ${invoiceNumber} senden?\n\nKunde: ${customerCompany}\nBetrag: ${totalBrutto}\nFällig am: ${paymentDue}\nE-Mail: ${customerEmail}`)) {
+                return;
+            }
+
+            try {
+                // Erinnerungs-Zähler erhöhen
+                const reminderCount = (booking.paymentReminderCount || 0) + 1;
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].paymentReminderSent = true;
+                    bookings[bookingIndex].paymentReminderDate = new Date().toISOString();
+                    bookings[bookingIndex].paymentReminderCount = reminderCount;
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                }
+
+                // E-Mail-Text vorbereiten
+                const recipient = customerContact || customerCompany;
+                const emailBody = `Liebe/r ${recipient},
+
+wir danken Ihnen nochmals für Ihren Auftrag und die schöne Veranstaltung.
+
+Diese E-Mail ist eine freundliche Erinnerung bezüglich unserer Rechnung:
+
+Rechnungsnummer: ${invoiceNumber}
+Rechnungsbetrag: ${totalBrutto}
+Zahlungsziel: ${paymentDue}
+
+Sollten Sie die Rechnung bereits beglichen haben, betrachten Sie diese E-Mail bitte als gegenstandslos. Falls Sie die Zahlung noch nicht veranlasst haben, bitten wir Sie, den offenen Betrag zeitnah zu überweisen.
+
+Unsere Bankverbindung:
+Empfänger: Andrea Agnello
+Bank: Sparkasse Baden Baden
+IBAN: DE72 6625 0030 0030 4713 20
+BIC/SWIFT: SOLADES1BAD
+Verwendungszweck: Rechnung ${invoiceNumber}
+
+Bei Fragen zur Rechnung oder falls es Probleme gibt, stehen wir Ihnen jederzeit gerne zur Verfügung.
+
+Mit freundlichen Grüßen
+Ihr Eis Agnello Team
+
+---
+Eis Agnello
+Favoritenstrasse 11
+76456 Kuppenheim
+Tel: +49 176 56813172`;
+
+                // Mailto-Link erstellen
+                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`)}&body=${encodeURIComponent(emailBody)}`;
+
+                console.log('📧 Öffne E-Mail für Zahlungserinnerung:', customerEmail);
+                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
+
+                // E-Mail-App öffnen
+                window.location.href = mailtoLink;
+
+                // Erfolgsmeldung
+                alert(`✓ Zahlungserinnerung wird versendet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)`);
+
+            } catch (error) {
+                console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
+                alert('Fehler beim Erstellen der Zahlungserinnerung.\n\nDetails: ' + error.message);
             }
         }
     </script>
