@@ -1228,6 +1228,7 @@
 
                 // E-Mail-Text vorbereiten
                 const recipient = customerContact || customerCompany;
+                const reviewLink = 'https://g.page/r/CZvXH5Pj-Y0yEB0/review';
                 const emailBody = `Liebe/r ${recipient},
 
 herzlichen Dank für Ihren Auftrag und das entgegengebrachte Vertrauen!
@@ -1236,7 +1237,14 @@ Es hat uns große Freude bereitet, Ihre Veranstaltung mit unserem Eis zu bereich
 
 Anbei erhalten Sie die Rechnung ${invoiceNumber} im Anhang.
 
-Falls Sie mit unserem Service zufrieden waren, würden wir uns sehr über eine positive Bewertung freuen. Ihr Feedback hilft uns, unseren Service stetig zu verbessern und anderen Kunden bei ihrer Entscheidung zu helfen.
+⭐ BEWERTEN SIE UNS AUF GOOGLE ⭐
+
+Falls Sie mit unserem Service zufrieden waren, würden wir uns sehr über eine positive Bewertung freuen!
+
+Hier können Sie uns direkt bewerten:
+${reviewLink}
+
+Ihr Feedback hilft uns, unseren Service stetig zu verbessern und anderen Kunden bei ihrer Entscheidung zu helfen.
 
 Bei Fragen zur Rechnung oder für zukünftige Veranstaltungen stehen wir Ihnen jederzeit gerne zur Verfügung.
 
