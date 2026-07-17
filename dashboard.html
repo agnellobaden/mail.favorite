@@ -313,7 +313,7 @@
 
             <div class="stat-card info">
                 <div class="stat-icon">💰</div>
-                <div class="stat-label">Gesamtumsatz (dieses Jahr)</div>
+                <div class="stat-label">Gesamtumsatz (alle Jahre)</div>
                 <div class="stat-value" id="totalRevenue">0,00 €</div>
             </div>
         </div>
@@ -374,7 +374,7 @@
 
         <!-- Monatsumsatz -->
         <div class="section">
-            <h2 class="section-title">Monatsumsatz (letzten 6 Monate)</h2>
+            <h2 class="section-title">Monatsumsatz (letzten 12 Monate)</h2>
             <div id="monthlyRevenueChart"></div>
         </div>
 
@@ -695,35 +695,41 @@
             paidTotal += parseAmount(inv.invoiceAmount);
         });
 
+        console.log('💰 Bezahlte Rechnungen (diesen Monat):', paidThisMonth.length, 'Summe:', paidTotal);
+
         document.getElementById('paidCount').textContent = paidThisMonth.length;
         document.getElementById('paidAmount').textContent = paidTotal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
 
-        // 4. GESAMTUMSATZ (dieses Jahr)
-        const paidThisYear = bookings.filter(b => {
+        // 4. GESAMTUMSATZ (ALLE JAHRE - nicht nur dieses Jahr)
+        const allPaidInvoices = bookings.filter(b => {
             if (!b.invoicePaid) return false;
             const paidDate = parseAnyDate(b.invoicePaidDate);
             if (isNaN(paidDate)) return false;
-            return paidDate.getFullYear() === thisYear;
+            return true; // ALLE bezahlten Rechnungen, egal welches Jahr
         });
 
-        let yearTotal = 0;
-        paidThisYear.forEach(inv => {
-            yearTotal += parseAmount(inv.invoiceAmount);
+        let totalRevenue = 0;
+        allPaidInvoices.forEach(inv => {
+            totalRevenue += parseAmount(inv.invoiceAmount);
         });
 
-        document.getElementById('totalRevenue').textContent = yearTotal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+        console.log('💰 GESAMTUMSATZ (alle Jahre):', allPaidInvoices.length, 'Rechnungen, Summe:', totalRevenue);
 
-        // 5. MONATSUMSATZ (letzten 6 Monate)
+        document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+
+        // 5. MONATSUMSATZ (letzten 12 Monate)
         const monthlyRevenue = {};
         const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
-        // Initialisiere letzten 6 Monate
-        for (let i = 5; i >= 0; i--) {
+        // Initialisiere letzten 12 Monate
+        for (let i = 11; i >= 0; i--) {
             const date = new Date(thisYear, thisMonth - i, 1);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
             monthlyRevenue[key] = { label, amount: 0 };
         }
+
+        console.log('📅 Monatsumsatz-Zeitraum:', Object.values(monthlyRevenue).map(m => m.label));
 
         // Berechne Umsatz pro Monat
         bookings.forEach(b => {
