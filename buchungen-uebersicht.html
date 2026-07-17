@@ -5485,25 +5485,35 @@
             { id: 'toppings', name: 'Toppings', emoji: '🍓' }
         ];
 
-        // Auto-Save für Strichliste mit Debouncing (1 Sekunde nach letzter Änderung)
+        // Auto-Save für Strichliste mit Debouncing (300ms nach letzter Änderung)
         function autoSaveTally() {
             clearTimeout(tallyAutoSaveTimeout);
+
+            // WICHTIG: Sofort in sessionStorage zwischenspeichern (als Backup)
+            if (currentTallyBooking) {
+                sessionStorage.setItem('tally_backup', JSON.stringify({
+                    bookingId: currentTallyBooking.id,
+                    counts: currentTallyCounts,
+                    timestamp: Date.now()
+                }));
+                console.log('💾 Backup in sessionStorage:', currentTallyBooking.id);
+            }
 
             // Zeige "Wird gespeichert..." Indikator
             showTallySaveIndicator('saving');
 
             tallyAutoSaveTimeout = setTimeout(() => {
                 if (currentTallyBooking) {
-                    console.log('🔄 Auto-Save: Speichere Strichliste...');
+                    console.log('🔄 Auto-Save: Speichere Strichliste in localStorage...');
                     saveTally(false); // Speichern ohne Alert
                     showTallySaveIndicator('saved');
 
-                    // "Gespeichert"-Anzeige nach 2 Sekunden ausblenden
+                    // "Gespeichert"-Anzeige nach 1,5 Sekunden ausblenden
                     setTimeout(() => {
                         showTallySaveIndicator('hidden');
-                    }, 2000);
+                    }, 1500);
                 }
-            }, 1000); // 1 Sekunde Verzögerung
+            }, 300); // 300ms Verzögerung (schneller!)
         }
 
         // Speicher-Status-Indikator anzeigen
@@ -5558,16 +5568,42 @@
 
             currentTallyBooking = booking;
 
-            // Lade gespeicherte Strichliste oder initialisiere neu
-            if (booking.tally && typeof booking.tally === 'object') {
-                console.log('✓ Lade gespeicherte Strichliste:', booking.tally);
-                currentTallyCounts = { ...booking.tally };
-            } else {
-                console.log('ℹ️ Keine Strichliste vorhanden - initialisiere neu');
-                currentTallyCounts = {};
-                PRODUCTS_LIST.forEach(p => {
-                    currentTallyCounts[p.id] = 0;
-                });
+            // WICHTIG: Prüfe zuerst sessionStorage-Backup (falls nach F5 noch nicht in localStorage gespeichert)
+            let useBackup = false;
+            try {
+                const backup = sessionStorage.getItem('tally_backup');
+                if (backup) {
+                    const backupData = JSON.parse(backup);
+                    if (backupData.bookingId === bookingId) {
+                        // Backup gefunden für diese Buchung!
+                        console.log('✅ Backup aus sessionStorage gefunden!');
+                        currentTallyCounts = { ...backupData.counts };
+                        useBackup = true;
+
+                        // Backup in localStorage übertragen
+                        saveTally(false);
+                        console.log('💾 Backup in localStorage übertragen');
+
+                        // Backup löschen (nicht mehr nötig)
+                        sessionStorage.removeItem('tally_backup');
+                    }
+                }
+            } catch (e) {
+                console.error('Fehler beim Laden des Backups:', e);
+            }
+
+            // Falls kein Backup: Lade gespeicherte Strichliste oder initialisiere neu
+            if (!useBackup) {
+                if (booking.tally && typeof booking.tally === 'object') {
+                    console.log('✓ Lade gespeicherte Strichliste:', booking.tally);
+                    currentTallyCounts = { ...booking.tally };
+                } else {
+                    console.log('ℹ️ Keine Strichliste vorhanden - initialisiere neu');
+                    currentTallyCounts = {};
+                    PRODUCTS_LIST.forEach(p => {
+                        currentTallyCounts[p.id] = 0;
+                    });
+                }
             }
 
             console.log('Aktuelle Strichlisten-Counts:', currentTallyCounts);
