@@ -396,6 +396,38 @@
     </div>
 
     <script>
+        // ==========================================
+        // AUTO-SAVE & SCROLL-POSITION SYSTEM
+        // ==========================================
+        (function initAutoSave() {
+            const PAGE_KEY = 'dashboard_autosave';
+
+            // Scroll-Position wiederherstellen
+            window.addEventListener('DOMContentLoaded', function() {
+                const savedScrollPos = sessionStorage.getItem(PAGE_KEY + '_scroll');
+                if (savedScrollPos) {
+                    setTimeout(() => {
+                        window.scrollTo(0, parseInt(savedScrollPos));
+                        console.log('✅ Scroll-Position wiederhergestellt:', savedScrollPos);
+                    }, 100);
+                }
+            });
+
+            // Scroll-Position speichern
+            let scrollTimeout;
+            window.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    sessionStorage.setItem(PAGE_KEY + '_scroll', window.scrollY);
+                }, 150);
+            });
+
+            // Beim Verlassen speichern
+            window.addEventListener('beforeunload', function() {
+                sessionStorage.setItem(PAGE_KEY + '_scroll', window.scrollY);
+            });
+        })();
+
         // LocalStorage Daten laden
         let bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
         const today = new Date();
@@ -463,17 +495,22 @@
 
         // Hilfsfunktion: Betrag aus String extrahieren
         function parseAmount(amountStr) {
-            if (!amountStr) return 0;
+            if (amountStr === null || amountStr === undefined) return 0;
+            if (typeof amountStr === 'number') return amountStr;
             // Format: "123,45 €" -> 123.45
-            return parseFloat(amountStr.replace(/\./g, '').replace(',', '.').replace(' €', '')) || 0;
+            return parseFloat(String(amountStr).replace(/\./g, '').replace(',', '.').replace(' €', '')) || 0;
         }
 
-        // Hilfsfunktion: Datum aus "DD.MM.YYYY" parsen
-        function parseGermanDate(dateStr) {
-            if (!dateStr) return null;
-            const parts = dateStr.split('.');
-            if (parts.length !== 3) return null;
-            return new Date(parts[2], parts[1] - 1, parts[0]);
+        // Hilfsfunktion: Datum aus "DD.MM.YYYY" oder ISO parsen
+        function parseAnyDate(dateStr) {
+            if (!dateStr) return new Date(NaN);
+            if (typeof dateStr === 'string' && dateStr.includes('.')) {
+                const parts = dateStr.split(' ')[0].split('.');
+                if (parts.length === 3) {
+                    return new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            }
+            return new Date(dateStr);
         }
 
         // 1. ÜBERFÄLLIGE RECHNUNGEN
@@ -481,7 +518,8 @@
             if (!b.invoiceSent || b.invoicePaid) return false;
 
             // Zahlungsziel berechnen (14 Tage nach Versand)
-            const sentDate = new Date(b.invoiceSentDate);
+            const sentDate = parseAnyDate(b.invoiceSentDate);
+            if (isNaN(sentDate)) return false;
             const dueDate = new Date(sentDate);
             dueDate.setDate(dueDate.getDate() + 14);
             dueDate.setHours(0, 0, 0, 0);
@@ -513,7 +551,7 @@
             const tbody = document.getElementById('overdueTableBody');
 
             overdueInvoices.forEach(inv => {
-                const sentDate = new Date(inv.invoiceSentDate);
+                const sentDate = parseAnyDate(inv.invoiceSentDate);
                 const dueDate = new Date(sentDate);
                 dueDate.setDate(dueDate.getDate() + 14);
 
@@ -535,7 +573,8 @@
         const openInvoices = bookings.filter(b => {
             if (!b.invoiceSent || b.invoicePaid) return false;
 
-            const sentDate = new Date(b.invoiceSentDate);
+            const sentDate = parseAnyDate(b.invoiceSentDate);
+            if (isNaN(sentDate)) return false;
             const dueDate = new Date(sentDate);
             dueDate.setDate(dueDate.getDate() + 14);
             dueDate.setHours(0, 0, 0, 0);
@@ -567,7 +606,7 @@
             const tbody = document.getElementById('openTableBody');
 
             openInvoices.forEach(inv => {
-                const sentDate = new Date(inv.invoiceSentDate);
+                const sentDate = parseAnyDate(inv.invoiceSentDate);
                 const dueDate = new Date(sentDate);
                 dueDate.setDate(dueDate.getDate() + 14);
 
@@ -646,7 +685,8 @@
 
         const paidThisMonth = bookings.filter(b => {
             if (!b.invoicePaid) return false;
-            const paidDate = new Date(b.invoicePaidDate);
+            const paidDate = parseAnyDate(b.invoicePaidDate);
+            if (isNaN(paidDate)) return false;
             return paidDate.getMonth() === thisMonth && paidDate.getFullYear() === thisYear;
         });
 
@@ -661,7 +701,8 @@
         // 4. GESAMTUMSATZ (dieses Jahr)
         const paidThisYear = bookings.filter(b => {
             if (!b.invoicePaid) return false;
-            const paidDate = new Date(b.invoicePaidDate);
+            const paidDate = parseAnyDate(b.invoicePaidDate);
+            if (isNaN(paidDate)) return false;
             return paidDate.getFullYear() === thisYear;
         });
 
@@ -687,7 +728,8 @@
         // Berechne Umsatz pro Monat
         bookings.forEach(b => {
             if (!b.invoicePaid) return;
-            const paidDate = new Date(b.invoicePaidDate);
+            const paidDate = parseAnyDate(b.invoicePaidDate);
+            if (isNaN(paidDate)) return;
             const key = `${paidDate.getFullYear()}-${String(paidDate.getMonth() + 1).padStart(2, '0')}`;
 
             if (monthlyRevenue[key]) {

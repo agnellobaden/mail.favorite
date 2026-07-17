@@ -2781,6 +2781,26 @@
             }
         }
 
+        // Modal-Status speichern (für Strichliste, etc.)
+        function saveModalState(modalType, bookingId) {
+            try {
+                sessionStorage.setItem('eisfavorite_modal', JSON.stringify({
+                    type: modalType,
+                    bookingId: bookingId,
+                    timestamp: Date.now()
+                }));
+                console.log('💾 Modal-Status gespeichert:', modalType, bookingId);
+            } catch (e) {
+                console.error('Fehler beim Speichern des Modal-Status:', e);
+            }
+        }
+
+        // Modal-Status löschen
+        function clearModalState() {
+            sessionStorage.removeItem('eisfavorite_modal');
+            console.log('🗑️ Modal-Status gelöscht');
+        }
+
         function restoreAppState() {
             try {
                 const savedState = localStorage.getItem('eisfavorite_appState');
@@ -2829,6 +2849,33 @@
                 console.log('✓ App-Zustand wiederhergestellt');
             } catch (e) {
                 console.error('Fehler beim Wiederherstellen des App-Zustands:', e);
+            }
+        }
+
+        // Modal-Status wiederherstellen
+        function restoreModalState() {
+            try {
+                const savedModal = sessionStorage.getItem('eisfavorite_modal');
+                if (!savedModal) return;
+
+                const modal = JSON.parse(savedModal);
+                console.log('🔄 Stelle Modal-Status wieder her:', modal);
+
+                // Warte bis allBookings geladen ist
+                setTimeout(() => {
+                    if (modal.type === 'tally' && modal.bookingId) {
+                        const booking = allBookings.find(b => b.id === modal.bookingId);
+                        if (booking) {
+                            console.log('✅ Öffne Strichliste automatisch für:', booking.name);
+                            openTally(modal.bookingId);
+                        } else {
+                            console.warn('⚠️ Buchung nicht gefunden:', modal.bookingId);
+                            clearModalState();
+                        }
+                    }
+                }, 500);
+            } catch (e) {
+                console.error('Fehler beim Wiederherstellen des Modal-Status:', e);
             }
         }
 
@@ -5047,13 +5094,48 @@
 
             if (confirm(`Rechnung für ${booking.name} als bezahlt markieren?`)) {
                 booking.status = 'Bezahlte Rechnung';
+                booking.invoicePaid = true;
+                booking.invoicePaidDate = new Date().toISOString();
                 booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                // Wenn kein invoiceAmount vorhanden, berechne den Betrag
+                if (!booking.invoiceAmount) {
+                    let total = 0;
+
+                    // Strichlisten-Betrag verwenden falls vorhanden
+                    if (booking.tallyTotal && booking.tallyTotal > 0) {
+                        total = booking.tallyTotal;
+                    } else {
+                        // Eisumsatz berechnen
+                        if (booking.guests && booking.kugelPerGuest) {
+                            total += parseInt(booking.guests) * parseInt(booking.kugelPerGuest) * 1.80;
+                        }
+
+                        // Anfahrtskosten berechnen
+                        const distance = parseFloat(booking.distance) || 0;
+                        if (distance >= 6) {
+                            total += 45;
+                            if (distance >= 10) {
+                                total += 10;
+                                total += Math.floor((distance - 10) / 10) * 10;
+                            }
+                        }
+                    }
+
+                    booking.invoiceAmount = total.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+                }
+
+                // Wenn kein invoiceSent gesetzt war, setze es jetzt auch
+                if (!booking.invoiceSent) {
+                    booking.invoiceSent = true;
+                    booking.invoiceSentDate = booking.invoicePaidDate;
+                }
 
                 saveToLocalStorage();
                 updateStats();
                 filterAndDisplay();
 
-                alert('✓ Rechnung wurde als bezahlt markiert!');
+                alert('✓ Rechnung wurde als bezahlt markiert!\n\nBetrag: ' + booking.invoiceAmount);
             }
         }
 
@@ -5390,6 +5472,7 @@
 
         let currentTallyBooking = null;
         let currentTallyCounts = {};
+        let tallyAutoSaveTimeout = null; // Für Auto-Save mit Debouncing
 
         const PRODUCTS_LIST = [
             { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
@@ -5401,6 +5484,66 @@
             { id: 'streussel', name: 'Streussel', emoji: '🎨' },
             { id: 'toppings', name: 'Toppings', emoji: '🍓' }
         ];
+
+        // Auto-Save für Strichliste mit Debouncing (1 Sekunde nach letzter Änderung)
+        function autoSaveTally() {
+            clearTimeout(tallyAutoSaveTimeout);
+
+            // Zeige "Wird gespeichert..." Indikator
+            showTallySaveIndicator('saving');
+
+            tallyAutoSaveTimeout = setTimeout(() => {
+                if (currentTallyBooking) {
+                    console.log('🔄 Auto-Save: Speichere Strichliste...');
+                    saveTally(false); // Speichern ohne Alert
+                    showTallySaveIndicator('saved');
+
+                    // "Gespeichert"-Anzeige nach 2 Sekunden ausblenden
+                    setTimeout(() => {
+                        showTallySaveIndicator('hidden');
+                    }, 2000);
+                }
+            }, 1000); // 1 Sekunde Verzögerung
+        }
+
+        // Speicher-Status-Indikator anzeigen
+        function showTallySaveIndicator(status) {
+            let indicator = document.getElementById('tallySaveIndicator');
+
+            // Erstelle Indikator, falls noch nicht vorhanden
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'tallySaveIndicator';
+                indicator.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    z-index: 10000;
+                    transition: all 0.3s ease;
+                    display: none;
+                `;
+                document.body.appendChild(indicator);
+            }
+
+            if (status === 'saving') {
+                indicator.style.display = 'block';
+                indicator.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                indicator.style.color = 'white';
+                indicator.innerHTML = '⏳ Wird gespeichert...';
+            } else if (status === 'saved') {
+                indicator.style.display = 'block';
+                indicator.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+                indicator.style.color = 'white';
+                indicator.innerHTML = '✅ Gespeichert!';
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
 
         // Strichliste öffnen
         function openTally(bookingId) {
@@ -5431,6 +5574,9 @@
 
             displayTally();
             document.getElementById('tallyModal').style.display = 'block';
+
+            // Modal-Status speichern (damit nach F5 die Strichliste wieder geöffnet wird)
+            saveModalState('tally', bookingId);
         }
 
         // Strichliste anzeigen
@@ -5493,6 +5639,7 @@
         function incrementTally(productId) {
             currentTallyCounts[productId] = (currentTallyCounts[productId] || 0) + 1;
             displayTally();
+            autoSaveTally(); // Automatisch speichern nach 1 Sekunde
         }
 
         // Produkt verringern
@@ -5500,6 +5647,7 @@
             if (currentTallyCounts[productId] > 0) {
                 currentTallyCounts[productId]--;
                 displayTally();
+                autoSaveTally(); // Automatisch speichern nach 1 Sekunde
             }
         }
 
@@ -5598,7 +5746,10 @@
 
         // Strichliste schließen (mit automatischem Speichern)
         function closeTally() {
-            // Automatisch speichern bevor geschlossen wird
+            // Auto-Save-Timeout abbrechen (falls noch aktiv)
+            clearTimeout(tallyAutoSaveTimeout);
+
+            // Sofort speichern bevor geschlossen wird
             if (currentTallyBooking && Object.keys(currentTallyCounts).length > 0) {
                 // Prüfe ob es Änderungen gibt
                 const hasChanges = PRODUCTS_LIST.some(p => (currentTallyCounts[p.id] || 0) > 0);
@@ -5612,6 +5763,9 @@
             document.getElementById('tallyModal').style.display = 'none';
             currentTallyBooking = null;
             currentTallyCounts = {};
+
+            // Modal-Status löschen (wird nicht mehr wiederhergestellt)
+            clearModalState();
         }
 
         // Event Listener für Strichlisten Modal
@@ -5620,6 +5774,18 @@
         document.getElementById('tallyModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeTally(); // Schließen ohne Warnung, speichert automatisch
+            }
+        });
+
+        // Beim Verlassen der Seite: Strichliste sofort speichern (falls noch offen)
+        window.addEventListener('beforeunload', function() {
+            if (currentTallyBooking) {
+                clearTimeout(tallyAutoSaveTimeout); // Auto-Save-Timeout abbrechen
+                const hasChanges = PRODUCTS_LIST.some(p => (currentTallyCounts[p.id] || 0) > 0);
+                if (hasChanges) {
+                    saveTally(false); // Sofort speichern ohne Alert
+                    console.log('💾 Strichliste beim Verlassen der Seite gespeichert');
+                }
             }
         });
 
@@ -6004,6 +6170,7 @@
             // App-Zustand wiederherstellen
             setTimeout(() => {
                 restoreAppState();
+                restoreModalState(); // Modal-Status wiederherstellen (z.B. Strichliste)
             }, 100);
 
             console.log('✓ App bereit!');
