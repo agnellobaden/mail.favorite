@@ -870,8 +870,8 @@
                     const count = tallyData[product.id] || 0;
                     if (count > 0) {
                         const price = prices[product.id] || DEFAULT_PRICES[product.id];
-                        const productName = `${product.emoji} ${product.name}`;
-                        addItem(`${productName}\ninkl. 7% Umsatzsteuer`, count, price.toFixed(2));
+                        const productName = product.name;
+                        addItem(`${productName} inkl. 7% Umsatzsteuer`, count, price.toFixed(2));
                         console.log(`  ✓ ${productName}: ${count}x à ${price.toFixed(2)} €`);
                     }
                 });
@@ -879,7 +879,7 @@
                 // Fallback: Wenn keine Strichliste vorhanden, nutze Gäste × Kugeln
                 const totalKugeln = booking.gaeste * booking.kugeln;
                 const kugelPrice = prices.kugel || DEFAULT_PRICES.kugel;
-                addItem('🍨 Kugel Eis\ninkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
+                addItem('Kugel Eis inkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
             }
 
             // Anfahrtskosten berechnen und hinzufügen
@@ -897,7 +897,7 @@
 
             if (anfahrtskosten > 0) {
                 console.log(`🚗 Anfahrtskosten: ${distance} km → ${anfahrtskosten.toFixed(2)} €`);
-                addItem(`🚗 Anfahrtskosten (${distance} km)\ninkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+                addItem(`Anfahrtskosten (${distance} km) inkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
             }
 
             calculateTotals();
@@ -968,9 +968,9 @@
 
             if (product) {
                 const price = prices[product.id] || DEFAULT_PRICES[product.id];
-                const productName = `${product.emoji} ${product.name}`;
+                const productName = product.name;
 
-                row.querySelector('.item-description').value = `${productName}\ninkl. 7% Umsatzsteuer`;
+                row.querySelector('.item-description').value = `${productName} inkl. 7% Umsatzsteuer`;
                 row.querySelector('.item-brutto-single').value = price.toFixed(2);
                 row.querySelector('.item-quantity').value = 1;
 
