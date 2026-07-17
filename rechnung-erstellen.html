@@ -1262,17 +1262,17 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // Gmail-Link erstellen (mit BCC-Kopie an eisfavorit@gmail.com)
-                const gmailLink = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(customerEmail)}&bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+                // Mailto-Link erstellen (funktioniert auf PC und Handy)
+                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
 
-                console.log('📧 Öffne Gmail für:', customerEmail);
+                console.log('📧 Öffne E-Mail-App für:', customerEmail);
                 console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
 
-                // Gmail in neuem Tab öffnen
-                window.open(gmailLink, '_blank');
+                // E-Mail-App öffnen (funktioniert auf allen Geräten)
+                window.location.href = mailtoLink;
 
                 // Erfolgsmeldung
-                alert('✓ Gmail wurde geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte laden Sie das PDF herunter (PDF-Button) und hängen Sie es an die E-Mail an.');
+                alert('✓ E-Mail-App wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nBitte laden Sie das PDF herunter (PDF-Button) und hängen Sie es an die E-Mail an.');
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
