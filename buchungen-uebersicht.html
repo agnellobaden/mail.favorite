@@ -2491,9 +2491,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancelFormBtn">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                <div class="form-actions" style="justify-content: space-between;">
+                    <button type="button" class="btn" id="deleteBookingBtn" onclick="deleteBooking()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; display: none;">
+                        🗑️ Löschen
+                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-secondary" id="cancelFormBtn">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -2988,19 +2993,20 @@
                 const modal = JSON.parse(savedModal);
                 console.log('🔄 Stelle Modal-Status wieder her:', modal);
 
-                // Warte bis allBookings geladen ist
+                // Warte bis allBookings sicher geladen ist
                 setTimeout(() => {
                     if (modal.type === 'tally' && modal.bookingId) {
                         const booking = allBookings.find(b => b.id === modal.bookingId);
                         if (booking) {
                             console.log('✅ Öffne Strichliste automatisch für:', booking.name);
+                            console.log('📋 Gespeicherte Strichliste:', booking.tally);
                             openTally(modal.bookingId);
                         } else {
                             console.warn('⚠️ Buchung nicht gefunden:', modal.bookingId);
                             clearModalState();
                         }
                     }
-                }, 500);
+                }, 800); // Erhöht auf 800ms um sicherzustellen dass Daten geladen sind
             } catch (e) {
                 console.error('Fehler beim Wiederherstellen des Modal-Status:', e);
             }
@@ -3249,8 +3255,13 @@
                                         console.log('📤 Speichere Strichliste für', cleanId, ':', value);
                                     }
                                 } else if (Array.isArray(value)) {
-                                    // Arrays auch direkt speichern
+                                    // Arrays auch direkt speichern (emailHistory, etc.)
                                     cleanBooking[key] = value;
+
+                                    // Logging für emailHistory
+                                    if (key === 'emailHistory') {
+                                        console.log('📤 Speichere Chat-Verlauf für', cleanId, ':', value.length, 'Nachrichten');
+                                    }
                                 }
                             }
                         }
@@ -4060,6 +4071,10 @@
         document.getElementById('addBookingBtn').addEventListener('click', function() {
             currentEditingBookingId = null;
             document.querySelector('#formModal h2').textContent = 'Neue Buchung hinzufügen';
+
+            // Löschen-Button verstecken (neue Buchung kann nicht gelöscht werden)
+            document.getElementById('deleteBookingBtn').style.display = 'none';
+
             document.getElementById('formModal').style.display = 'block';
             document.getElementById('bookingForm').reset();
 
@@ -5386,11 +5401,50 @@
             // Formular-Titel ändern
             document.querySelector('#formModal h2').textContent = 'Buchung bearbeiten';
 
+            // Löschen-Button anzeigen
+            document.getElementById('deleteBookingBtn').style.display = 'block';
+
             // Formular öffnen
             document.getElementById('formModal').style.display = 'block';
 
             // E-Mail Chat im Formular anzeigen
             displayFormEmailChat();
+        }
+
+        // Buchung löschen
+        function deleteBooking() {
+            if (!currentEditingBookingId) return;
+
+            const booking = allBookings.find(b => b.id === currentEditingBookingId);
+            if (!booking) return;
+
+            // Bestätigung einholen
+            const confirmMessage = `Möchtest du diese Buchung wirklich löschen?\n\n` +
+                                  `Name: ${booking.name || 'Unbekannt'}\n` +
+                                  `Datum: ${booking.date || '-'}\n` +
+                                  `Status: ${booking.status || '-'}\n\n` +
+                                  `Diese Aktion kann nicht rückgängig gemacht werden!`;
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            // Buchung aus Array entfernen
+            const index = allBookings.findIndex(b => b.id === currentEditingBookingId);
+            if (index > -1) {
+                allBookings.splice(index, 1);
+            }
+
+            // Speichern und aktualisieren
+            saveToLocalStorage();
+            updateStats();
+            filterAndDisplay();
+
+            // Formular schließen
+            currentEditingBookingId = null;
+            document.getElementById('formModal').style.display = 'none';
+
+            alert('✓ Buchung wurde erfolgreich gelöscht!');
         }
 
         // ==================== KARTEN-MENÜ ====================
@@ -5669,6 +5723,11 @@
                 timestamp: new Date().toISOString()
             });
 
+            // Aktualisiere Timestamp für Sync
+            const now = new Date();
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+            booking.aktualisiertAm = updatedDate;
+
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
 
@@ -5728,6 +5787,11 @@
                 direction: 'sent', // Von mir gesendet
                 timestamp: new Date().toISOString()
             });
+
+            // Aktualisiere Timestamp für Sync
+            const now = new Date();
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+            booking.aktualisiertAm = updatedDate;
 
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
@@ -6087,9 +6151,13 @@
             }
 
             // Aktualisiere die Buchung im Array direkt
+            const now = new Date();
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+
             allBookings[bookingIndex].tally = { ...currentTallyCounts };
             allBookings[bookingIndex].tallyTotal = total;
             allBookings[bookingIndex].tallyUpdatedAt = new Date().toISOString();
+            allBookings[bookingIndex].aktualisiertAm = updatedDate; // Wichtig für Timestamp-Vergleich!
 
             // Aktualisiere auch die currentTallyBooking Referenz
             currentTallyBooking = allBookings[bookingIndex];
@@ -6170,13 +6238,39 @@
         });
 
         // Beim Verlassen der Seite: Strichliste sofort speichern (falls noch offen)
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', function(e) {
             if (currentTallyBooking) {
                 clearTimeout(tallyAutoSaveTimeout); // Auto-Save-Timeout abbrechen
-                const hasChanges = PRODUCTS_LIST.some(p => (currentTallyCounts[p.id] || 0) > 0);
-                if (hasChanges) {
-                    saveTally(false); // Sofort speichern ohne Alert
-                    console.log('💾 Strichliste beim Verlassen der Seite gespeichert');
+
+                // SOFORT SYNCHRON speichern (ohne Verzögerung)
+                const bookingIndex = allBookings.findIndex(b => b.id === currentTallyBooking.id);
+                if (bookingIndex !== -1) {
+                    const prices = loadPrices();
+                    let total = 0;
+
+                    PRODUCTS_LIST.forEach(product => {
+                        const count = currentTallyCounts[product.id] || 0;
+                        const price = prices[product.id] || 0;
+                        total += count * price;
+                    });
+
+                    // Direkt in allBookings speichern
+                    allBookings[bookingIndex].tally = { ...currentTallyCounts };
+                    allBookings[bookingIndex].tallyTotal = total;
+                    allBookings[bookingIndex].tallyUpdatedAt = new Date().toISOString();
+
+                    // SYNCHRON in localStorage speichern
+                    try {
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+                        console.log('💾 Strichliste SYNCHRON beim Verlassen gespeichert');
+
+                        // Firebase-Sync im Hintergrund anstoßen (non-blocking)
+                        if (firebaseInitialized && db) {
+                            saveToFirebase().catch(err => console.log('Firebase-Sync beim Verlassen übersprungen:', err));
+                        }
+                    } catch (err) {
+                        console.error('Fehler beim Speichern:', err);
+                    }
                 }
             }
         });
@@ -6214,6 +6308,11 @@
                         console.log('📥 Buchung mit Strichliste von Firebase:', doc.id, 'Tally:', booking.tally);
                     }
 
+                    // Logging für Chat-Verlauf
+                    if (booking.emailHistory && booking.emailHistory.length > 0) {
+                        console.log('📥 Buchung mit Chat-Verlauf von Firebase:', doc.id, 'Nachrichten:', booking.emailHistory.length);
+                    }
+
                     firebaseBookings.push(booking);
                 });
 
@@ -6233,20 +6332,73 @@
 
                 // Aktualisiere nur, wenn sich wirklich etwas geändert hat
                 if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
-                    console.log('🔄 Lokale Daten werden aktualisiert...');
-                    allBookings = firebaseBookings;
+                    console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
 
-                    // LocalStorage als Backup aktualisieren
-                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+                    // WICHTIG: Merge statt Überschreiben - behalte neuere Daten
+                    const mergedBookings = [...allBookings];
+                    let hasUpdates = false;
 
-                    // UI aktualisieren
-                    updateStats();
-                    filterAndDisplay();
+                    firebaseBookings.forEach(fbBooking => {
+                        const localIndex = mergedBookings.findIndex(b => b.id === fbBooking.id);
 
-                    console.log('✓ Daten synchronisiert:', allBookings.length, 'Buchungen');
-                    updateFirebaseStatus('connected', '🟢 Aktualisiert');
+                        if (localIndex === -1) {
+                            // Neue Buchung von Firebase - hinzufügen
+                            console.log('➕ Neue Buchung von Firebase:', fbBooking.id);
+                            mergedBookings.push(fbBooking);
+                            hasUpdates = true;
+                        } else {
+                            // Buchung existiert lokal - vergleiche Timestamps
+                            const localBooking = mergedBookings[localIndex];
+                            const fbUpdated = new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime();
+                            const localUpdated = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
+
+                            if (fbUpdated > localUpdated) {
+                                // Firebase hat neuere Daten
+                                console.log('🔄 Firebase-Version ist neuer für:', fbBooking.id);
+                                mergedBookings[localIndex] = fbBooking;
+                                hasUpdates = true;
+                            } else if (fbUpdated < localUpdated) {
+                                // Lokale Daten sind neuer - behalten und zu Firebase hochladen
+                                console.log('📤 Lokale Version ist neuer für:', fbBooking.id, '- wird hochgeladen');
+                                hasUpdates = true;
+                            }
+                        }
+                    });
+
+                    // Prüfe ob lokale Buchungen gelöscht wurden (in Firebase nicht vorhanden)
+                    const firebaseIds = new Set(firebaseBookings.map(b => b.id));
+                    const localOnly = mergedBookings.filter(b => !firebaseIds.has(b.id));
+                    if (localOnly.length > 0) {
+                        console.log('📤 Lokale Buchungen zu Firebase hochladen:', localOnly.map(b => b.id));
+                        hasUpdates = true;
+                    }
+
+                    if (hasUpdates) {
+                        allBookings = mergedBookings;
+
+                        // LocalStorage als Backup aktualisieren
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+
+                        // UI aktualisieren
+                        updateStats();
+                        filterAndDisplay();
+
+                        console.log('✓ Daten gemerged:', allBookings.length, 'Buchungen');
+                        updateFirebaseStatus('connected', '🟢 Aktualisiert');
+
+                        // Wenn lokale Daten neuer sind, zu Firebase hochladen
+                        setTimeout(() => {
+                            if (!isUpdatingFromFirebase) {
+                                console.log('📤 Lokale Änderungen zu Firebase hochladen');
+                                saveToFirebase();
+                            }
+                        }, 1000);
+                    } else {
+                        console.log('✓ Daten bereits aktuell');
+                        updateFirebaseStatus('connected', '🟢 Live verbunden');
+                    }
                 } else {
-                    console.log('✓ Daten bereits aktuell');
+                    console.log('✓ Daten identisch - keine Updates nötig');
                     updateFirebaseStatus('connected', '🟢 Live verbunden');
                 }
 
