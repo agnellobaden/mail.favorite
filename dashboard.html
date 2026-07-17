@@ -375,6 +375,25 @@
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // DEBUG: Buchungen anzeigen
+        console.log('📊 Dashboard-Debug:');
+        console.log('Geladene Buchungen insgesamt:', bookings.length);
+        console.log('Buchungen mit invoiceSent:', bookings.filter(b => b.invoiceSent).length);
+        console.log('Buchungen mit invoicePaid:', bookings.filter(b => b.invoicePaid).length);
+
+        // DEBUG: Alle Rechnungen mit Status "Rechnung versendet" anzeigen
+        const sentInvoices = bookings.filter(b => b.invoiceSent && !b.invoicePaid);
+        console.log('Versendet aber nicht bezahlt:', sentInvoices.length);
+        sentInvoices.forEach((inv, i) => {
+            console.log(`  Rechnung ${i+1}:`, {
+                nummer: inv.invoiceNumber,
+                kunde: inv.company || inv.name,
+                betrag: inv.invoiceAmount,
+                versendet: inv.invoiceSentDate,
+                status: inv.status
+            });
+        });
+
         // Hilfsfunktion: Betrag aus String extrahieren
         function parseAmount(amountStr) {
             if (!amountStr) return 0;
@@ -400,13 +419,24 @@
             dueDate.setDate(dueDate.getDate() + 14);
             dueDate.setHours(0, 0, 0, 0);
 
-            return dueDate < today;
+            const isOverdue = dueDate < today;
+            console.log('Prüfe Überfälligkeit:', {
+                kunde: b.company || b.name,
+                versendet: sentDate.toLocaleDateString('de-DE'),
+                fällig: dueDate.toLocaleDateString('de-DE'),
+                heute: today.toLocaleDateString('de-DE'),
+                überfällig: isOverdue
+            });
+
+            return isOverdue;
         });
 
         let overdueTotal = 0;
         overdueInvoices.forEach(inv => {
             overdueTotal += parseAmount(inv.invoiceAmount);
         });
+
+        console.log('⚠️ Überfällige Rechnungen:', overdueInvoices.length, 'Summe:', overdueTotal);
 
         document.getElementById('overdueCount').textContent = overdueInvoices.length;
         document.getElementById('overdueAmount').textContent = overdueTotal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
@@ -443,13 +473,24 @@
             dueDate.setDate(dueDate.getDate() + 14);
             dueDate.setHours(0, 0, 0, 0);
 
-            return dueDate >= today;
+            const isOpen = dueDate >= today;
+            console.log('Prüfe offene Rechnung:', {
+                kunde: b.company || b.name,
+                versendet: sentDate.toLocaleDateString('de-DE'),
+                fällig: dueDate.toLocaleDateString('de-DE'),
+                heute: today.toLocaleDateString('de-DE'),
+                offen: isOpen
+            });
+
+            return isOpen;
         });
 
         let openTotal = 0;
         openInvoices.forEach(inv => {
             openTotal += parseAmount(inv.invoiceAmount);
         });
+
+        console.log('📋 Offene Rechnungen:', openInvoices.length, 'Summe:', openTotal);
 
         document.getElementById('openCount').textContent = openInvoices.length;
         document.getElementById('openAmount').textContent = openTotal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
