@@ -297,6 +297,13 @@
                 <div class="stat-label" id="openAmount">0,00 €</div>
             </div>
 
+            <div class="stat-card" style="background: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);">
+                <div class="stat-icon">📝</div>
+                <div class="stat-label">Events beendet (Rechnung fehlt)</div>
+                <div class="stat-value" id="completedEventsCount">0</div>
+                <div class="stat-label" id="completedEventsAmount">0,00 €</div>
+            </div>
+
             <div class="stat-card success">
                 <div class="stat-icon">✅</div>
                 <div class="stat-label">Bezahlte Rechnungen (diesen Monat)</div>
@@ -343,6 +350,25 @@
                     </tr>
                 </thead>
                 <tbody id="openTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Events beendet (Rechnung fehlt) -->
+        <div class="section" id="completedEventsSection" style="display: none;">
+            <h2 class="section-title">Events beendet - Rechnung erstellen</h2>
+            <table id="completedEventsTable">
+                <thead>
+                    <tr>
+                        <th>Kunde</th>
+                        <th>Event-Datum</th>
+                        <th>Gäste</th>
+                        <th>Kugeln</th>
+                        <th>Entfernung</th>
+                        <th>Geschätzter Umsatz</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody id="completedEventsTableBody"></tbody>
             </table>
         </div>
 
@@ -552,6 +578,64 @@
                     <td><strong>${inv.invoiceAmount || '0,00 €'}</strong></td>
                     <td>${dueDate.toLocaleDateString('de-DE')}</td>
                     <td>${sentDate.toLocaleDateString('de-DE')}</td>
+                `;
+            });
+        }
+
+        // 2a. EVENTS BEENDET (Rechnung fehlt)
+        const completedEvents = bookings.filter(b => {
+            return b.status === 'Event beendet' && !b.invoiceSent && !b.invoicePaid;
+        });
+
+        // Funktion: Geschätzten Umsatz berechnen
+        function calculateEstimatedRevenue(booking) {
+            let total = 0;
+
+            // Eisumsatz
+            if (booking.gaeste && booking.kugeln) {
+                total += booking.gaeste * booking.kugeln * 1.80;
+            }
+
+            // Anfahrtskosten
+            const distance = parseFloat(booking.distance) || 0;
+            if (distance >= 6) {
+                total += 45;
+                if (distance >= 10) {
+                    total += 10;
+                    total += Math.floor((distance - 10) / 10) * 10;
+                }
+            }
+
+            return total;
+        }
+
+        let completedEventsTotal = 0;
+        completedEvents.forEach(event => {
+            completedEventsTotal += calculateEstimatedRevenue(event);
+        });
+
+        console.log('📝 Events beendet (Rechnung fehlt):', completedEvents.length, 'Geschätzt:', completedEventsTotal);
+
+        document.getElementById('completedEventsCount').textContent = completedEvents.length;
+        document.getElementById('completedEventsAmount').textContent = completedEventsTotal.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+
+        if (completedEvents.length > 0) {
+            document.getElementById('completedEventsSection').style.display = 'block';
+            const tbody = document.getElementById('completedEventsTableBody');
+
+            completedEvents.forEach(event => {
+                const estimatedRevenue = calculateEstimatedRevenue(event);
+                const eventDate = event.date || 'N/A';
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${event.company || event.name || 'N/A'}</strong></td>
+                    <td>${eventDate}</td>
+                    <td>${event.gaeste || '-'}</td>
+                    <td>${event.kugeln || '-'}</td>
+                    <td>${event.distance || '-'} km</td>
+                    <td><strong>${estimatedRevenue.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</strong></td>
+                    <td><a href="rechnung-erstellen.html?bookingId=${event.id}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.9em;">📄 Rechnung erstellen</a></td>
                 `;
             });
         }
