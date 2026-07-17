@@ -371,9 +371,50 @@
 
     <script>
         // LocalStorage Daten laden
-        const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+        let bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+
+        // AUTO-REPARATUR: Fehlende Rechnungsbeträge automatisch berechnen
+        function autoRepairMissingAmounts() {
+            let repaired = 0;
+
+            bookings.forEach((booking, index) => {
+                // Prüfe: Rechnung versendet ABER kein Betrag gespeichert
+                if (booking.invoiceSent && !booking.invoiceAmount) {
+                    // Eisumsatz berechnen
+                    let total = 0;
+                    if (booking.gaeste && booking.kugeln) {
+                        total += booking.gaeste * booking.kugeln * 1.80;
+                    }
+
+                    // Anfahrtskosten berechnen
+                    const distance = parseFloat(booking.distance) || 0;
+                    if (distance >= 6) {
+                        total += 45;
+                        if (distance >= 10) {
+                            total += 10;
+                            total += Math.floor((distance - 10) / 10) * 10;
+                        }
+                    }
+
+                    // Betrag formatieren und speichern
+                    const formattedAmount = total.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+                    bookings[index].invoiceAmount = formattedAmount;
+
+                    console.log(`✅ AUTO-REPARATUR: ${booking.company || booking.name} - Betrag: ${formattedAmount}`);
+                    repaired++;
+                }
+            });
+
+            if (repaired > 0) {
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                console.log(`🔧 ${repaired} Rechnung(en) automatisch repariert!`);
+            }
+        }
+
+        // Reparatur ausführen
+        autoRepairMissingAmounts();
 
         // DEBUG: Buchungen anzeigen
         console.log('📊 Dashboard-Debug:');

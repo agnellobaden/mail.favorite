@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnose & Reparatur</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        pre {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 15px 30px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .success { color: #4ec9b0; }
+        .error { color: #f48771; }
+        .warning { color: #dcdcaa; }
+    </style>
+</head>
+<body>
+    <h1>Diagnose & Reparatur</h1>
+
+    <button onclick="showData()">Daten anzeigen</button>
+    <button onclick="autoRepair()">AUTO-REPARATUR</button>
+    <button onclick="location.href='dashboard.html'">→ Zum Dashboard</button>
+
+    <pre id="output">Klicke auf "Daten anzeigen" um zu starten...</pre>
+
+    <script>
+        function showData() {
+            const output = document.getElementById('output');
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+
+            let text = '📊 DIAGNOSE REPORT\n';
+            text += '='.repeat(80) + '\n\n';
+            text += `Gesamt Buchungen: ${bookings.length}\n\n`;
+
+            const sentInvoices = bookings.filter(b => b.invoiceSent && !b.invoicePaid);
+            text += `\n🔍 VERSENDETE RECHNUNGEN (nicht bezahlt): ${sentInvoices.length}\n`;
+            text += '-'.repeat(80) + '\n';
+
+            sentInvoices.forEach((b, i) => {
+                text += `\n${i+1}. ${b.company || b.name}\n`;
+                text += `   Rechnung Nr: ${b.invoiceNumber || 'FEHLT'}\n`;
+                text += `   Betrag: ${b.invoiceAmount || '❌ FEHLT!!!'}\n`;
+                text += `   Versendet: ${b.invoiceSentDate ? new Date(b.invoiceSentDate).toLocaleDateString('de-DE') : 'N/A'}\n`;
+                text += `   Status: ${b.status}\n`;
+
+                // Berechne was der Betrag SEIN SOLLTE
+                let shouldBe = 0;
+                if (b.gaeste && b.kugeln) {
+                    shouldBe += b.gaeste * b.kugeln * 1.80;
+                }
+                const dist = parseFloat(b.distance) || 0;
+                if (dist >= 6) {
+                    shouldBe += 45;
+                    if (dist >= 10) {
+                        shouldBe += 10;
+                        shouldBe += Math.floor((dist - 10) / 10) * 10;
+                    }
+                }
+                text += `   SOLLTE SEIN: ${shouldBe.toFixed(2)} € (${b.gaeste} Gäste × ${b.kugeln} Kugeln × 1,80 + ${dist}km Anfahrt)\n`;
+            });
+
+            output.textContent = text;
+        }
+
+        function autoRepair() {
+            const output = document.getElementById('output');
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+
+            let text = '🔧 AUTO-REPARATUR GESTARTET\n';
+            text += '='.repeat(80) + '\n\n';
+
+            let fixed = 0;
+
+            bookings.forEach((b, index) => {
+                if (b.invoiceSent && !b.invoiceAmount) {
+                    // Berechne Betrag
+                    let total = 0;
+                    if (b.gaeste && b.kugeln) {
+                        total += b.gaeste * b.kugeln * 1.80;
+                    }
+                    const dist = parseFloat(b.distance) || 0;
+                    if (dist >= 6) {
+                        total += 45;
+                        if (dist >= 10) {
+                            total += 10;
+                            total += Math.floor((dist - 10) / 10) * 10;
+                        }
+                    }
+
+                    const formattedAmount = total.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+                    bookings[index].invoiceAmount = formattedAmount;
+
+                    text += `✅ REPARIERT: ${b.company || b.name}\n`;
+                    text += `   Betrag gesetzt auf: ${formattedAmount}\n\n`;
+                    fixed++;
+                }
+            });
+
+            if (fixed > 0) {
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                text += `\n${'='.repeat(80)}\n`;
+                text += `✅ ${fixed} Rechnungen repariert!\n`;
+                text += `\nJETZT: Gehe zum Dashboard und aktualisiere die Seite (F5)\n`;
+            } else {
+                text += `\nKeine Rechnungen zum Reparieren gefunden.\n`;
+                text += `Alle Beträge sind bereits vorhanden.\n`;
+            }
+
+            output.textContent = text;
+        }
+    </script>
+</body>
+</html>
