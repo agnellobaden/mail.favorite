@@ -3395,6 +3395,11 @@
 
             let filtered = allBookings;
 
+            // "Event beendet" immer ausblenden (außer wenn explizit gefiltert)
+            if (statusFilter !== 'Event beendet') {
+                filtered = filtered.filter(b => b.status !== 'Event beendet');
+            }
+
             // Namen-Filter (sucht in Name, Firma, E-Mail)
             if (nameFilter) {
                 filtered = filtered.filter(b => {
@@ -3912,6 +3917,17 @@
                         </a>
                     </div>
                 `;
+
+                // Karte anklickbar machen zum Bearbeiten
+                card.style.cursor = 'pointer';
+                card.addEventListener('click', function(e) {
+                    // Nur öffnen wenn nicht auf Button, Link oder Menü geklickt wurde
+                    if (!e.target.closest('a') &&
+                        !e.target.closest('button') &&
+                        !e.target.closest('.card-menu')) {
+                        editBooking(booking.id);
+                    }
+                });
 
                 container.appendChild(card);
             });
@@ -6597,40 +6613,55 @@
         // ==========================================
 
         function handleNewRequestsClick() {
+            // Zur Kartenansicht wechseln
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+
             // Filter auf Status "Neu" setzen
             document.getElementById('statusFilter').value = 'Neu';
 
             // Filter anwenden
             filterAndDisplay();
 
-            // Zur Tabelle scrollen
+            // Zu den Karten scrollen
             setTimeout(() => {
-                const tableSection = document.querySelector('.table-container');
-                if (tableSection) {
-                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
         }
 
         // Filter nach Status
         function filterByStatus(status) {
+            // Zur Kartenansicht wechseln
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+
             // Filter auf gewählten Status setzen
             document.getElementById('statusFilter').value = status;
 
             // Filter anwenden
             filterAndDisplay();
 
-            // Zur Tabelle scrollen
+            // Zu den Karten scrollen
             setTimeout(() => {
-                const tableSection = document.querySelector('.table-container');
-                if (tableSection) {
-                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
         }
 
         // Alle Buchungen anzeigen (Filter zurücksetzen)
         function showAllBookings() {
+            // Zur Kartenansicht wechseln
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+
             // Alle Filter zurücksetzen
             document.getElementById('statusFilter').value = '';
             document.getElementById('nameFilter').value = '';
@@ -6640,11 +6671,11 @@
             // Filter anwenden
             filterAndDisplay();
 
-            // Zur Tabelle scrollen
+            // Zu den Karten scrollen
             setTimeout(() => {
-                const tableSection = document.querySelector('.table-container');
-                if (tableSection) {
-                    tableSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
         }
