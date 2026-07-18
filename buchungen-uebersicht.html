@@ -4250,6 +4250,16 @@
 
             // Speichern und aktualisieren
             saveToLocalStorage();
+
+            // WICHTIG: Auch zu Firebase hochladen!
+            if (firebaseInitialized && db) {
+                saveToFirebase().then(() => {
+                    console.log('✅ Änderungen zu Firebase hochgeladen');
+                }).catch(error => {
+                    console.error('❌ Firebase-Fehler:', error);
+                });
+            }
+
             updateStats();
             filterAndDisplay();
 
