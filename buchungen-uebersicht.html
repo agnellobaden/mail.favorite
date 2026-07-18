@@ -2714,6 +2714,7 @@
         let db = null;
         let firebaseInitialized = false;
         let isUpdatingFromFirebase = false;
+        let isDeletingBooking = false; // Flag um zu verhindern, dass Listener gelöschte Buchungen wieder hochlädt
 
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
@@ -5413,38 +5414,78 @@
 
         // Buchung löschen
         function deleteBooking() {
-            if (!currentEditingBookingId) return;
+            console.log('🗑️ deleteBooking() wurde aufgerufen');
 
-            const booking = allBookings.find(b => b.id === currentEditingBookingId);
-            if (!booking) return;
-
-            // Bestätigung einholen
-            const confirmMessage = `Möchtest du diese Buchung wirklich löschen?\n\n` +
-                                  `Name: ${booking.name || 'Unbekannt'}\n` +
-                                  `Datum: ${booking.date || '-'}\n` +
-                                  `Status: ${booking.status || '-'}\n\n` +
-                                  `Diese Aktion kann nicht rückgängig gemacht werden!`;
-
-            if (!confirm(confirmMessage)) {
+            if (!currentEditingBookingId) {
+                console.error('Keine ID vorhanden');
+                alert('Fehler: Keine Buchung ausgewählt!');
                 return;
             }
 
-            // Buchung aus Array entfernen
-            const index = allBookings.findIndex(b => b.id === currentEditingBookingId);
-            if (index > -1) {
-                allBookings.splice(index, 1);
+            const booking = allBookings.find(b => b.id === currentEditingBookingId);
+            if (!booking) {
+                console.error('❌ Buchung nicht gefunden:', currentEditingBookingId);
+                alert('Fehler: Buchung konnte nicht gefunden werden!');
+                return;
             }
 
-            // Speichern und aktualisieren
+            // Bestätigung einholen
+            const confirmMessage = `Möchtest du diese Buchung wirklich löschen?\n\nName: ${booking.name || 'Unbekannt'}\nDatum: ${booking.date || '-'}\nStatus: ${booking.status || '-'}\n\nDiese Aktion kann nicht rückgängig gemacht werden!`;
+
+            console.log('Zeige Bestätigungs-Dialog...');
+            if (!confirm(confirmMessage)) {
+                console.log('Benutzer hat abgebrochen');
+                return;
+            }
+
+            const bookingIdToDelete = currentEditingBookingId;
+            console.log('🗑️ Lösche Buchung:', bookingIdToDelete);
+
+            // ERST: Aus lokalem Array entfernen
+            const index = allBookings.findIndex(b => b.id === bookingIdToDelete);
+            if (index === -1) {
+                console.error('❌ Buchung nicht im Array gefunden!');
+                alert('Fehler: Buchung nicht gefunden!');
+                return;
+            }
+
+            allBookings.splice(index, 1);
+            console.log('✅ Aus Array gelöscht. Verbleibend:', allBookings.length);
+
+            // ZWEITE: LocalStorage speichern
             saveToLocalStorage();
+            console.log('💾 LocalStorage gespeichert');
+
+            // DRITTENS: UI sofort aktualisieren
             updateStats();
             filterAndDisplay();
+            console.log('🔄 UI aktualisiert');
 
-            // Formular schließen
+            // VIERTENS: Formular schließen
             currentEditingBookingId = null;
-            document.getElementById('formModal').style.display = 'none';
+            const modal = document.getElementById('formModal');
+            if (modal) {
+                modal.style.display = 'none';
+                console.log('✅ Formular geschlossen');
+            }
 
-            alert('✓ Buchung wurde erfolgreich gelöscht!');
+            // FÜNFTENS: Firebase im Hintergrund löschen (blockiert nicht das UI)
+            if (firebaseInitialized && db) {
+                const cleanId = sanitizeFirebaseId(bookingIdToDelete);
+                console.log('🔥 Lösche aus Firebase:', cleanId);
+
+                db.collection('buchungen').doc(cleanId).delete()
+                    .then(() => {
+                        console.log('✅ Erfolgreich aus Firebase gelöscht');
+                    })
+                    .catch(error => {
+                        console.error('❌ Firebase-Fehler:', error);
+                        // Fehler nicht anzeigen, da lokal schon gelöscht
+                    });
+            }
+
+            alert('✅ Buchung wurde gelöscht!');
+            console.log('✅ Löschvorgang abgeschlossen');
         }
 
         // ==================== KARTEN-MENÜ ====================
@@ -6287,7 +6328,13 @@
             // Echtzeit-Listener für Buchungen
             db.collection('buchungen').onSnapshot((snapshot) => {
                 console.log('📡 Änderungen von Firebase erhalten:', snapshot.size, 'Dokumente');
-                updateFirebaseStatus('syncing', '🔄 Empfange Updates...');
+
+                // WICHTIG: Während einer Löschung nichts tun, sonst lädt der Listener die Buchung wieder hoch
+                if (isDeletingBooking) {
+                    console.log('⏸️ Löschvorgang läuft - Listener übersprungen');
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+                    return;
+                }
 
                 // Flag setzen, um Endlos-Loop zu vermeiden
                 isUpdatingFromFirebase = true;
@@ -6365,13 +6412,36 @@
                         }
                     });
 
-                    // Prüfe ob lokale Buchungen gelöscht wurden (in Firebase nicht vorhanden)
+                    // Firebase ist die Quelle der Wahrheit - verwende nur Buchungen die in Firebase sind
+                    // PLUS neu erstellte lokale Buchungen (< 5 Sekunden alt)
                     const firebaseIds = new Set(firebaseBookings.map(b => b.id));
-                    const localOnly = mergedBookings.filter(b => !firebaseIds.has(b.id));
-                    if (localOnly.length > 0) {
-                        console.log('📤 Lokale Buchungen zu Firebase hochladen:', localOnly.map(b => b.id));
-                        hasUpdates = true;
-                    }
+                    const finalBookings = [];
+                    let shouldUploadNew = false;
+
+                    mergedBookings.forEach((localBooking) => {
+                        if (firebaseIds.has(localBooking.id)) {
+                            // Buchung existiert in Firebase - behalten
+                            finalBookings.push(localBooking);
+                        } else {
+                            // Buchung ist nur lokal, nicht in Firebase
+                            const created = new Date(localBooking.erstelltAm || 0).getTime();
+                            const ageInSeconds = (Date.now() - created) / 1000;
+
+                            if (ageInSeconds < 5) {
+                                // Neu erstellt (< 5 Sekunden) - behalten und hochladen
+                                console.log('📤 Neue lokale Buchung wird hochgeladen:', localBooking.id);
+                                finalBookings.push(localBooking);
+                                shouldUploadNew = true;
+                                hasUpdates = true;
+                            } else {
+                                // Alt und nicht in Firebase - wurde gelöscht, NICHT behalten
+                                console.log('🗑️ Buchung aus Firebase gelöscht, entferne lokal:', localBooking.id);
+                                hasUpdates = true;
+                            }
+                        }
+                    });
+
+                    mergedBookings = finalBookings;
 
                     if (hasUpdates) {
                         allBookings = mergedBookings;
@@ -6384,28 +6454,26 @@
                         filterAndDisplay();
 
                         console.log('✓ Daten gemerged:', allBookings.length, 'Buchungen');
-                        updateFirebaseStatus('connected', '🟢 Aktualisiert');
 
                         // Wenn lokale Daten neuer sind, zu Firebase hochladen
-                        setTimeout(() => {
-                            if (!isUpdatingFromFirebase) {
-                                console.log('📤 Lokale Änderungen zu Firebase hochladen');
-                                saveToFirebase();
-                            }
-                        }, 1000);
+                        if (shouldUploadNew) {
+                            setTimeout(() => {
+                                if (!isUpdatingFromFirebase) {
+                                    console.log('📤 Neue lokale Änderungen zu Firebase hochladen');
+                                    saveToFirebase();
+                                }
+                            }, 1000);
+                        }
                     } else {
                         console.log('✓ Daten bereits aktuell');
-                        updateFirebaseStatus('connected', '🟢 Live verbunden');
                     }
                 } else {
                     console.log('✓ Daten identisch - keine Updates nötig');
-                    updateFirebaseStatus('connected', '🟢 Live verbunden');
                 }
 
-                // Flag zurücksetzen nach kurzer Verzögerung
-                setTimeout(() => {
-                    isUpdatingFromFirebase = false;
-                }, 500);
+                // Flag zurücksetzen und Status auf "Live verbunden" setzen
+                isUpdatingFromFirebase = false;
+                updateFirebaseStatus('connected', '🟢 Live verbunden');
             }, (error) => {
                 console.error('✗ Synchronisations-Fehler:', error);
                 updateFirebaseStatus('error', '🔴 Sync-Fehler: ' + error.message);
