@@ -2774,34 +2774,23 @@
 
         // Firebase-Config aus localStorage laden oder Setup anzeigen
         function checkFirebaseSetup() {
-            // Standard Firebase-Konfiguration
+            // Standard Firebase-Konfiguration (aus Screenshot)
             const defaultConfig = {
                 apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
                 authDomain: "mailfavorite-e8f49.firebaseapp.com",
                 projectId: "mailfavorite-e8f49",
                 storageBucket: "mailfavorite-e8f49.firebasestorage.app",
                 messagingSenderId: "73719715044",
-                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1"
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
             };
 
-            const savedConfig = localStorage.getItem('firebaseConfig');
-
-            if (savedConfig) {
-                try {
-                    const config = JSON.parse(savedConfig);
-                    return initializeFirebase(config);
-                } catch (error) {
-                    console.error('Fehler beim Laden der Firebase-Config:', error);
-                    // Bei Fehler die Standard-Config verwenden
-                    localStorage.setItem('firebaseConfig', JSON.stringify(defaultConfig));
-                    return initializeFirebase(defaultConfig);
-                }
-            } else {
-                // Keine Config vorhanden - Standard-Config verwenden und speichern
-                console.log('🔧 Verwende Standard Firebase-Konfiguration');
-                localStorage.setItem('firebaseConfig', JSON.stringify(defaultConfig));
-                return initializeFirebase(defaultConfig);
-            }
+            // Immer die korrekte Config in localStorage schreiben, um Fehler zu beheben
+            localStorage.setItem('firebaseConfig', JSON.stringify(defaultConfig));
+            localStorage.removeItem('firebaseSkipped'); // Überspringen rückgängig machen
+            
+            console.log('🔧 Verwende fest hinterlegte Firebase-Konfiguration');
+            return initializeFirebase(defaultConfig);
         }
 
         // Firebase-Verbindung testen (für Debugging)
@@ -4195,10 +4184,10 @@
             const now = new Date();
             const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
 
-            // Firma-Feld: Wenn leer, Name verwenden (für Rechnung)
+            // Firma-Feld: Leer lassen, falls nichts eingetragen wurde
             const name = document.getElementById('formName').value;
             const companyField = document.getElementById('formCompany').value.trim();
-            const company = companyField || name;
+            const company = companyField;
 
             if (currentEditingBookingId) {
                 // BEARBEITEN - Bestehende Buchung aktualisieren
