@@ -6381,31 +6381,68 @@
                 if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
                     console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
 
-                    // WICHTIG: Firebase ist die Quelle der Wahrheit
-                    let mergedBookings = [...firebaseBookings]; // Start mit Firebase-Daten
-                    let hasUpdates = true;
+                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt immer (egal von welchem Gerät)
+                    const bookingsMap = new Map();
+                    let hasUpdates = false;
                     let shouldUploadNew = false;
 
-                    // Prüfe ob es lokale Buchungen gibt, die nicht in Firebase sind
-                    const firebaseIds = new Set(firebaseBookings.map(b => b.id));
+                    // 1. Füge alle Firebase-Buchungen zur Map hinzu
+                    firebaseBookings.forEach(fbBooking => {
+                        bookingsMap.set(fbBooking.id, {
+                            data: fbBooking,
+                            timestamp: new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime(),
+                            source: 'firebase'
+                        });
+                    });
 
+                    // 2. Vergleiche mit lokalen Buchungen
                     allBookings.forEach(localBooking => {
-                        if (!firebaseIds.has(localBooking.id)) {
-                            // Buchung ist nur lokal, nicht in Firebase
-                            const created = new Date(localBooking.erstelltAm || 0).getTime();
-                            const ageInSeconds = (Date.now() - created) / 1000;
+                        const localTimestamp = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
 
-                            if (ageInSeconds < 10) {
-                                // Neu erstellt (< 10 Sekunden) - zu Firebase hochladen
-                                console.log('📤 Neue lokale Buchung wird hochgeladen:', localBooking.id);
-                                mergedBookings.push(localBooking);
+                        if (bookingsMap.has(localBooking.id)) {
+                            // Buchung existiert in Firebase - vergleiche Timestamps
+                            const fbEntry = bookingsMap.get(localBooking.id);
+
+                            if (localTimestamp > fbEntry.timestamp) {
+                                // LOKALE Version ist NEUER - verwende lokale und markiere für Upload
+                                console.log('📤 Lokale Version ist neuer, wird hochgeladen:', localBooking.id);
+                                bookingsMap.set(localBooking.id, {
+                                    data: localBooking,
+                                    timestamp: localTimestamp,
+                                    source: 'local-newer'
+                                });
                                 shouldUploadNew = true;
+                                hasUpdates = true;
+                            } else if (localTimestamp < fbEntry.timestamp) {
+                                // Firebase-Version ist NEUER - wurde schon zur Map hinzugefügt
+                                console.log('🔄 Firebase-Version ist neuer:', localBooking.id);
+                                hasUpdates = true;
+                            }
+                            // Wenn Timestamps gleich sind, behalte Firebase-Version
+                        } else {
+                            // Buchung ist nur lokal, nicht in Firebase
+                            const ageInSeconds = (Date.now() - localTimestamp) / 1000;
+
+                            if (ageInSeconds < 30) {
+                                // Neu (< 30 Sekunden) - zu Firebase hochladen
+                                console.log('📤 Neue lokale Buchung wird hochgeladen:', localBooking.id);
+                                bookingsMap.set(localBooking.id, {
+                                    data: localBooking,
+                                    timestamp: localTimestamp,
+                                    source: 'local-new'
+                                });
+                                shouldUploadNew = true;
+                                hasUpdates = true;
                             } else {
                                 // Alt und nicht in Firebase - wurde gelöscht
                                 console.log('🗑️ Alte lokale Buchung (nicht in Firebase), verwerfen:', localBooking.id);
+                                hasUpdates = true;
                             }
                         }
                     });
+
+                    // 3. Konvertiere Map zurück zu Array
+                    const mergedBookings = Array.from(bookingsMap.values()).map(entry => entry.data);
 
                     if (hasUpdates) {
                         allBookings = mergedBookings;
