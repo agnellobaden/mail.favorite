@@ -3199,10 +3199,23 @@
         }
 
         async function saveToFirebase() {
-            if (!firebaseInitialized || !db || isUpdatingFromFirebase) {
-                console.log('⚠️ Firebase-Speichern übersprungen (nicht bereit)');
+            if (!firebaseInitialized || !db) {
+                console.log('⚠️ Firebase nicht initialisiert');
                 return;
             }
+
+            if (isUpdatingFromFirebase) {
+                console.log('⚠️ Listener läuft gerade - Speichern verzögert');
+                // Versuche es nochmal nach 1 Sekunde
+                setTimeout(() => saveToFirebase(), 1000);
+                return;
+            }
+
+            console.log('💾 Starte Firebase-Upload...');
+
+            // Flag setzen um zu verhindern, dass Listener währenddessen stört
+            const wasUpdating = isUpdatingFromFirebase;
+            isUpdatingFromFirebase = true;
 
             updateFirebaseStatus('syncing', '🔄 Speichere...');
 
@@ -3307,6 +3320,12 @@
                 }
 
                 updateFirebaseStatus('error', errorMsg);
+            } finally {
+                // Flag IMMER zurücksetzen, egal ob Erfolg oder Fehler
+                setTimeout(() => {
+                    isUpdatingFromFirebase = wasUpdating;
+                    console.log('🔓 Upload-Flag zurückgesetzt');
+                }, 500);
             }
         }
 
