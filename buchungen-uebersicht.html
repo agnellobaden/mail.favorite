@@ -2751,23 +2751,44 @@
         function initializeFirebase(config) {
             updateFirebaseStatus('connecting', '🟡 Verbinde...');
 
+            // KRITISCH: Prüfe ob Firebase SDK geladen ist
+            if (typeof firebase === 'undefined') {
+                console.error('❌ Firebase SDK nicht geladen! Warte 1 Sekunde und versuche erneut...');
+                setTimeout(() => initializeFirebase(config), 1000);
+                return false;
+            }
+
             try {
                 if (!firebase.apps.length) {
                     firebase.initializeApp(config);
+                    console.log('✅ Firebase App initialisiert');
+                } else {
+                    console.log('ℹ️ Firebase App bereits initialisiert');
                 }
+
                 db = firebase.firestore();
                 firebaseInitialized = true;
-                console.log('✓ Firebase erfolgreich initialisiert');
+                console.log('✅ Firebase Firestore verbunden');
 
                 // Echtzeit-Synchronisation starten
+                console.log('🚀 Starte Echtzeit-Synchronisation...');
                 startRealtimeSync();
 
                 updateFirebaseStatus('connected', '🟢 Live verbunden');
+                console.log('✅ Firebase KOMPLETT initialisiert und Listener aktiv!');
                 return true;
             } catch (error) {
-                console.error('✗ Firebase-Initialisierung fehlgeschlagen:', error);
+                console.error('❌ Firebase-Initialisierung fehlgeschlagen:', error);
+                console.error('Error Details:', error);
                 firebaseInitialized = false;
                 updateFirebaseStatus('error', '🔴 Fehler: ' + error.message);
+
+                // Bei Fehler nochmal versuchen nach 2 Sekunden
+                setTimeout(() => {
+                    console.log('🔄 Versuche Firebase erneut zu initialisieren...');
+                    initializeFirebase(config);
+                }, 2000);
+
                 return false;
             }
         }
@@ -3197,7 +3218,9 @@
 
         async function saveToFirebase() {
             if (!firebaseInitialized || !db) {
-                console.log('⚠️ Firebase nicht initialisiert');
+                console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
+                console.error('firebaseInitialized:', firebaseInitialized);
+                console.error('db:', db);
                 return;
             }
 
@@ -3208,7 +3231,11 @@
                 return;
             }
 
-            console.log('💾 Starte Firebase-Upload...');
+            console.log('💾 ==========================================');
+            console.log('💾 STARTE FIREBASE-UPLOAD');
+            console.log('💾 Anzahl Buchungen:', allBookings.length);
+            console.log('💾 Zeitpunkt:', new Date().toLocaleTimeString());
+            console.log('💾 ==========================================');
 
             // Flag setzen um zu verhindern, dass Listener währenddessen stört
             const wasUpdating = isUpdatingFromFirebase;
@@ -3291,28 +3318,41 @@
                     }
                 }
 
+                console.log('📤 Committe Batch zu Firebase...');
                 await batch.commit();
-                console.log('✓ Daten in Firebase synchronisiert:', processedCount, 'von', allBookings.length, 'Buchungen');
+
+                console.log('✅ ==========================================');
+                console.log('✅ FIREBASE-UPLOAD ERFOLGREICH!');
+                console.log('✅ Gespeichert:', processedCount, 'von', allBookings.length, 'Buchungen');
+                console.log('✅ Zeitpunkt:', new Date().toLocaleTimeString());
+                console.log('✅ ==========================================');
 
                 updateFirebaseStatus('connected', '🟢 Gespeichert');
                 setTimeout(() => {
                     updateFirebaseStatus('connected', '🟢 Live verbunden');
                 }, 1500);
             } catch (error) {
-                console.error('✗ Firebase-Sync-Fehler:', error);
-                console.error('Error Code:', error.code || 'Kein Code');
-                console.error('Error Message:', error.message || 'Keine Nachricht');
+                console.error('❌ ==========================================');
+                console.error('❌ FIREBASE-UPLOAD FEHLGESCHLAGEN!');
+                console.error('❌ Error:', error);
+                console.error('❌ Error Code:', error.code || 'Kein Code');
+                console.error('❌ Error Message:', error.message || 'Keine Nachricht');
+                console.error('❌ Zeitpunkt:', new Date().toLocaleTimeString());
+                console.error('❌ ==========================================');
 
                 // Detaillierte Fehlermeldung je nach Fehlertyp
                 let errorMsg = '🔴 Fehler beim Speichern';
                 if (error.code === 'permission-denied') {
-                    errorMsg = '🔴 Zugriff verweigert - Firestore Rules prüfen';
-                    console.error('💡 Tipp: Prüfe die Firestore Security Rules in der Firebase Console');
+                    errorMsg = '🔴 Zugriff verweigert';
+                    console.error('💡 LÖSUNG: Öffne Firebase Console → Firestore → Rules');
+                    console.error('💡 Setze: allow read, write: if true;');
+                    alert('❌ FIREBASE FEHLER!\n\nZugriff verweigert.\n\nBitte öffne die Firebase Console und setze die Firestore Rules auf:\n\nallow read, write: if true;');
                 } else if (error.code === 'unavailable') {
-                    errorMsg = '🔴 Netzwerkfehler - Keine Verbindung';
+                    errorMsg = '🔴 Netzwerkfehler';
+                    console.error('💡 Prüfe deine Internetverbindung');
                 } else if (error.message && error.message.includes('Invalid segment')) {
-                    errorMsg = '🔴 Ungültige Daten-IDs erkannt';
-                    console.error('💡 Tipp: IDs dürfen keine Sonderzeichen wie / oder \\ enthalten');
+                    errorMsg = '🔴 Ungültige Daten-IDs';
+                    console.error('💡 IDs dürfen keine Sonderzeichen enthalten');
                 } else if (error.message) {
                     errorMsg = `🔴 Fehler: ${error.message.substring(0, 50)}`;
                 }
@@ -6354,13 +6394,17 @@
         // ==========================================
 
         function startRealtimeSync() {
-            if (!firebaseInitialized || !db) return;
+            if (!firebaseInitialized || !db) {
+                console.error('❌ Firebase nicht bereit - Listener kann nicht gestartet werden');
+                return;
+            }
 
-            console.log('🔄 Echtzeit-Synchronisation gestartet');
+            console.log('🔄 Starte Echtzeit-Synchronisation...');
 
             // Echtzeit-Listener für Buchungen
             db.collection('buchungen').onSnapshot((snapshot) => {
-                console.log('📡 Änderungen von Firebase erhalten:', snapshot.size, 'Dokumente');
+                console.log('📡 FIREBASE SNAPSHOT ERHALTEN:', snapshot.size, 'Dokumente');
+                console.log('📡 Zeitpunkt:', new Date().toLocaleTimeString());
 
                 // WICHTIG: Während einer Löschung nichts tun, sonst lädt der Listener die Buchung wieder hoch
                 if (isDeletingBooking) {
