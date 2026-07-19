@@ -3140,22 +3140,26 @@
         // DATEN SPEICHERN (Firebase + LocalStorage Fallback)
         // ==========================================
 
-        async function saveToLocalStorage() {
+        function saveToLocalStorage() {
             // Immer in LocalStorage als Backup speichern
             try {
                 localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-                console.log('✓ Daten in LocalStorage gespeichert');
+                console.log('💾 Daten in LocalStorage gespeichert (' + allBookings.length + ' Buchungen)');
             } catch (e) {
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, auch dort speichern
+            // Wenn Firebase aktiviert ist, auch dort speichern (NICHT-BLOCKIEREND im Hintergrund)
             if (firebaseInitialized && db) {
-                try {
-                    await saveToFirebase();
-                } catch (e) {
-                    console.error('✗ Fehler beim Firebase-Speichern:', e);
-                }
+                console.log('🚀 Starte Firebase-Upload im Hintergrund für ' + allBookings.length + ' Buchungen...');
+                // Verwende Promise ohne await, damit es nicht blockiert
+                saveToFirebase().then(() => {
+                    console.log('✅ Firebase-Upload erfolgreich abgeschlossen!');
+                }).catch((e) => {
+                    console.error('❌ Firebase-Upload fehlgeschlagen:', e);
+                });
+            } else {
+                console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
             }
 
             // App-Zustand auch speichern
@@ -3187,16 +3191,20 @@
             return cleanId;
         }
 
+        // Debounce Timer für Firebase-Uploads
+        let firebaseSaveTimeout = null;
+        let hasPendingFirebaseUpload = false;
+
         async function saveToFirebase() {
             if (!firebaseInitialized || !db) {
                 console.log('⚠️ Firebase nicht initialisiert');
                 return;
             }
 
+            // Wenn bereits ein Upload läuft, markiere dass ein weiterer Upload pending ist
             if (isUpdatingFromFirebase) {
-                console.log('⚠️ Listener läuft gerade - Speichern verzögert');
-                // Versuche es nochmal nach 1 Sekunde
-                setTimeout(() => saveToFirebase(), 1000);
+                hasPendingFirebaseUpload = true;
+                console.log('⏳ Upload läuft bereits - wird nach Abschluss wiederholt');
                 return;
             }
 
@@ -3205,6 +3213,7 @@
             // Flag setzen um zu verhindern, dass Listener währenddessen stört
             const wasUpdating = isUpdatingFromFirebase;
             isUpdatingFromFirebase = true;
+            hasPendingFirebaseUpload = false;
 
             updateFirebaseStatus('syncing', '🔄 Speichere...');
 
@@ -3314,6 +3323,12 @@
                 setTimeout(() => {
                     isUpdatingFromFirebase = wasUpdating;
                     console.log('🔓 Upload-Flag zurückgesetzt');
+
+                    // Wenn während des Uploads neue Änderungen kamen, erneut uploaden
+                    if (hasPendingFirebaseUpload) {
+                        console.log('🔄 Starte nächsten Upload (pending changes)...');
+                        saveToFirebase();
+                    }
                 }, 500);
             }
         }
