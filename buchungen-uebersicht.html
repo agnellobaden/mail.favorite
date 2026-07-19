@@ -6383,6 +6383,18 @@
 
                 console.log('🔍 Vergleiche Daten - Lokal:', allBookings.length, 'Firebase:', firebaseBookings.length);
 
+                // WICHTIG: Wenn lokal KEINE Daten vorhanden sind, übernimm IMMER Firebase-Daten
+                if (allBookings.length === 0 && firebaseBookings.length > 0) {
+                    console.log('📥 Erste Synchronisation: Übernehme alle Daten von Firebase');
+                    allBookings = firebaseBookings;
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+                    updateStats();
+                    filterAndDisplay();
+                    isUpdatingFromFirebase = false;
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+                    return;
+                }
+
                 // Sortiere beide Arrays für besseren Vergleich
                 const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
                 const sortedFirebase = [...firebaseBookings].sort((a, b) => a.id.localeCompare(b.id));
@@ -6775,7 +6787,7 @@
         // INITIALISIERUNG BEIM LADEN
         // ==========================================
 
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀 App wird geladen...');
 
             // Automatisch zur Kartenansicht auf Mobile wechseln
@@ -6795,8 +6807,33 @@
                 }, 1000);
             }
 
-            // Lade Daten aus LocalStorage (funktioniert auch ohne Firebase)
-            loadFromLocalStorage();
+            // WICHTIG: Wenn Firebase aktiv ist, warte auf erste Daten von Firebase
+            // NUR wenn Firebase nicht verfügbar, lade aus LocalStorage
+            if (firebaseInitialized && db) {
+                console.log('⏳ Warte auf Firebase-Daten...');
+                // Warte max 3 Sekunden auf Firebase-Daten
+                await new Promise((resolve) => {
+                    const timeout = setTimeout(() => {
+                        console.log('⚠️ Firebase-Timeout - verwende LocalStorage als Fallback');
+                        loadFromLocalStorage();
+                        resolve();
+                    }, 3000);
+
+                    // Der Listener wird die Daten laden
+                    const checkInterval = setInterval(() => {
+                        if (allBookings.length > 0 || !firebaseInitialized) {
+                            clearTimeout(timeout);
+                            clearInterval(checkInterval);
+                            console.log('✓ Firebase-Daten geladen:', allBookings.length, 'Buchungen');
+                            resolve();
+                        }
+                    }, 100);
+                });
+            } else {
+                // Kein Firebase - lade aus LocalStorage
+                console.log('📂 Lade aus LocalStorage (Firebase nicht verfügbar)');
+                loadFromLocalStorage();
+            }
 
             // App-Zustand wiederherstellen
             setTimeout(() => {
@@ -6826,6 +6863,7 @@
 
             console.log('✓ App bereit!');
             console.log('Firebase aktiv:', firebaseInitialized ? 'Ja ✓' : 'Nein (nur lokal)');
+            console.log('Buchungen geladen:', allBookings.length);
 
             // Status-Anzeige aktualisieren
             if (!firebaseInitialized) {
