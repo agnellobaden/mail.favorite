@@ -1350,20 +1350,20 @@ Tel: +49 176 56813172`;
                 console.log('📄 Lade PDF automatisch herunter...');
                 generatePDF();
 
-                // Mailto-Link erstellen (funktioniert auf PC und Handy)
-                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+                // Gmail-Link erstellen (öffnet Gmail direkt)
+                const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customerEmail)}&cc=eisfavorit@gmail.com&su=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
 
-                console.log('📧 Öffne E-Mail-App für:', customerEmail);
-                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
+                console.log('📧 Öffne Gmail für:', customerEmail);
+                console.log('📧 CC-Kopie geht an: eisfavorit@gmail.com');
 
-                // E-Mail-App öffnen (funktioniert auf allen Geräten)
+                // Gmail öffnen (funktioniert auf allen Geräten)
                 // Kurze Verzögerung, damit PDF-Download zuerst startet
                 setTimeout(() => {
-                    window.location.href = mailtoLink;
+                    window.open(gmailLink, '_blank');
                 }, 500);
 
                 // Erfolgsmeldung
-                alert('✓ PDF wird automatisch heruntergeladen!\n✓ E-Mail-App wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ CC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
@@ -1532,17 +1532,17 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // Mailto-Link erstellen
-                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`)}&body=${encodeURIComponent(emailBody)}`;
+                // Gmail-Link erstellen
+                const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customerEmail)}&cc=eisfavorit@gmail.com&su=${encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`)}&body=${encodeURIComponent(emailBody)}`;
 
-                console.log('📧 Öffne E-Mail für Zahlungserinnerung:', customerEmail);
-                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
+                console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
+                console.log('📧 CC-Kopie geht an: eisfavorit@gmail.com');
 
-                // E-Mail-App öffnen
-                window.location.href = mailtoLink;
+                // Gmail öffnen
+                window.open(gmailLink, '_blank');
 
                 // Erfolgsmeldung
-                alert(`✓ Zahlungserinnerung wird versendet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)`);
+                alert(`✓ Gmail wird geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}✓ CC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)`);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);

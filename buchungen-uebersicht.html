@@ -2774,7 +2774,9 @@
                 console.log('🚀 Starte Echtzeit-Synchronisation...');
                 startRealtimeSync();
 
-                updateFirebaseStatus('connected', '🟢 Live verbunden');
+                // WICHTIG: Echte Verbindungsprüfung durchführen
+                testFirebaseConnection();
+
                 console.log('✅ Firebase KOMPLETT initialisiert und Listener aktiv!');
                 return true;
             } catch (error) {
@@ -2791,6 +2793,48 @@
 
                 return false;
             }
+        }
+
+        // NEUE FUNKTION: Echte Firebase-Verbindung testen
+        let connectionCheckInterval = null;
+        function testFirebaseConnection() {
+            console.log('🔍 Teste Firebase-Verbindung...');
+            updateFirebaseStatus('connecting', '🟡 Teste Verbindung...');
+
+            // Test: Versuche Daten zu laden
+            db.collection('buchungen').limit(1).get()
+                .then((snapshot) => {
+                    console.log('✅ Firebase-Verbindung erfolgreich getestet!');
+                    console.log('✅ Anzahl Dokumente in Firebase:', snapshot.size);
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+
+                    // Starte regelmäßige Verbindungsprüfung (alle 30 Sekunden)
+                    if (!connectionCheckInterval) {
+                        connectionCheckInterval = setInterval(() => {
+                            console.log('🔄 Regelmäßige Verbindungsprüfung...');
+                            db.collection('buchungen').limit(1).get()
+                                .then(() => {
+                                    console.log('✅ Verbindung OK');
+                                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+                                })
+                                .catch((err) => {
+                                    console.error('❌ Verbindung verloren:', err);
+                                    updateFirebaseStatus('error', '🔴 Verbindung verloren');
+                                });
+                        }, 30000); // Alle 30 Sekunden
+                        console.log('✅ Regelmäßige Verbindungsprüfung gestartet (alle 30s)');
+                    }
+                })
+                .catch((error) => {
+                    console.error('❌ Firebase-Verbindungstest fehlgeschlagen:', error);
+                    updateFirebaseStatus('error', '🔴 Verbindungsfehler');
+
+                    // Erneuter Test in 5 Sekunden
+                    setTimeout(() => {
+                        console.log('🔄 Versuche Verbindung erneut zu testen...');
+                        testFirebaseConnection();
+                    }, 5000);
+                });
         }
 
         // Firebase-Config aus localStorage laden oder Setup anzeigen
