@@ -2770,6 +2770,23 @@
         let isUpdatingFromFirebase = false;
         let isDeletingBooking = false; // Flag um zu verhindern, dass Listener gelöschte Buchungen wieder hochlädt
 
+        // ==========================================
+        // TWILIO SMS KONFIGURATION
+        // ==========================================
+        // WICHTIG: Tragen Sie hier Ihre Twilio-Zugangsdaten ein!
+        // 1. Erstellen Sie einen kostenlosen Account auf: https://www.twilio.com/try-twilio
+        // 2. Sie erhalten 10€ Startguthaben (ca. 100-140 SMS)
+        // 3. Tragen Sie hier Ihre Daten ein:
+
+        const TWILIO_CONFIG = {
+            accountSid: 'IHRE_ACCOUNT_SID_HIER',  // z.B. 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+            authToken: 'IHR_AUTH_TOKEN_HIER',      // z.B. 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+            fromNumber: '+4915735983484'           // Ihre Twilio-Telefonnummer (z.B. '+4915735983484')
+        };
+
+        // SMS-Versand aktiviert?
+        const SMS_ENABLED = TWILIO_CONFIG.accountSid !== 'IHRE_ACCOUNT_SID_HIER';
+
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
             const dot = document.getElementById('firebaseStatusDot');
@@ -7314,8 +7331,11 @@
                                 </div>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <a href="${smsUrl}" onclick="markSMSAsSent('${booking.id}')" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; white-space: nowrap;">
-                                    📱 SMS senden
+                                <button onclick="sendAutomaticSMS(${JSON.stringify(booking).replace(/"/g, '&quot;')})" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,180,219,0.3);">
+                                    🚀 AUTOMATISCH SENDEN
+                                </button>
+                                <a href="${smsUrl}" onclick="markSMSAsSent('${booking.id}')" style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; font-size: 0.85em;">
+                                    📱 Manuell (SMS-App)
                                 </a>
                                 <button onclick="markSMSAsSent('${booking.id}')" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85em;">
                                     ✓ Als versendet markieren
@@ -7332,8 +7352,21 @@
                         <h2 style="margin: 0; color: #333;">📱 SMS-Erinnerungen versenden</h2>
                         <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background: #ff6b6b; color: white; border: none; border-radius: 50%; width: 35px; height: 35px; font-size: 1.2em; cursor: pointer; font-weight: bold;">×</button>
                     </div>
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00b4db;">
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #00b4db;">
                         <strong>📋 ${smsBookings.length} Kunde(n)</strong> haben morgen einen Termin und brauchen eine SMS-Erinnerung!
+                    </div>
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <button onclick="this.closest('div').parentElement.parentElement.remove(); sendAllSMSReminders();" style="padding: 15px 30px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1em; box-shadow: 0 4px 12px rgba(0,180,219,0.4); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                            🚀 ALLE ${smsBookings.length} SMS AUTOMATISCH SENDEN
+                        </button>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 8px;">
+                            Geschätzte Kosten: ca. ${(smsBookings.length * 0.075).toFixed(2)}€ (0,075€ pro SMS)
+                        </div>
+                    </div>
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 15px; margin-bottom: 15px;">
+                        <div style="font-size: 0.9em; color: #666; text-align: center; margin-bottom: 10px;">
+                            <strong>Oder einzeln versenden:</strong>
+                        </div>
                     </div>
                     ${customersHTML}
                     <div style="text-align: center; margin-top: 20px;">
@@ -7369,6 +7402,160 @@
 
                 console.log('✅ SMS als versendet markiert für:', bookings[bookingIndex].name);
             }
+        }
+
+        // ==========================================
+        // AUTOMATISCHE SMS-VERSENDUNG MIT TWILIO
+        // ==========================================
+        async function sendAutomaticSMS(booking) {
+            if (!SMS_ENABLED) {
+                alert('❌ SMS-Versand nicht konfiguriert!\n\nBitte tragen Sie zuerst Ihre Twilio-Zugangsdaten im Code ein.\n\nAnleitung:\n1. Kostenlosen Twilio-Account erstellen auf: https://www.twilio.com/try-twilio\n2. Account SID, Auth Token und Telefonnummer kopieren\n3. Im Code (Zeile 2781-2785) einfügen');
+                return false;
+            }
+
+            // Telefonnummer formatieren (nur Zahlen, mit +49 für Deutschland)
+            let phoneNumber = booking.phone.replace(/\s/g, '').replace(/[^\d+]/g, '');
+
+            // Deutsche Handynummern: 0176... → +49176...
+            if (phoneNumber.startsWith('0')) {
+                phoneNumber = '+49' + phoneNumber.substring(1);
+            } else if (!phoneNumber.startsWith('+')) {
+                phoneNumber = '+49' + phoneNumber;
+            }
+
+            // SMS-Text erstellen
+            const smsText = `Hallo ${booking.name || 'Kunde'}! Freuen uns auf morgen (${booking.date} um ${booking.time || 'zur vereinbarten Zeit'}) bei ${booking.company || 'Ihnen'}. Adresse: ${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}. Viele Grüße, Ihr EisFavorite Team 🍦`;
+
+            console.log('📱 Sende SMS an:', phoneNumber);
+            console.log('📝 Text:', smsText);
+
+            // Twilio REST API URL
+            const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_CONFIG.accountSid}/Messages.json`;
+
+            // Basic Auth Header erstellen
+            const auth = btoa(`${TWILIO_CONFIG.accountSid}:${TWILIO_CONFIG.authToken}`);
+
+            // SMS senden
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${auth}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        From: TWILIO_CONFIG.fromNumber,
+                        To: phoneNumber,
+                        Body: smsText
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ SMS erfolgreich versendet!', data);
+
+                    // Als versendet markieren
+                    markSMSAsSent(booking.id);
+
+                    return true;
+                } else {
+                    const error = await response.json();
+                    console.error('❌ SMS-Versand fehlgeschlagen:', error);
+
+                    let errorMsg = '❌ SMS konnte nicht versendet werden!\n\n';
+                    if (error.code === 20003) {
+                        errorMsg += 'Fehler: Twilio-Zugangsdaten sind ungültig.\nBitte überprüfen Sie Account SID und Auth Token.';
+                    } else if (error.code === 21211) {
+                        errorMsg += 'Fehler: Telefonnummer ungültig.\nBitte überprüfen Sie die Telefonnummer des Kunden.';
+                    } else if (error.code === 21606) {
+                        errorMsg += 'Fehler: Absender-Telefonnummer ungültig.\nBitte überprüfen Sie Ihre Twilio-Telefonnummer.';
+                    } else {
+                        errorMsg += `Fehlercode: ${error.code}\n${error.message}`;
+                    }
+
+                    alert(errorMsg);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Netzwerkfehler beim SMS-Versand:', error);
+                alert('❌ Netzwerkfehler!\n\nSMS konnte nicht versendet werden.\nBitte überprüfen Sie Ihre Internetverbindung.\n\nDetails: ' + error.message);
+                return false;
+            }
+        }
+
+        // Alle SMS auf einmal senden
+        async function sendAllSMSReminders() {
+            const smsBookings = allBookings.filter(b => needsSMSReminder(b));
+
+            if (smsBookings.length === 0) {
+                alert('✓ Keine SMS-Erinnerungen nötig!');
+                return;
+            }
+
+            if (!confirm(`📱 Möchten Sie wirklich ${smsBookings.length} SMS versenden?\n\nKosten: ca. ${(smsBookings.length * 0.075).toFixed(2)}€\n\n(0,075€ pro SMS)`)) {
+                return;
+            }
+
+            // Loading-Anzeige
+            const loader = document.createElement('div');
+            loader.id = 'sms-loader';
+            loader.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 999999;
+            `;
+            loader.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px;">
+                    <div style="font-size: 50px; margin-bottom: 15px;">📱</div>
+                    <div id="sms-progress" style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">Sende SMS 0/${smsBookings.length}...</div>
+                    <div style="font-size: 14px; color: #666;">Bitte warten...</div>
+                </div>
+            `;
+            document.body.appendChild(loader);
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // SMS nacheinander senden (nicht parallel, um Rate-Limits zu vermeiden)
+            for (let i = 0; i < smsBookings.length; i++) {
+                const booking = smsBookings[i];
+                document.getElementById('sms-progress').textContent = `Sende SMS ${i + 1}/${smsBookings.length} an ${booking.name}...`;
+
+                const success = await sendAutomaticSMS(booking);
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+
+                // Kurze Pause zwischen SMS (1 Sekunde)
+                if (i < smsBookings.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            // Loading-Anzeige entfernen
+            loader.remove();
+
+            // Ergebnis anzeigen
+            let resultMsg = `✅ SMS-Versand abgeschlossen!\n\n`;
+            resultMsg += `✓ Erfolgreich: ${successCount} SMS\n`;
+            if (failCount > 0) {
+                resultMsg += `❌ Fehlgeschlagen: ${failCount} SMS\n`;
+            }
+            resultMsg += `\nGeschätzte Kosten: ${(successCount * 0.075).toFixed(2)}€`;
+
+            alert(resultMsg);
+
+            // Statistiken aktualisieren
+            updateStats();
         }
 
         function toggleNewRequestsSection() {
