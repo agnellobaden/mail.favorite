@@ -191,6 +191,23 @@
             box-shadow: 0 8px 25px rgba(17, 153, 142, 0.4);
         }
 
+        .stat-card.urgent {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 15px rgba(238, 90, 111, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(238, 90, 111, 0.8); }
+        }
+
+        .stat-card.urgent:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(238, 90, 111, 0.6);
+        }
+
         .stat-card h3 {
             font-size: 0.9em;
             margin-bottom: 10px;
@@ -2178,6 +2195,10 @@
                         <h3>💰 OFFENE RECHNUNGEN</h3>
                         <div class="number" id="stat-rechnung">0</div>
                     </div>
+                    <div class="stat-card urgent" onclick="filterByUrgentBookings()" style="cursor: pointer;" title="Termine in den nächsten 24 Stunden!">
+                        <h3>⚠️ DRINGEND (24h)</h3>
+                        <div class="number" id="stat-urgent">0</div>
+                    </div>
                     <div class="stat-card gesamt" onclick="showAllBookings()" style="cursor: pointer;" title="Klicken um alle Buchungen zu sehen">
                         <h3>GESAMT</h3>
                         <div class="number" id="stat-gesamt">0</div>
@@ -3521,6 +3542,24 @@
             return result;
         }
 
+        // Hilfsfunktion: Prüft ob ein Termin in den nächsten 24 Stunden ist
+        function isUrgent(booking) {
+            if (!booking.date || booking.status === 'Event beendet') return false;
+
+            try {
+                const appointmentDate = parseDate(booking.date);
+                if (!appointmentDate) return false;
+
+                const now = new Date();
+                const hoursUntil = (appointmentDate - now) / (1000 * 60 * 60);
+
+                // Termin ist in den nächsten 24 Stunden und noch nicht vorbei
+                return hoursUntil > 0 && hoursUntil <= 24;
+            } catch (e) {
+                return false;
+            }
+        }
+
         // Statistiken aktualisieren
         function updateStats() {
             const gebucht = allBookings.filter(b => b.status === 'Gebucht').length;
@@ -3534,13 +3573,27 @@
                 return istVersendet && !istBezahlt;
             }).length;
 
+            // Dringende Termine: In den nächsten 24 Stunden
+            const dringend = allBookings.filter(b => isUrgent(b)).length;
+
             document.getElementById('stat-gebucht').textContent = gebucht;
             document.getElementById('stat-neu').textContent = neu;
             document.getElementById('stat-email').textContent = neuEingetroffen;
             document.getElementById('stat-rechnung').textContent = offeneRechnungen;
+            document.getElementById('stat-urgent').textContent = dringend;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
 
-            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, gesamt: allBookings.length });
+            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, dringend, gesamt: allBookings.length });
+
+            // Warnung anzeigen wenn dringende Termine vorhanden sind
+            if (dringend > 0 && !sessionStorage.getItem('urgent_warning_shown')) {
+                sessionStorage.setItem('urgent_warning_shown', 'true');
+                setTimeout(() => {
+                    if (confirm(`⚠️ ACHTUNG!\n\nSie haben ${dringend} Termin(e) in den nächsten 24 Stunden!\n\nMöchten Sie diese jetzt ansehen?`)) {
+                        filterByUrgentBookings();
+                    }
+                }, 1000);
+            }
         }
 
         // Filtern und anzeigen
@@ -3969,10 +4022,15 @@
 
             bookings.forEach((booking, index) => {
                 const isNext = booking === nextBooking;
+                const urgent = isUrgent(booking);
                 const card = document.createElement('div');
                 card.className = 'booking-card';
                 if (index % 2 === 1) card.classList.add('alternate');
                 if (isNext) card.classList.add('next-booking');
+                if (urgent) {
+                    card.style.border = '3px solid #ff6b6b';
+                    card.style.boxShadow = '0 0 20px rgba(255, 107, 107, 0.5)';
+                }
 
                 // Adresse zusammensetzen
                 const address = [booking.street, booking.plz, booking.city].filter(x => x).join(', ');
@@ -3990,7 +4048,21 @@
                 const travelCost = calculateTravelCost(booking.distance);
                 const travelCostWithMwSt = travelCost * 1.07; // Anfahrtskosten zzgl. 7% MwSt.
 
+                // Verbleibende Zeit berechnen (falls dringend)
+                let urgentBanner = '';
+                if (urgent) {
+                    const appointmentDate = parseDate(booking.date);
+                    const now = new Date();
+                    const hoursUntil = Math.round((appointmentDate - now) / (1000 * 60 * 60));
+                    urgentBanner = `
+                        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: white; padding: 12px; text-align: center; font-weight: bold; font-size: 1.1em; border-radius: 8px 8px 0 0; margin: -15px -15px 15px -15px; box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);">
+                            ⚠️ DRINGEND: Termin in ${hoursUntil} Stunde${hoursUntil !== 1 ? 'n' : ''}!
+                        </div>
+                    `;
+                }
+
                 card.innerHTML = `
+                    ${urgentBanner}
                     <!-- 3-Punkte-Menü -->
                     <div class="card-menu">
                         <button class="card-menu-button" onclick="toggleCardMenu(event, '${booking.id}')">⋮</button>
@@ -7094,6 +7166,48 @@
 
             // Karten anzeigen
             displayCards(offeneRechnungen);
+
+            // App-Zustand speichern
+            saveAppState();
+
+            // Zu den Karten scrollen
+            setTimeout(() => {
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        function filterByUrgentBookings() {
+            // Zur Kartenansicht wechseln
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+
+            // Alle Filter zurücksetzen
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('nameFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+
+            // Nur dringende Termine anzeigen (nächste 24 Stunden)
+            const dringendeTermine = allBookings.filter(b => isUrgent(b));
+
+            console.log('⚠️ DRINGENDE TERMINE FILTER:', dringendeTermine.length, 'Buchungen in den nächsten 24h');
+
+            // Nach Datum sortieren (nächster zuerst)
+            dringendeTermine.sort((a, b) => {
+                const dateA = parseDate(a.date);
+                const dateB = parseDate(b.date);
+                return dateA - dateB;
+            });
+
+            // Bevorstehende Termine diese Woche anzeigen
+            displayUpcomingWeek();
+
+            // Karten anzeigen
+            displayCards(dringendeTermine);
 
             // App-Zustand speichern
             saveAppState();
