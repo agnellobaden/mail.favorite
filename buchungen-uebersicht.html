@@ -208,6 +208,17 @@
             box-shadow: 0 8px 30px rgba(238, 90, 111, 0.6);
         }
 
+        .stat-card.sms {
+            background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card.sms:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 180, 219, 0.5);
+        }
+
         .stat-card h3 {
             font-size: 0.9em;
             margin-bottom: 10px;
@@ -2199,6 +2210,10 @@
                         <h3>⚠️ DRINGEND (24h)</h3>
                         <div class="number" id="stat-urgent">0</div>
                     </div>
+                    <div class="stat-card sms" onclick="showSMSReminderModal()" style="cursor: pointer;" title="Kunden die morgen eine SMS-Erinnerung brauchen">
+                        <h3>📱 SMS SENDEN</h3>
+                        <div class="number" id="stat-sms">0</div>
+                    </div>
                     <div class="stat-card gesamt" onclick="showAllBookings()" style="cursor: pointer;" title="Klicken um alle Buchungen zu sehen">
                         <h3>GESAMT</h3>
                         <div class="number" id="stat-gesamt">0</div>
@@ -3560,6 +3575,25 @@
             }
         }
 
+        // Hilfsfunktion: Prüft ob SMS-Erinnerung versendet werden sollte (ca. 24h vorher)
+        function needsSMSReminder(booking) {
+            if (!booking.date || booking.status === 'Event beendet' || !booking.phone) return false;
+
+            try {
+                const appointmentDate = parseDate(booking.date);
+                if (!appointmentDate) return false;
+
+                const now = new Date();
+                const hoursUntil = (appointmentDate - now) / (1000 * 60 * 60);
+
+                // SMS-Erinnerung für Termine die morgen sind (20-28 Stunden)
+                // Damit erfassen wir "morgen" auch wenn der Termin zu einer anderen Uhrzeit ist
+                return hoursUntil >= 20 && hoursUntil <= 28 && !booking.smsReminderSent;
+            } catch (e) {
+                return false;
+            }
+        }
+
         // Statistiken aktualisieren
         function updateStats() {
             const gebucht = allBookings.filter(b => b.status === 'Gebucht').length;
@@ -3576,14 +3610,18 @@
             // Dringende Termine: In den nächsten 24 Stunden
             const dringend = allBookings.filter(b => isUrgent(b)).length;
 
+            // SMS-Erinnerungen: Termine morgen (20-28h)
+            const smsErinnerungen = allBookings.filter(b => needsSMSReminder(b)).length;
+
             document.getElementById('stat-gebucht').textContent = gebucht;
             document.getElementById('stat-neu').textContent = neu;
             document.getElementById('stat-email').textContent = neuEingetroffen;
             document.getElementById('stat-rechnung').textContent = offeneRechnungen;
             document.getElementById('stat-urgent').textContent = dringend;
+            document.getElementById('stat-sms').textContent = smsErinnerungen;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
 
-            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, dringend, gesamt: allBookings.length });
+            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, dringend, smsErinnerungen, gesamt: allBookings.length });
 
             // Warnung anzeigen wenn dringende Termine vorhanden sind
             if (dringend > 0 && !sessionStorage.getItem('urgent_warning_shown')) {
@@ -7219,6 +7257,118 @@
                     cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }, 100);
+        }
+
+        function showSMSReminderModal() {
+            const smsBookings = allBookings.filter(b => needsSMSReminder(b));
+
+            if (smsBookings.length === 0) {
+                alert('✓ Keine SMS-Erinnerungen nötig!\n\nAlle Kunden mit Terminen morgen wurden bereits benachrichtigt oder haben keine Telefonnummer hinterlegt.');
+                return;
+            }
+
+            // Sortiere nach Datum
+            smsBookings.sort((a, b) => {
+                const dateA = parseDate(a.date);
+                const dateB = parseDate(b.date);
+                return dateA - dateB;
+            });
+
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 99999;
+                padding: 20px;
+            `;
+
+            let customersHTML = '';
+            smsBookings.forEach(booking => {
+                const phoneClean = booking.phone.replace(/\s/g, '');
+                const smsText = `Hallo ${booking.name || 'Kunde'}! Freuen uns auf morgen (${booking.date} um ${booking.time || 'zur vereinbarten Zeit'}) bei ${booking.company || 'Ihnen'}. Adresse: ${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}. Viele Grüße, Ihr EisFavorite Team 🍦`;
+                const smsUrl = `sms:${phoneClean}?body=${encodeURIComponent(smsText)}`;
+
+                customersHTML += `
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #00b4db;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 5px;">
+                                    ${booking.name || 'Unbekannt'}
+                                </div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 3px;">
+                                    📅 ${booking.date} um ${booking.time || '-'}
+                                </div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 3px;">
+                                    📞 ${booking.phone}
+                                </div>
+                                <div style="font-size: 0.9em; color: #666;">
+                                    📍 ${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <a href="${smsUrl}" onclick="markSMSAsSent('${booking.id}')" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; white-space: nowrap;">
+                                    📱 SMS senden
+                                </a>
+                                <button onclick="markSMSAsSent('${booking.id}')" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85em;">
+                                    ✓ Als versendet markieren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 800px; max-height: 80vh; overflow-y: auto; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0; color: #333;">📱 SMS-Erinnerungen versenden</h2>
+                        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background: #ff6b6b; color: white; border: none; border-radius: 50%; width: 35px; height: 35px; font-size: 1.2em; cursor: pointer; font-weight: bold;">×</button>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00b4db;">
+                        <strong>📋 ${smsBookings.length} Kunde(n)</strong> haben morgen einen Termin und brauchen eine SMS-Erinnerung!
+                    </div>
+                    ${customersHTML}
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="padding: 12px 30px; background: #666; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Schließen
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+        }
+
+        function markSMSAsSent(bookingId) {
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+            if (bookingIndex !== -1) {
+                bookings[bookingIndex].smsReminderSent = true;
+                bookings[bookingIndex].smsReminderSentDate = new Date().toISOString();
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                // Firebase-Upload
+                if (firebaseInitialized && db) {
+                    saveToFirebase().then(() => {
+                        console.log('✅ SMS-Status zu Firebase hochgeladen');
+                    });
+                }
+
+                // Statistiken aktualisieren
+                allBookings = bookings;
+                updateStats();
+
+                console.log('✅ SMS als versendet markiert für:', bookings[bookingIndex].name);
+            }
         }
 
         function toggleNewRequestsSection() {
