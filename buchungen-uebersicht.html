@@ -180,6 +180,17 @@
             box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
         }
 
+        .stat-card.rechnung {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card.rechnung:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(17, 153, 142, 0.4);
+        }
+
         .stat-card h3 {
             font-size: 0.9em;
             margin-bottom: 10px;
@@ -2080,6 +2091,9 @@
                     <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
                     <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
                 </div>
+                <button onclick="manualRefresh()" style="padding: 10px 15px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Statistiken manuell aktualisieren">
+                    🔄 Aktualisieren
+                </button>
             </div>
         </div>
 
@@ -2159,6 +2173,10 @@
                     <div class="stat-card email" onclick="document.getElementById('jsonImportInput').click()" title="Klicken um E-Mails zu prüfen">
                         <h3>📧 E-MAILS</h3>
                         <div class="number" id="stat-email">0</div>
+                    </div>
+                    <div class="stat-card rechnung" onclick="filterByOpenInvoices()" style="cursor: pointer;" title="Klicken um offene Rechnungen zu sehen">
+                        <h3>💰 OFFENE RECHNUNGEN</h3>
+                        <div class="number" id="stat-rechnung">0</div>
                     </div>
                     <div class="stat-card gesamt" onclick="showAllBookings()" style="cursor: pointer;" title="Klicken um alle Buchungen zu sehen">
                         <h3>GESAMT</h3>
@@ -2744,6 +2762,60 @@
                     text.style.color = '#ffc107';
                     text.textContent = message || '🟡 Verbinde...';
                     break;
+            }
+        }
+
+        // Manueller Refresh für Statistiken und Daten
+        function manualRefresh() {
+            console.log('🔄 MANUELLER REFRESH GESTARTET');
+
+            // Zeige kurze Animation
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Lädt...';
+            btn.disabled = true;
+
+            // Statistiken sofort aktualisieren
+            updateStats();
+
+            // Anzeige aktualisieren
+            filterAndDisplay();
+
+            // Wenn Firebase verbunden ist, Daten neu laden
+            if (firebaseInitialized && db) {
+                db.collection('buchungen').get()
+                    .then((snapshot) => {
+                        const firebaseBookings = [];
+                        snapshot.forEach((doc) => {
+                            firebaseBookings.push({ ...doc.data(), id: doc.id });
+                        });
+
+                        allBookings = firebaseBookings;
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+
+                        console.log('✅ Daten von Firebase neu geladen:', allBookings.length, 'Buchungen');
+                        updateStats();
+                        filterAndDisplay();
+
+                        btn.innerHTML = '✓ Aktualisiert!';
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        }, 1500);
+                    })
+                    .catch((error) => {
+                        console.error('❌ Fehler beim Refresh:', error);
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    });
+            } else {
+                // Nur lokale Daten aktualisieren
+                console.log('ℹ️ Firebase nicht verfügbar - nur lokale Aktualisierung');
+                btn.innerHTML = '✓ Aktualisiert!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 1500);
             }
         }
 
@@ -3455,10 +3527,20 @@
             const neu = allBookings.filter(b => b.status === 'Neu').length;
             const neuEingetroffen = allBookings.filter(b => b.isNewFromEmail === true).length;
 
+            // Offene Rechnungen: Rechnung versendet aber noch nicht bezahlt
+            const offeneRechnungen = allBookings.filter(b => {
+                const istVersendet = b.invoiceSent === true || b.status === 'Rechnung versendet';
+                const istBezahlt = b.invoicePaid === true || b.status === 'Bezahlte Rechnung';
+                return istVersendet && !istBezahlt;
+            }).length;
+
             document.getElementById('stat-gebucht').textContent = gebucht;
             document.getElementById('stat-neu').textContent = neu;
             document.getElementById('stat-email').textContent = neuEingetroffen;
+            document.getElementById('stat-rechnung').textContent = offeneRechnungen;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
+
+            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, gesamt: allBookings.length });
         }
 
         // Filtern und anzeigen
@@ -3591,7 +3673,10 @@
                                 <div style="font-size: 0.9em; color: #666; font-weight: 600;">${booking.company || ''}</div>
                                 ${booking.isNewFromEmail ? '<div style="margin-top: 8px;"><span class="new-email-badge" style="font-size: 0.7em; padding: 5px 10px;">📧 Neu eingetroffen!</span></div>' : ''}
                             </div>
-                            <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.75em; padding: 5px 10px;">${booking.status || ''}</span>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                                <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.75em; padding: 5px 10px;">${booking.status || ''}</span>
+                                ${booking.invoiceSent || booking.status === 'Rechnung versendet' || booking.status === 'Bezahlte Rechnung' ? '<span style="background: #28a745; color: white; padding: 6px 10px; border-radius: 50px; font-size: 1em; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(40,167,69,0.3);">✓</span>' : ''}
+                            </div>
                         </div>
                         <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                             <div style="background: #f0f0f0; padding: 10px 14px; border-radius: 8px; flex: 1; text-align: center;">
@@ -3937,9 +4022,10 @@
                         <div>
                             <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
                             <div class="card-company">${booking.company || '-'}</div>
-                            <div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
+                                ${booking.invoiceSent || booking.status === 'Rechnung versendet' || booking.status === 'Bezahlte Rechnung' ? '<span style="background: #28a745; color: white; padding: 8px 12px; border-radius: 50px; font-size: 1.2em; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(40,167,69,0.3);">✓</span>' : ''}
                             </div>
                         </div>
                         <div class="card-date">
@@ -6499,6 +6585,10 @@
                     } else {
                         console.log('✓ Keine Änderungen - Daten sind identisch');
                         updateFirebaseStatus('connected', '🟢 Live verbunden');
+
+                        // WICHTIG: updateStats() auch aufrufen, wenn keine Änderungen erkannt wurden
+                        // (könnte sein, dass nur Felder wie invoiceSent geändert wurden)
+                        updateStats();
                     }
 
                 } catch (error) {
@@ -6518,6 +6608,15 @@
             });
 
             console.log('✅ Echtzeit-Listener aktiviert');
+
+            // ZUSÄTZLICH: Statistiken alle 5 Sekunden aktualisieren
+            // (Sicherheit, falls Firebase-Updates nicht erkannt werden)
+            setInterval(() => {
+                if (allBookings.length > 0) {
+                    console.log('🔄 Auto-Refresh: Aktualisiere Statistiken...');
+                    updateStats();
+                }
+            }, 5000); // Alle 5 Sekunden
         }
 
         // ==========================================
@@ -6955,6 +7054,49 @@
 
             // Filter anwenden
             filterAndDisplay();
+
+            // Zu den Karten scrollen
+            setTimeout(() => {
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        function filterByOpenInvoices() {
+            // Zur Kartenansicht wechseln
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
+
+            // Alle Filter zurücksetzen
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('nameFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+
+            // Nur offene Rechnungen anzeigen
+            const offeneRechnungen = allBookings.filter(b => {
+                const istVersendet = b.invoiceSent === true || b.status === 'Rechnung versendet';
+                const istBezahlt = b.invoicePaid === true || b.status === 'Bezahlte Rechnung';
+                const istBeendet = b.status === 'Event beendet';
+                return istVersendet && !istBezahlt && !istBeendet;
+            });
+
+            console.log('💰 OFFENE RECHNUNGEN FILTER:', offeneRechnungen.length, 'Buchungen gefunden');
+
+            // Sortieren
+            sortBookings(offeneRechnungen, true);
+
+            // Bevorstehende Termine diese Woche anzeigen
+            displayUpcomingWeek();
+
+            // Karten anzeigen
+            displayCards(offeneRechnungen);
+
+            // App-Zustand speichern
+            saveAppState();
 
             // Zu den Karten scrollen
             setTimeout(() => {
