@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EisFavorite Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            color: white;
+        }
+
+        .widget {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header .time {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .header .date {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:active {
+            transform: scale(0.95);
+        }
+
+        .stat-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.3);
+        }
+
+        .btn-icon {
+            font-size: 24px;
+        }
+
+        .urgent {
+            background: rgba(255,107,107,0.3);
+            border: 2px solid rgba(255,107,107,0.5);
+        }
+
+        .email-reminder {
+            background: rgba(52,152,219,0.3);
+            border: 2px solid rgba(52,152,219,0.5);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="widget">
+        <div class="header">
+            <h1>🍦 EisFavorite</h1>
+            <div class="time" id="time">--:--</div>
+            <div class="date" id="date">Lädt...</div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card" onclick="openFilteredView('Gebucht')">
+                <div class="stat-icon">📅</div>
+                <div class="stat-number" id="stat-gebucht">0</div>
+                <div class="stat-label">Gebucht</div>
+            </div>
+
+            <div class="stat-card" onclick="openFilteredView('Neu')">
+                <div class="stat-icon">🆕</div>
+                <div class="stat-number" id="stat-neu">0</div>
+                <div class="stat-label">Neu</div>
+            </div>
+
+            <div class="stat-card urgent" onclick="openFilteredView('Dringend')">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-number" id="stat-urgent">0</div>
+                <div class="stat-label">Dringend (24h)</div>
+            </div>
+
+            <div class="stat-card email-reminder" onclick="openFilteredView('Email')">
+                <div class="stat-icon">📧</div>
+                <div class="stat-number" id="stat-email">0</div>
+                <div class="stat-label">E-Mail senden</div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <button class="action-btn" onclick="openPage('buchungen-uebersicht.html')">
+                <span class="btn-icon">📊</span>
+                <span>Alle Termine</span>
+            </button>
+            <button class="action-btn" onclick="openPage('email-zu-json.html')">
+                <span class="btn-icon">➕</span>
+                <span>Neue Buchung</span>
+            </button>
+            <button class="action-btn" onclick="openPage('rechnung-mobil.html')">
+                <span class="btn-icon">📄</span>
+                <span>Rechnung</span>
+            </button>
+            <button class="action-btn" onclick="openPage('strichliste-mobil.html')">
+                <span class="btn-icon">🍦</span>
+                <span>Verkauf</span>
+            </button>
+        </div>
+
+        <div class="footer">
+            Aktualisiert: <span id="lastUpdate">--:--</span>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        let db = null;
+        let firebaseInitialized = false;
+
+        // Firebase initialisieren
+        function initializeFirebase() {
+            const config = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1"
+            };
+
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                db = firebase.firestore();
+                firebaseInitialized = true;
+                console.log('✅ Firebase initialisiert');
+                loadStats();
+            } catch (error) {
+                console.error('❌ Firebase-Fehler:', error);
+                loadStatsFromLocal();
+            }
+        }
+
+        // Uhrzeit aktualisieren
+        function updateTime() {
+            const now = new Date();
+            const time = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const date = now.toLocaleDateString('de-DE', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            document.getElementById('time').textContent = time;
+            document.getElementById('date').textContent = date;
+        }
+
+        // Stats laden
+        async function loadStats() {
+            try {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+
+                const gebucht = bookings.filter(b => b.status === 'Gebucht').length;
+                const neu = bookings.filter(b => b.status === 'Neu').length;
+
+                // Dringend: 24h
+                const dringend = bookings.filter(b => {
+                    const bookingDate = parseDate(b.date);
+                    const now = new Date();
+                    const hoursUntil = (bookingDate - now) / (1000 * 60 * 60);
+                    return hoursUntil > 0 && hoursUntil <= 24;
+                }).length;
+
+                // E-Mail-Erinnerungen: 20-28h
+                const email = bookings.filter(b => {
+                    if (b.emailReminderSent) return false;
+                    if (!b.email) return false;
+                    const bookingDate = parseDate(b.date);
+                    const now = new Date();
+                    const hoursUntil = (bookingDate - now) / (1000 * 60 * 60);
+                    return hoursUntil >= 20 && hoursUntil <= 28;
+                }).length;
+
+                document.getElementById('stat-gebucht').textContent = gebucht;
+                document.getElementById('stat-neu').textContent = neu;
+                document.getElementById('stat-urgent').textContent = dringend;
+                document.getElementById('stat-email').textContent = email;
+
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('de-DE', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                console.error('Fehler beim Laden der Stats:', error);
+            }
+        }
+
+        function loadStatsFromLocal() {
+            loadStats();
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr) return new Date();
+            const [day, month, year] = dateStr.split('.');
+            return new Date(year, month - 1, day);
+        }
+
+        function openDashboard() {
+            window.location.href = 'buchungen-uebersicht.html';
+        }
+
+        function openPage(page) {
+            window.location.href = page;
+        }
+
+        function openFilteredView(filterType) {
+            // Setze Filter in sessionStorage für Dashboard
+            sessionStorage.setItem('widget_filter', filterType);
+
+            // Öffne Dashboard
+            window.location.href = 'buchungen-uebersicht.html?filter=' + filterType;
+        }
+
+        // Initial laden
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        initializeFirebase();
+        setInterval(loadStats, 30000); // Alle 30 Sekunden aktualisieren
+    </script>
+</body>
+</html>

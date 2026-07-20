@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rechnung erstellen - Mobil</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .product-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .product-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .product-row input {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .add-product-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .total-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .total-final {
+            font-size: 24px;
+            font-weight: bold;
+            border-top: 2px solid rgba(255,255,255,0.3);
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .customer-search {
+            position: relative;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .search-result-item {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:active {
+            background: #f0f4ff;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍦 EisFavorite</h1>
+            <p>Rechnung / Angebot erstellen</p>
+        </div>
+
+        <div class="content">
+            <!-- Kunde suchen -->
+            <div class="section">
+                <div class="section-title">👤 Kunde</div>
+                <div class="input-group customer-search">
+                    <label>Kundensuche</label>
+                    <input type="text" id="customerSearch" placeholder="Name oder Firma eingeben...">
+                    <div id="searchResults" class="search-results hidden"></div>
+                </div>
+
+                <div class="input-group">
+                    <label>Firma / Name *</label>
+                    <input type="text" id="customerName" placeholder="z.B. SnackOase">
+                </div>
+
+                <div class="input-group">
+                    <label>Ansprechpartner</label>
+                    <input type="text" id="contactPerson" placeholder="z.B. Andre A">
+                </div>
+
+                <div class="input-group">
+                    <label>Straße + Nr.</label>
+                    <input type="text" id="street" placeholder="z.B. Hauptstraße 123">
+                </div>
+
+                <div class="product-row">
+                    <div class="input-group">
+                        <label>PLZ</label>
+                        <input type="text" id="zip" placeholder="76456">
+                    </div>
+                    <div class="input-group" style="grid-column: span 2;">
+                        <label>Ort</label>
+                        <input type="text" id="city" placeholder="Kuppenheim">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dokumenttyp -->
+            <div class="section">
+                <div class="section-title">📄 Dokumenttyp</div>
+                <select id="docType" style="width: 100%; padding: 15px; font-size: 16px; border-radius: 12px; border: 2px solid #e0e0e0;">
+                    <option value="rechnung">Rechnung</option>
+                    <option value="angebot">Angebot</option>
+                </select>
+            </div>
+
+            <!-- Positionen -->
+            <div class="section">
+                <div class="section-title">📦 Positionen</div>
+                <div id="productList"></div>
+                <button class="add-product-btn" onclick="addProduct()">+ Position hinzufügen</button>
+            </div>
+
+            <!-- Summe -->
+            <div class="total-section">
+                <div class="total-row">
+                    <span>Netto:</span>
+                    <span id="totalNetto">0,00 €</span>
+                </div>
+                <div class="total-row">
+                    <span>+ 7% MwSt:</span>
+                    <span id="totalTax">0,00 €</span>
+                </div>
+                <div class="total-row total-final">
+                    <span>GESAMT:</span>
+                    <span id="totalBrutto">0,00 €</span>
+                </div>
+            </div>
+
+            <!-- Aktionen -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="generatePDF()">
+                    📄 PDF erstellen
+                </button>
+                <button class="btn btn-success" onclick="sendEmail()">
+                    ✉️ Per E-Mail
+                </button>
+                <button class="btn btn-warning" onclick="markAsSent()">
+                    ✓ Als versendet
+                </button>
+                <button class="btn btn-info" onclick="markAsPaid()">
+                    💰 Als bezahlt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        let products = [];
+        let currentInvoiceNumber = null;
+
+        function addProduct() {
+            const product = {
+                id: Date.now(),
+                description: '',
+                quantity: 1,
+                price: 0
+            };
+            products.push(product);
+            renderProducts();
+        }
+
+        function removeProduct(id) {
+            products = products.filter(p => p.id !== id);
+            renderProducts();
+        }
+
+        function renderProducts() {
+            const container = document.getElementById('productList');
+            container.innerHTML = products.map(product => `
+                <div class="product-item">
+                    <div class="product-row">
+                        <input type="text" placeholder="Beschreibung" value="${product.description}"
+                               onchange="updateProduct(${product.id}, 'description', this.value)">
+                        <input type="number" placeholder="Menge" value="${product.quantity}"
+                               onchange="updateProduct(${product.id}, 'quantity', this.value)">
+                        <input type="number" step="0.01" placeholder="Preis" value="${product.price}"
+                               onchange="updateProduct(${product.id}, 'price', this.value)">
+                    </div>
+                    <button class="remove-btn" onclick="removeProduct(${product.id})">🗑️ Entfernen</button>
+                </div>
+            `).join('');
+
+            calculateTotal();
+        }
+
+        function updateProduct(id, field, value) {
+            const product = products.find(p => p.id === id);
+            if (product) {
+                product[field] = field === 'description' ? value : parseFloat(value) || 0;
+                calculateTotal();
+            }
+        }
+
+        function calculateTotal() {
+            const netto = products.reduce((sum, p) => sum + (p.quantity * p.price), 0);
+            const tax = netto * 0.07;
+            const brutto = netto + tax;
+
+            document.getElementById('totalNetto').textContent = netto.toFixed(2).replace('.', ',') + ' €';
+            document.getElementById('totalTax').textContent = tax.toFixed(2).replace('.', ',') + ' €';
+            document.getElementById('totalBrutto').textContent = brutto.toFixed(2).replace('.', ',') + ' €';
+        }
+
+        // Kundensuche
+        document.getElementById('customerSearch').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            if (query.length < 2) {
+                document.getElementById('searchResults').classList.add('hidden');
+                return;
+            }
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const results = bookings.filter(b =>
+                (b.name && b.name.toLowerCase().includes(query)) ||
+                (b.company && b.company.toLowerCase().includes(query))
+            ).slice(0, 5);
+
+            if (results.length > 0) {
+                const resultsHTML = results.map(b => `
+                    <div class="search-result-item" onclick='fillCustomerData(${JSON.stringify(b).replace(/'/g, "\\'")})'>
+                        <strong>${b.company || b.name}</strong><br>
+                        <small>${b.street || ''}, ${b.plz || ''} ${b.city || ''}</small>
+                    </div>
+                `).join('');
+                document.getElementById('searchResults').innerHTML = resultsHTML;
+                document.getElementById('searchResults').classList.remove('hidden');
+            } else {
+                document.getElementById('searchResults').classList.add('hidden');
+            }
+        });
+
+        function fillCustomerData(booking) {
+            document.getElementById('customerName').value = booking.company || booking.name || '';
+            document.getElementById('contactPerson').value = booking.name || '';
+            document.getElementById('street').value = booking.street || '';
+            document.getElementById('zip').value = booking.plz || '';
+            document.getElementById('city').value = booking.city || '';
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('customerSearch').value = '';
+        }
+
+        function getNextInvoiceNumber() {
+            const invoices = JSON.parse(localStorage.getItem('eisfavorite_invoices') || '[]');
+            const year = new Date().getFullYear();
+            const yearInvoices = invoices.filter(inv => inv.number.startsWith(year.toString()));
+            const nextNum = yearInvoices.length + 1;
+            return `${year}-${String(nextNum).padStart(4, '0')}`;
+        }
+
+        function generatePDF() {
+            // Validierung
+            const customerName = document.getElementById('customerName').value.trim();
+            if (!customerName) {
+                alert('❌ Bitte geben Sie einen Kundennamen ein!');
+                return;
+            }
+
+            if (products.length === 0 || products.every(p => !p.description)) {
+                alert('❌ Bitte fügen Sie mindestens eine Position hinzu!');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const docType = document.getElementById('docType').value;
+            const docTitle = docType === 'rechnung' ? 'RECHNUNG' : 'ANGEBOT';
+
+            if (!currentInvoiceNumber) {
+                currentInvoiceNumber = getNextInvoiceNumber();
+            }
+
+            // Header
+            doc.setFontSize(20);
+            doc.setFont(undefined, 'bold');
+            doc.text(docTitle, 20, 20);
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(`${docType === 'rechnung' ? 'Rechnungs-Nr.' : 'Angebots-Nr.'}: ${currentInvoiceNumber}`, 20, 28);
+            doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 34);
+
+            // Absender
+            doc.setFontSize(9);
+            doc.text('EisFavorite', 140, 20);
+            doc.text('Enrico Agnello', 140, 25);
+            doc.text('Hauptstraße 190', 140, 30);
+            doc.text('76448 Durmersheim', 140, 35);
+            doc.text('Tel: 0176 56813172', 140, 40);
+            doc.text('eisfavorit@gmail.com', 140, 45);
+
+            // Empfänger
+            doc.setFontSize(10);
+            doc.text(customerName, 20, 55);
+            const contactPerson = document.getElementById('contactPerson').value.trim();
+            if (contactPerson) doc.text(`z.Hd. ${contactPerson}`, 20, 61);
+            const street = document.getElementById('street').value.trim();
+            if (street) doc.text(street, 20, contactPerson ? 67 : 61);
+            const zip = document.getElementById('zip').value.trim();
+            const city = document.getElementById('city').value.trim();
+            if (zip || city) doc.text(`${zip} ${city}`, 20, contactPerson ? 73 : 67);
+
+            // Tabelle
+            let yPos = 95;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Pos.', 20, yPos);
+            doc.text('Beschreibung', 35, yPos);
+            doc.text('Menge', 120, yPos);
+            doc.text('Preis', 145, yPos);
+            doc.text('Gesamt', 170, yPos);
+
+            doc.line(20, yPos + 2, 190, yPos + 2);
+
+            yPos += 8;
+            doc.setFont(undefined, 'normal');
+
+            products.forEach((product, index) => {
+                if (product.description) {
+                    const total = product.quantity * product.price;
+                    doc.text(String(index + 1), 20, yPos);
+                    doc.text(product.description.substring(0, 40), 35, yPos);
+                    doc.text(String(product.quantity), 120, yPos);
+                    doc.text(product.price.toFixed(2).replace('.', ',') + ' €', 145, yPos);
+                    doc.text(total.toFixed(2).replace('.', ',') + ' €', 170, yPos);
+                    yPos += 6;
+                }
+            });
+
+            // Summen
+            const netto = products.reduce((sum, p) => sum + (p.quantity * p.price), 0);
+            const tax = netto * 0.07;
+            const brutto = netto + tax;
+
+            yPos += 10;
+            doc.line(120, yPos, 190, yPos);
+            yPos += 8;
+
+            doc.text('Netto:', 145, yPos);
+            doc.text(netto.toFixed(2).replace('.', ',') + ' €', 170, yPos);
+            yPos += 6;
+
+            doc.text('+ 7% MwSt:', 145, yPos);
+            doc.text(tax.toFixed(2).replace('.', ',') + ' €', 170, yPos);
+            yPos += 6;
+
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(12);
+            doc.text('GESAMT:', 145, yPos);
+            doc.text(brutto.toFixed(2).replace('.', ',') + ' €', 170, yPos);
+
+            // Fußzeile
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'normal');
+            doc.text('Vielen Dank für Ihr Vertrauen!', 20, 270);
+            doc.text('EisFavorite - Enrico Agnello - Hauptstraße 190 - 76448 Durmersheim', 105, 285, { align: 'center' });
+
+            // Speichern
+            const filename = `${docType}_${currentInvoiceNumber}_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+            doc.save(filename);
+
+            // In localStorage speichern
+            saveInvoice(docType, brutto);
+
+            alert(`✅ ${docTitle} erstellt!\n\nDatei: ${filename}`);
+        }
+
+        function saveInvoice(type, amount) {
+            const invoices = JSON.parse(localStorage.getItem('eisfavorite_invoices') || '[]');
+
+            const invoice = {
+                number: currentInvoiceNumber,
+                type: type,
+                customer: document.getElementById('customerName').value.trim(),
+                date: new Date().toISOString(),
+                amount: amount,
+                sent: false,
+                paid: false,
+                products: products.filter(p => p.description)
+            };
+
+            invoices.push(invoice);
+            localStorage.setItem('eisfavorite_invoices', JSON.stringify(invoices));
+        }
+
+        function sendEmail() {
+            const customerName = document.getElementById('customerName').value.trim();
+            if (!customerName) {
+                alert('❌ Bitte geben Sie einen Kundennamen ein!');
+                return;
+            }
+
+            const docType = document.getElementById('docType').value;
+            const docTitle = docType === 'rechnung' ? 'Rechnung' : 'Angebot';
+
+            const netto = products.reduce((sum, p) => sum + (p.quantity * p.price), 0);
+            const tax = netto * 0.07;
+            const brutto = netto + tax;
+
+            const subject = `${docTitle} von EisFavorite`;
+            const body = `Guten Tag,\n\nim Anhang finden Sie ${docType === 'rechnung' ? 'die Rechnung' : 'das Angebot'} für unsere Leistung.\n\n` +
+                `Gesamtbetrag: ${brutto.toFixed(2).replace('.', ',')} € (inkl. 7% MwSt.)\n\n` +
+                `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
+                `Mit freundlichen Grüßen\n` +
+                `Ihr EisFavorite Team\n\n` +
+                `---\n` +
+                `EisFavorite - Enrico Agnello\n` +
+                `Tel: 0176 56813172\n` +
+                `E-Mail: eisfavorit@gmail.com`;
+
+            window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            alert('✉️ E-Mail-Programm wird geöffnet!\n\nBitte fügen Sie die PDF als Anhang hinzu.');
+        }
+
+        function markAsSent() {
+            if (!currentInvoiceNumber) {
+                alert('❌ Bitte erstellen Sie zuerst ein PDF!');
+                return;
+            }
+
+            if (confirm('Als versendet markieren?')) {
+                const invoices = JSON.parse(localStorage.getItem('eisfavorite_invoices') || '[]');
+                const invoice = invoices.find(inv => inv.number === currentInvoiceNumber);
+                if (invoice) {
+                    invoice.sent = true;
+                    invoice.sentDate = new Date().toISOString();
+                    localStorage.setItem('eisfavorite_invoices', JSON.stringify(invoices));
+                }
+                alert('✅ Als versendet markiert!');
+            }
+        }
+
+        function markAsPaid() {
+            if (!currentInvoiceNumber) {
+                alert('❌ Bitte erstellen Sie zuerst ein PDF!');
+                return;
+            }
+
+            if (confirm('Als bezahlt markieren?')) {
+                const invoices = JSON.parse(localStorage.getItem('eisfavorite_invoices') || '[]');
+                const invoice = invoices.find(inv => inv.number === currentInvoiceNumber);
+                if (invoice) {
+                    invoice.paid = true;
+                    invoice.paidDate = new Date().toISOString();
+                    localStorage.setItem('eisfavorite_invoices', JSON.stringify(invoices));
+                }
+                alert('💰 Als bezahlt markiert!');
+            }
+        }
+
+        // Initial ein Produkt hinzufügen
+        addProduct();
+    </script>
+</body>
+</html>

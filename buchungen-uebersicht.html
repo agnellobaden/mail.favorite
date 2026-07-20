@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buchungsübersicht - EisFavorite</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EisFavorite">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Firebase SDK -->
@@ -2222,6 +2231,20 @@
                         <div class="number" id="stat-gesamt">0</div>
                     </div>
                 </div>
+
+                <!-- E-Mail Erinnerungs-Hinweis -->
+                <div id="emailReminderInfo" style="display: none; margin: 15px 0; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3); font-size: 14px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 28px;">📧</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; margin-bottom: 5px;">Automatische E-Mail-Erinnerungen</div>
+                            <div style="opacity: 0.95; font-size: 13px; line-height: 1.4;">
+                                E-Mail-Erinnerungen werden automatisch für Termine erkannt, die <strong>20-28 Stunden</strong> entfernt sind (d.h. morgen stattfinden).
+                                Klicken Sie auf die Karte "📧 E-MAIL SENDEN" um alle Erinnerungen zu versenden.
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -3646,6 +3669,16 @@
 
             console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, dringend, emailErinnerungen, gesamt: allBookings.length });
 
+            // E-Mail-Erinnerungs-Info anzeigen wenn E-Mails zu versenden sind
+            const emailReminderInfo = document.getElementById('emailReminderInfo');
+            if (emailReminderInfo) {
+                if (emailErinnerungen > 0) {
+                    emailReminderInfo.style.display = 'block';
+                } else {
+                    emailReminderInfo.style.display = 'none';
+                }
+            }
+
             // Warnung anzeigen wenn dringende Termine vorhanden sind
             if (dringend > 0 && !sessionStorage.getItem('urgent_warning_shown')) {
                 sessionStorage.setItem('urgent_warning_shown', 'true');
@@ -3888,13 +3921,16 @@
             const now = new Date();
 
             // Finde den nächsten zukünftigen Termin (nur Datum, ohne Uhrzeit)
+            // WICHTIG: Events bleiben aktiv bis Status "Event beendet" ist, unabhängig von der Zeit
             let nextDate = null;
             if (!isFiltered) {
                 bookings.forEach(booking => {
                     const bookingDateTime = parseDateTime(booking.date, booking.time);
-                    const isUpcoming = bookingDateTime >= now && (booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage');
+                    // Event ist aktiv wenn Status NICHT "Event beendet" ist
+                    const isActive = booking.status !== 'Event beendet' && booking.status !== 'Storniert';
+                    const isInFuture = bookingDateTime >= now;
 
-                    if (isUpcoming) {
+                    if (isActive && isInFuture) {
                         const bookingDateOnly = parseDate(booking.date);
                         if (!nextDate || bookingDateOnly < nextDate) {
                             nextDate = bookingDateOnly;
@@ -3910,13 +3946,16 @@
                 const bDateOnly = parseDate(b.date);
 
                 if (!isFiltered) {
-                    // Prüfe ob Termin in der Zukunft ist und Status aktiv
-                    const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
-                    const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
+                    // Events sind aktiv solange Status NICHT "Event beendet" ist
+                    const aIsActive = a.status !== 'Event beendet' && a.status !== 'Storniert';
+                    const bIsActive = b.status !== 'Event beendet' && b.status !== 'Storniert';
 
-                    // Prüfe ob Termin am nächsten Tag ist
-                    const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsUpcoming;
-                    const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsUpcoming;
+                    const aIsInFuture = aDateTime >= now;
+                    const bIsInFuture = bDateTime >= now;
+
+                    // Prüfe ob Termin am nächsten Tag ist (nur für zukünftige aktive Events)
+                    const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsActive && aIsInFuture;
+                    const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsActive && bIsInFuture;
 
                     // Termine am nächsten Tag kommen GANZ OBEN
                     if (aIsNextDay && !bIsNextDay) return -1;
@@ -3927,18 +3966,23 @@
                         return aDateTime - bDateTime;
                     }
 
-                    // Andere bevorstehende Termine kommen danach
-                    if (aIsUpcoming && !bIsUpcoming) return -1;
-                    if (!aIsUpcoming && bIsUpcoming) return 1;
+                    // Aktive Events kommen vor beendeten Events
+                    if (aIsActive && !bIsActive) return -1;
+                    if (!aIsActive && bIsActive) return 1;
 
-                    // Wenn beide bevorstehend, sortiere nach Datum
-                    if (aIsUpcoming && bIsUpcoming) {
+                    // Wenn beide aktiv sind, sortiere nach Datum (zukünftige zuerst, dann vergangene)
+                    if (aIsActive && bIsActive) {
+                        // Zukünftige Events vor vergangenen
+                        if (aIsInFuture && !bIsInFuture) return -1;
+                        if (!aIsInFuture && bIsInFuture) return 1;
+
+                        // Beide zukünftig oder beide vergangen -> chronologisch sortieren
                         return aDateTime - bDateTime;
                     }
 
-                    // Vergangene Termine kommen zuletzt
-                    if (!aIsUpcoming && !bIsUpcoming) {
-                        return bDateTime - aDateTime; // Neueste vergangene zuerst
+                    // Wenn beide beendet sind, neueste zuerst
+                    if (!aIsActive && !bIsActive) {
+                        return bDateTime - aDateTime;
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
                     // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
@@ -7084,6 +7128,7 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const statusParam = urlParams.get('status');
                 const dateFromParam = urlParams.get('dateFrom');
+                const filterParam = urlParams.get('filter'); // Widget-Filter
 
                 if (statusParam) {
                     document.getElementById('statusFilter').value = statusParam;
@@ -7093,6 +7138,24 @@
                 if (dateFromParam) {
                     document.getElementById('dateFromFilter').value = dateFromParam;
                     console.log('📅 Datums-Filter aus URL gesetzt:', dateFromParam);
+                }
+
+                // Widget-Filter anwenden
+                if (filterParam) {
+                    console.log('🎯 Widget-Filter erkannt:', filterParam);
+                    setTimeout(() => {
+                        if (filterParam === 'Gebucht') {
+                            document.getElementById('statusFilter').value = 'Gebucht';
+                            filterAndDisplay();
+                        } else if (filterParam === 'Neu') {
+                            document.getElementById('statusFilter').value = 'Neu';
+                            filterAndDisplay();
+                        } else if (filterParam === 'Dringend') {
+                            filterByUrgentBookings();
+                        } else if (filterParam === 'Email') {
+                            showEmailReminderModal();
+                        }
+                    }, 500);
                 }
 
                 // Filter anwenden, wenn URL-Parameter gesetzt wurden
@@ -7377,6 +7440,14 @@
             `;
 
             document.body.appendChild(modal);
+
+            // Automatisch E-Mail-Versendung starten nach kurzer Verzögerung
+            setTimeout(() => {
+                if (confirm(`📧 E-Mail-Erinnerungen automatisch versenden?\n\n${emailBookings.length} E-Mail(s) werden jetzt an alle Kunden mit Terminen morgen gesendet.\n\nMöchten Sie fortfahren?`)) {
+                    modal.remove();
+                    sendAllEmailReminders();
+                }
+            }, 500);
         }
 
         function markEmailAsSent(bookingId) {
@@ -7651,6 +7722,19 @@
             } else {
                 card.style.display = 'none';
             }
+        }
+
+        // Service Worker registrieren (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registriert:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker Fehler:', error);
+                    });
+            });
         }
     </script>
 </body>
