@@ -849,7 +849,7 @@
             background: white;
             max-width: 21cm;
             margin: 0 auto;
-            padding: 2cm;
+            padding: 0;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
 
@@ -938,6 +938,8 @@
                 left: 0;
                 top: 0;
                 box-shadow: none;
+                padding: 0;
+                margin: 0;
             }
             .btn, button {
                 display: none !important;
@@ -5232,7 +5234,7 @@
             const element = document.getElementById('invoicePreviewContent');
 
             const opt = {
-                margin: 10,
+                margin: 0,
                 filename: `Rechnung_${invoiceNumber}_${currentInvoiceBooking.name.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5255,7 +5257,7 @@
             const element = document.getElementById('invoicePreviewContent');
 
             const opt = {
-                margin: 10,
+                margin: 0,
                 filename: `Rechnung_${invoiceNumber}_${currentInvoiceBooking.name.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5552,7 +5554,7 @@
             const customerName = currentOfferBooking.company || currentOfferBooking.name || 'Kunde';
 
             const opt = {
-                margin: 10,
+                margin: 0,
                 filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5576,7 +5578,7 @@
             const element = document.getElementById('offerPreviewContent');
 
             const opt = {
-                margin: 10,
+                margin: 0,
                 filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
