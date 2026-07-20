@@ -10,6 +10,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -2769,6 +2772,26 @@
         let firebaseInitialized = false;
         let isUpdatingFromFirebase = false;
         let isDeletingBooking = false; // Flag um zu verhindern, dass Listener gelöschte Buchungen wieder hochlädt
+
+        // ==========================================
+        // EMAILJS KONFIGURATION
+        // ==========================================
+        // WICHTIG: Tragen Sie hier Ihre EmailJS-Zugangsdaten ein!
+        // Anleitung: Siehe EMAILJS-SETUP.md
+        const EMAILJS_CONFIG = {
+            publicKey: 'IHRE_PUBLIC_KEY_HIER',     // z.B. 'user_xxxxxxxxxxxxxxxx'
+            serviceId: 'IHR_SERVICE_ID_HIER',      // z.B. 'service_xxxxxxxx'
+            templateId: 'IHR_TEMPLATE_ID_HIER'     // z.B. 'template_xxxxxxxx'
+        };
+
+        // EmailJS aktiviert?
+        const EMAILJS_ENABLED = EMAILJS_CONFIG.publicKey !== 'IHRE_PUBLIC_KEY_HIER';
+
+        // EmailJS initialisieren
+        if (typeof emailjs !== 'undefined' && EMAILJS_ENABLED) {
+            emailjs.init(EMAILJS_CONFIG.publicKey);
+            console.log('✅ EmailJS initialisiert');
+        }
 
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
@@ -7292,23 +7315,6 @@
 
             let customersHTML = '';
             emailBookings.forEach(booking => {
-                const emailSubject = `Erinnerung: Termin morgen bei EisFavorite`;
-                const emailBody = `Hallo ${booking.name || 'Kunde'}!
-
-Wir freuen uns auf Ihren Termin morgen:
-
-📅 Datum: ${booking.date}
-🕐 Uhrzeit: ${booking.time || 'zur vereinbarten Zeit'}
-🏢 Bei: ${booking.company || 'Ihnen'}
-📍 Adresse: ${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}
-
-Falls Sie Fragen haben, melden Sie sich gerne!
-
-Viele Grüße
-Ihr EisFavorite Team 🍦`;
-
-                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(booking.email)}&su=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-
                 customersHTML += `
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #00b4db;">
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
@@ -7327,9 +7333,9 @@ Ihr EisFavorite Team 🍦`;
                                 </div>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <a href="${gmailUrl}" target="_blank" onclick="markEmailAsSent('${booking.id}')" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,180,219,0.3); text-decoration: none;">
-                                    📧 E-MAIL ÖFFNEN
-                                </a>
+                                <button onclick="sendAutomaticEmail('${booking.id}')" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,180,219,0.3);">
+                                    🚀 AUTOMATISCH SENDEN
+                                </button>
                                 <button onclick="markEmailAsSent('${booking.id}')" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85em;">
                                     ✓ Als versendet markieren
                                 </button>
@@ -7348,8 +7354,18 @@ Ihr EisFavorite Team 🍦`;
                     <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #00b4db;">
                         <strong>📋 ${emailBookings.length} Kunde(n)</strong> haben morgen einen Termin und brauchen eine E-Mail-Erinnerung!
                     </div>
-                    <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107; font-size: 0.9em; color: #856404;">
-                        ℹ️ <strong>So funktioniert's:</strong> Klicken Sie auf "📧 E-MAIL ÖFFNEN" → Gmail öffnet sich mit vorgefertigter E-Mail → Einfach auf "Senden" klicken!
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <button onclick="this.closest('div').parentElement.parentElement.remove(); sendAllEmailReminders();" style="padding: 15px 30px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1em; box-shadow: 0 4px 12px rgba(0,180,219,0.4); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                            🚀 ALLE ${emailBookings.length} E-MAILS AUTOMATISCH SENDEN
+                        </button>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 8px;">
+                            ✅ Komplett kostenlos (bis 200 E-Mails/Monat)
+                        </div>
+                    </div>
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 15px; margin-bottom: 15px;">
+                        <div style="font-size: 0.9em; color: #666; text-align: center; margin-bottom: 10px;">
+                            <strong>Oder einzeln versenden:</strong>
+                        </div>
                     </div>
                     ${customersHTML}
                     <div style="text-align: center; margin-top: 20px;">
@@ -7385,6 +7401,154 @@ Ihr EisFavorite Team 🍦`;
 
                 console.log('✅ E-Mail als versendet markiert für:', bookings[bookingIndex].name);
             }
+        }
+
+        // ==========================================
+        // AUTOMATISCHE E-MAIL-VERSENDUNG MIT EMAILJS
+        // ==========================================
+        async function sendAutomaticEmail(bookingId) {
+            if (!EMAILJS_ENABLED) {
+                alert('❌ E-Mail-Versand nicht konfiguriert!\n\nBitte tragen Sie zuerst Ihre EmailJS-Zugangsdaten im Code ein.\n\nAnleitung: Siehe EMAILJS-SETUP.md\n\n1. Kostenlosen EmailJS-Account erstellen auf: https://www.emailjs.com\n2. Service, Template und Public Key erstellen\n3. Im Code (Zeile 2781-2785) eintragen');
+                return false;
+            }
+
+            // Buchung finden
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('❌ Buchung nicht gefunden!');
+                return false;
+            }
+
+            console.log('📧 Sende E-Mail an:', booking.email);
+
+            // E-Mail-Parameter erstellen
+            const templateParams = {
+                to_email: booking.email,
+                to_name: booking.name || 'Kunde',
+                customer_name: booking.name || 'Kunde',
+                event_date: booking.date,
+                event_time: booking.time || 'zur vereinbarten Zeit',
+                company: booking.company || 'Ihnen',
+                street: booking.street || '',
+                plz: booking.plz || '',
+                city: booking.city || '',
+                full_address: `${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}`,
+                message: `Dies ist eine freundliche Erinnerung an Ihren Termin morgen. Der Termin steht noch und ich komme wie vereinbart.`
+            };
+
+            console.log('📝 E-Mail-Parameter:', templateParams);
+
+            try {
+                const response = await emailjs.send(
+                    EMAILJS_CONFIG.serviceId,
+                    EMAILJS_CONFIG.templateId,
+                    templateParams
+                );
+
+                console.log('✅ E-Mail erfolgreich versendet!', response);
+
+                // Als versendet markieren
+                markEmailAsSent(bookingId);
+
+                alert(`✅ E-Mail erfolgreich versendet an ${booking.email}!`);
+                return true;
+
+            } catch (error) {
+                console.error('❌ E-Mail-Versand fehlgeschlagen:', error);
+
+                let errorMsg = '❌ E-Mail konnte nicht versendet werden!\n\n';
+                if (error.text) {
+                    errorMsg += `Fehler: ${error.text}\n\n`;
+                }
+                errorMsg += 'Bitte überprüfen Sie:\n';
+                errorMsg += '- EmailJS Service ID\n';
+                errorMsg += '- EmailJS Template ID\n';
+                errorMsg += '- EmailJS Public Key\n';
+                errorMsg += '- Internet-Verbindung';
+
+                alert(errorMsg);
+                return false;
+            }
+        }
+
+        // Alle E-Mails auf einmal senden
+        async function sendAllEmailReminders() {
+            const emailBookings = allBookings.filter(b => needsEmailReminder(b));
+
+            if (emailBookings.length === 0) {
+                alert('✓ Keine E-Mail-Erinnerungen nötig!');
+                return;
+            }
+
+            if (!EMAILJS_ENABLED) {
+                alert('❌ E-Mail-Versand nicht konfiguriert!\n\nBitte tragen Sie zuerst Ihre EmailJS-Zugangsdaten im Code ein.\n\nAnleitung: Siehe EMAILJS-SETUP.md');
+                return;
+            }
+
+            if (!confirm(`📧 Möchten Sie wirklich ${emailBookings.length} E-Mail(s) versenden?\n\n✅ Komplett kostenlos!\n\nDie E-Mails werden automatisch an alle Kunden versendet.`)) {
+                return;
+            }
+
+            // Loading-Anzeige
+            const loader = document.createElement('div');
+            loader.id = 'email-loader';
+            loader.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 999999;
+            `;
+            loader.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px;">
+                    <div style="font-size: 50px; margin-bottom: 15px;">📧</div>
+                    <div id="email-progress" style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">Sende E-Mail 0/${emailBookings.length}...</div>
+                    <div style="font-size: 14px; color: #666;">Bitte warten...</div>
+                </div>
+            `;
+            document.body.appendChild(loader);
+
+            let successCount = 0;
+            let failCount = 0;
+
+            // E-Mails nacheinander senden (nicht parallel, um Rate-Limits zu vermeiden)
+            for (let i = 0; i < emailBookings.length; i++) {
+                const booking = emailBookings[i];
+                document.getElementById('email-progress').textContent = `Sende E-Mail ${i + 1}/${emailBookings.length} an ${booking.name}...`;
+
+                const success = await sendAutomaticEmail(booking.id);
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+
+                // Kurze Pause zwischen E-Mails (1 Sekunde)
+                if (i < emailBookings.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+
+            // Loading-Anzeige entfernen
+            loader.remove();
+
+            // Ergebnis anzeigen
+            let resultMsg = `✅ E-Mail-Versand abgeschlossen!\n\n`;
+            resultMsg += `✓ Erfolgreich: ${successCount} E-Mail(s)\n`;
+            if (failCount > 0) {
+                resultMsg += `❌ Fehlgeschlagen: ${failCount} E-Mail(s)\n`;
+            }
+            resultMsg += `\n✅ Komplett kostenlos!`;
+
+            alert(resultMsg);
+
+            // Statistiken aktualisieren
+            updateStats();
         }
 
         function toggleNewRequestsSection() {
