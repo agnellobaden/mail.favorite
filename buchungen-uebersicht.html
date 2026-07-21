@@ -5017,17 +5017,19 @@
 
                 const subject = `Rechnung ${invoiceNumber} - EisFavorite`;
                 const body =
-                    `Sehr geehrte/r ${customerName},\n\n` +
-                    `vielen Dank für Ihren Auftrag!\n\n` +
-                    `Anbei erhalten Sie die Rechnung ${invoiceNumber} vom ${new Date(invoiceDate).toLocaleDateString('de-DE')}.\n\n` +
-                    `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
+                    `Hallo ${customerName},\n\n` +
+                    `vielen Dank für Ihre Buchung! Es hat uns sehr gefreut, bei Ihrer Veranstaltung dabei zu sein.\n\n` +
+                    `Anbei finden Sie die Rechnung ${invoiceNumber} vom ${new Date(invoiceDate).toLocaleDateString('de-DE')} als PDF-Anhang.\n\n` +
+                    `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
+                    `Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
                     `Ihr EisFavorite Team\n\n` +
                     `---\n` +
                     `Eis Agnello\n` +
                     `Favoritenstrasse 11\n` +
                     `76456 Kuppenheim\n` +
-                    `Tel: +49 176 56813172`;
+                    `Tel: +49 176 56813172\n` +
+                    `E-Mail: eisfavorit@gmail.com`;
 
                 // Gmail Compose URL mit authuser Parameter für spezifisches Gmail-Konto
                 const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(customerEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -5044,8 +5046,7 @@
                         'WICHTIG:\n' +
                         '1. Stelle sicher, dass du bei eisfavorit@gmail.com angemeldet bist\n' +
                         '2. Die heruntergeladene PDF-Datei muss manuell als Anhang hinzugefügt werden\n' +
-                        '3. Empfänger: ' + (customerEmail || '[Keine E-Mail-Adresse]') + '\n' +
-                        '4. Überprüfe die E-Mail und sende sie ab'
+                        '3. Überprüfe die E-Mail und sende sie ab'
                     );
                 }, 1000);
             });
@@ -5323,15 +5324,21 @@
             // PDF generieren und dann E-Mail öffnen
             html2pdf().set(opt).from(element).output('blob').then(function(blob) {
                 // E-Mail-Text vorbereiten
-                const subject = encodeURIComponent(`Angebot für Ihre Veranstaltung - EisFavorite`);
-                const body = encodeURIComponent(
-                    `Sehr geehrte Damen und Herren,\n\n` +
-                    `vielen Dank für Ihre Anfrage!\n\n` +
-                    `Im Anhang finden Sie unser Angebot für Ihre Veranstaltung.\n\n` +
-                    `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
+                const subject = `Angebot für Ihre Veranstaltung - EisFavorite`;
+                const body =
+                    `Hallo ${customerName},\n\n` +
+                    `vielen Dank für Ihre Anfrage! Wir freuen uns sehr über Ihr Interesse an EisFavorite.\n\n` +
+                    `Anbei finden Sie unser individuelles Angebot für Ihre Veranstaltung als PDF-Anhang.\n\n` +
+                    `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
+                    `Bei Fragen oder Änderungswünschen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
-                    `Ihr EisFavorite Team`
-                );
+                    `Ihr EisFavorite Team\n\n` +
+                    `---\n` +
+                    `Eis Agnello\n` +
+                    `Favoritenstrasse 11\n` +
+                    `76456 Kuppenheim\n` +
+                    `Tel: +49 176 56813172\n` +
+                    `E-Mail: eisfavorit@gmail.com`;
 
                 // Zuerst PDF herunterladen
                 const link = document.createElement('a');
@@ -5339,14 +5346,20 @@
                 link.download = `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`;
                 link.click();
 
-                // Dann E-Mail-Client öffnen
+                // Gmail Compose URL
+                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+                // Gmail öffnen
                 setTimeout(() => {
-                    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                    window.open(gmailUrl, '_blank');
 
                     alert(
                         `✓ PDF wurde heruntergeladen!\n\n` +
-                        `📧 E-Mail-Programm wird geöffnet...\n\n` +
-                        `Bitte hänge das heruntergeladene PDF manuell an die E-Mail an.`
+                        `✓ Gmail wird in einem neuen Tab geöffnet.\n\n` +
+                        `WICHTIG:\n` +
+                        `1. Stelle sicher, dass du bei eisfavorit@gmail.com angemeldet bist\n` +
+                        `2. Die heruntergeladene PDF-Datei muss manuell als Anhang hinzugefügt werden\n` +
+                        `3. Überprüfe die E-Mail und sende sie ab`
                     );
                 }, 500);
             });
