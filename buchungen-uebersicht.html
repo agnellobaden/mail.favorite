@@ -4,23 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buchungsübersicht - EisFavorite</title>
-
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EisFavorite">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192.png">
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <!-- EmailJS SDK -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
     <style>
         * {
@@ -190,45 +178,6 @@
         .stat-card.email:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
-        }
-
-        .stat-card.rechnung {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .stat-card.rechnung:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(17, 153, 142, 0.4);
-        }
-
-        .stat-card.urgent {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 4px 15px rgba(238, 90, 111, 0.4); }
-            50% { box-shadow: 0 4px 25px rgba(238, 90, 111, 0.8); }
-        }
-
-        .stat-card.urgent:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 30px rgba(238, 90, 111, 0.6);
-        }
-
-        .stat-card.sms {
-            background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .stat-card.sms:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 180, 219, 0.5);
         }
 
         .stat-card h3 {
@@ -849,7 +798,7 @@
             background: white;
             max-width: 21cm;
             margin: 0 auto;
-            padding: 0;
+            padding: 2cm;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
 
@@ -938,8 +887,6 @@
                 left: 0;
                 top: 0;
                 box-shadow: none;
-                padding: 0;
-                margin: 0;
             }
             .btn, button {
                 display: none !important;
@@ -2133,9 +2080,6 @@
                     <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
                     <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
                 </div>
-                <button onclick="manualRefresh()" style="padding: 10px 15px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Statistiken manuell aktualisieren">
-                    🔄 Aktualisieren
-                </button>
             </div>
         </div>
 
@@ -2216,35 +2160,9 @@
                         <h3>📧 E-MAILS</h3>
                         <div class="number" id="stat-email">0</div>
                     </div>
-                    <div class="stat-card rechnung" onclick="filterByOpenInvoices()" style="cursor: pointer;" title="Klicken um offene Rechnungen zu sehen">
-                        <h3>💰 OFFENE RECHNUNGEN</h3>
-                        <div class="number" id="stat-rechnung">0</div>
-                    </div>
-                    <div class="stat-card urgent" onclick="filterByUrgentBookings()" style="cursor: pointer;" title="Termine in den nächsten 24 Stunden!">
-                        <h3>⚠️ DRINGEND (24h)</h3>
-                        <div class="number" id="stat-urgent">0</div>
-                    </div>
-                    <div class="stat-card sms" onclick="showEmailReminderModal()" style="cursor: pointer;" title="Kunden die morgen eine E-Mail-Erinnerung brauchen">
-                        <h3>📧 E-MAIL SENDEN</h3>
-                        <div class="number" id="stat-sms">0</div>
-                    </div>
                     <div class="stat-card gesamt" onclick="showAllBookings()" style="cursor: pointer;" title="Klicken um alle Buchungen zu sehen">
                         <h3>GESAMT</h3>
                         <div class="number" id="stat-gesamt">0</div>
-                    </div>
-                </div>
-
-                <!-- E-Mail Erinnerungs-Hinweis -->
-                <div id="emailReminderInfo" style="display: none; margin: 15px 0; background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3); font-size: 14px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="font-size: 28px;">📧</div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: bold; margin-bottom: 5px;">Automatische E-Mail-Erinnerungen</div>
-                            <div style="opacity: 0.95; font-size: 13px; line-height: 1.4;">
-                                E-Mail-Erinnerungen werden automatisch für Termine erkannt, die <strong>20-28 Stunden</strong> entfernt sind (d.h. morgen stattfinden).
-                                Klicken Sie auf die Karte "📧 E-MAIL SENDEN" um alle Erinnerungen zu versenden.
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -2798,26 +2716,6 @@
         let isUpdatingFromFirebase = false;
         let isDeletingBooking = false; // Flag um zu verhindern, dass Listener gelöschte Buchungen wieder hochlädt
 
-        // ==========================================
-        // EMAILJS KONFIGURATION
-        // ==========================================
-        // WICHTIG: Tragen Sie hier Ihre EmailJS-Zugangsdaten ein!
-        // Anleitung: Siehe EMAILJS-SETUP.md
-        const EMAILJS_CONFIG = {
-            publicKey: '3idcaupgKClKXwVX8',        // EmailJS Public Key
-            serviceId: 'service_bei4hvx',          // Gmail Service ID
-            templateId: 'template_1ioy7xg'         // Auto-Reply Template ID
-        };
-
-        // EmailJS aktiviert?
-        const EMAILJS_ENABLED = EMAILJS_CONFIG.publicKey !== 'IHRE_PUBLIC_KEY_HIER';
-
-        // EmailJS initialisieren
-        if (typeof emailjs !== 'undefined' && EMAILJS_ENABLED) {
-            emailjs.init(EMAILJS_CONFIG.publicKey);
-            console.log('✅ EmailJS initialisiert');
-        }
-
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
             const dot = document.getElementById('firebaseStatusDot');
@@ -2846,60 +2744,6 @@
                     text.style.color = '#ffc107';
                     text.textContent = message || '🟡 Verbinde...';
                     break;
-            }
-        }
-
-        // Manueller Refresh für Statistiken und Daten
-        function manualRefresh() {
-            console.log('🔄 MANUELLER REFRESH GESTARTET');
-
-            // Zeige kurze Animation
-            const btn = event.target;
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Lädt...';
-            btn.disabled = true;
-
-            // Statistiken sofort aktualisieren
-            updateStats();
-
-            // Anzeige aktualisieren
-            filterAndDisplay();
-
-            // Wenn Firebase verbunden ist, Daten neu laden
-            if (firebaseInitialized && db) {
-                db.collection('buchungen').get()
-                    .then((snapshot) => {
-                        const firebaseBookings = [];
-                        snapshot.forEach((doc) => {
-                            firebaseBookings.push({ ...doc.data(), id: doc.id });
-                        });
-
-                        allBookings = firebaseBookings;
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-
-                        console.log('✅ Daten von Firebase neu geladen:', allBookings.length, 'Buchungen');
-                        updateStats();
-                        filterAndDisplay();
-
-                        btn.innerHTML = '✓ Aktualisiert!';
-                        setTimeout(() => {
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
-                        }, 1500);
-                    })
-                    .catch((error) => {
-                        console.error('❌ Fehler beim Refresh:', error);
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                    });
-            } else {
-                // Nur lokale Daten aktualisieren
-                console.log('ℹ️ Firebase nicht verfügbar - nur lokale Aktualisierung');
-                btn.innerHTML = '✓ Aktualisiert!';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 1500);
             }
         }
 
@@ -3605,91 +3449,16 @@
             return result;
         }
 
-        // Hilfsfunktion: Prüft ob ein Termin in den nächsten 24 Stunden ist
-        function isUrgent(booking) {
-            if (!booking.date || booking.status === 'Event beendet') return false;
-
-            try {
-                const appointmentDate = parseDate(booking.date);
-                if (!appointmentDate) return false;
-
-                const now = new Date();
-                const hoursUntil = (appointmentDate - now) / (1000 * 60 * 60);
-
-                // Termin ist in den nächsten 24 Stunden und noch nicht vorbei
-                return hoursUntil > 0 && hoursUntil <= 24;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        // Hilfsfunktion: Prüft ob E-Mail-Erinnerung versendet werden sollte (ca. 24h vorher)
-        function needsEmailReminder(booking) {
-            if (!booking.date || booking.status === 'Event beendet' || !booking.email) return false;
-
-            try {
-                const appointmentDate = parseDate(booking.date);
-                if (!appointmentDate) return false;
-
-                const now = new Date();
-                const hoursUntil = (appointmentDate - now) / (1000 * 60 * 60);
-
-                // E-Mail-Erinnerung für Termine die morgen sind (20-28 Stunden)
-                // Damit erfassen wir "morgen" auch wenn der Termin zu einer anderen Uhrzeit ist
-                return hoursUntil >= 20 && hoursUntil <= 28 && !booking.emailReminderSent;
-            } catch (e) {
-                return false;
-            }
-        }
-
         // Statistiken aktualisieren
         function updateStats() {
             const gebucht = allBookings.filter(b => b.status === 'Gebucht').length;
             const neu = allBookings.filter(b => b.status === 'Neu').length;
             const neuEingetroffen = allBookings.filter(b => b.isNewFromEmail === true).length;
 
-            // Offene Rechnungen: Rechnung versendet aber noch nicht bezahlt
-            const offeneRechnungen = allBookings.filter(b => {
-                const istVersendet = b.invoiceSent === true || b.status === 'Rechnung versendet';
-                const istBezahlt = b.invoicePaid === true || b.status === 'Bezahlte Rechnung';
-                return istVersendet && !istBezahlt;
-            }).length;
-
-            // Dringende Termine: In den nächsten 24 Stunden
-            const dringend = allBookings.filter(b => isUrgent(b)).length;
-
-            // E-Mail-Erinnerungen: Termine morgen (20-28h)
-            const emailErinnerungen = allBookings.filter(b => needsEmailReminder(b)).length;
-
             document.getElementById('stat-gebucht').textContent = gebucht;
             document.getElementById('stat-neu').textContent = neu;
             document.getElementById('stat-email').textContent = neuEingetroffen;
-            document.getElementById('stat-rechnung').textContent = offeneRechnungen;
-            document.getElementById('stat-urgent').textContent = dringend;
-            document.getElementById('stat-sms').textContent = emailErinnerungen;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
-
-            console.log('📊 STATS UPDATE:', { gebucht, neu, neuEingetroffen, offeneRechnungen, dringend, emailErinnerungen, gesamt: allBookings.length });
-
-            // E-Mail-Erinnerungs-Info anzeigen wenn E-Mails zu versenden sind
-            const emailReminderInfo = document.getElementById('emailReminderInfo');
-            if (emailReminderInfo) {
-                if (emailErinnerungen > 0) {
-                    emailReminderInfo.style.display = 'block';
-                } else {
-                    emailReminderInfo.style.display = 'none';
-                }
-            }
-
-            // Warnung anzeigen wenn dringende Termine vorhanden sind
-            if (dringend > 0 && !sessionStorage.getItem('urgent_warning_shown')) {
-                sessionStorage.setItem('urgent_warning_shown', 'true');
-                setTimeout(() => {
-                    if (confirm(`⚠️ ACHTUNG!\n\nSie haben ${dringend} Termin(e) in den nächsten 24 Stunden!\n\nMöchten Sie diese jetzt ansehen?`)) {
-                        filterByUrgentBookings();
-                    }
-                }, 1000);
-            }
         }
 
         // Filtern und anzeigen
@@ -3775,25 +3544,12 @@
             endOfWeek.setDate(now.getDate() + daysUntilSunday);
             endOfWeek.setHours(23, 59, 59, 999);
 
-            // Start und Ende des heutigen Tages
-            const startOfToday = new Date(now);
-            startOfToday.setHours(0, 0, 0, 0);
-            const endOfToday = new Date(now);
-            endOfToday.setHours(23, 59, 59, 999);
-
-            // Finde alle aktiven Termine dieser Woche (inkl. heutige Events, auch wenn bereits vorbei)
+            // Finde alle bevorstehenden Termine dieser Woche
             const upcomingThisWeek = allBookings.filter(booking => {
                 const bookingDate = parseDateTime(booking.date, booking.time);
-                const bookingDateOnly = parseDate(booking.date);
-
-                // Event ist aktiv wenn Status NICHT "Event beendet" oder "Storniert" ist
-                const isActive = booking.status !== 'Event beendet' && booking.status !== 'Storniert';
-
-                // Zeige heute's Events (egal welche Uhrzeit) ODER zukünftige Events bis Ende der Woche
-                const isToday = bookingDateOnly >= startOfToday && bookingDateOnly <= endOfToday;
-                const isUpcomingThisWeek = bookingDate > now && bookingDate <= endOfWeek;
-
-                return isActive && (isToday || isUpcomingThisWeek);
+                const isUpcoming = bookingDate >= now && bookingDate <= endOfWeek;
+                const isActive = booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage';
+                return isUpcoming && isActive;
             }).sort((a, b) => {
                 return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
             });
@@ -3835,10 +3591,7 @@
                                 <div style="font-size: 0.9em; color: #666; font-weight: 600;">${booking.company || ''}</div>
                                 ${booking.isNewFromEmail ? '<div style="margin-top: 8px;"><span class="new-email-badge" style="font-size: 0.7em; padding: 5px 10px;">📧 Neu eingetroffen!</span></div>' : ''}
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                                <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.75em; padding: 5px 10px;">${booking.status || ''}</span>
-                                ${booking.invoiceSent || booking.status === 'Rechnung versendet' || booking.status === 'Bezahlte Rechnung' ? '<span style="background: #28a745; color: white; padding: 6px 10px; border-radius: 50px; font-size: 1em; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(40,167,69,0.3);">✓</span>' : ''}
-                            </div>
+                            <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size: 0.75em; padding: 5px 10px;">${booking.status || ''}</span>
                         </div>
                         <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                             <div style="background: #f0f0f0; padding: 10px 14px; border-radius: 8px; flex: 1; text-align: center;">
@@ -3936,16 +3689,13 @@
             const now = new Date();
 
             // Finde den nächsten zukünftigen Termin (nur Datum, ohne Uhrzeit)
-            // WICHTIG: Events bleiben aktiv bis Status "Event beendet" ist, unabhängig von der Zeit
             let nextDate = null;
             if (!isFiltered) {
                 bookings.forEach(booking => {
                     const bookingDateTime = parseDateTime(booking.date, booking.time);
-                    // Event ist aktiv wenn Status NICHT "Event beendet" ist
-                    const isActive = booking.status !== 'Event beendet' && booking.status !== 'Storniert';
-                    const isInFuture = bookingDateTime >= now;
+                    const isUpcoming = bookingDateTime >= now && (booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage');
 
-                    if (isActive && isInFuture) {
+                    if (isUpcoming) {
                         const bookingDateOnly = parseDate(booking.date);
                         if (!nextDate || bookingDateOnly < nextDate) {
                             nextDate = bookingDateOnly;
@@ -3961,16 +3711,13 @@
                 const bDateOnly = parseDate(b.date);
 
                 if (!isFiltered) {
-                    // Events sind aktiv solange Status NICHT "Event beendet" ist
-                    const aIsActive = a.status !== 'Event beendet' && a.status !== 'Storniert';
-                    const bIsActive = b.status !== 'Event beendet' && b.status !== 'Storniert';
+                    // Prüfe ob Termin in der Zukunft ist und Status aktiv
+                    const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
+                    const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
 
-                    const aIsInFuture = aDateTime >= now;
-                    const bIsInFuture = bDateTime >= now;
-
-                    // Prüfe ob Termin am nächsten Tag ist (nur für zukünftige aktive Events)
-                    const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsActive && aIsInFuture;
-                    const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsActive && bIsInFuture;
+                    // Prüfe ob Termin am nächsten Tag ist
+                    const aIsNextDay = nextDate && aDateOnly.getTime() === nextDate.getTime() && aIsUpcoming;
+                    const bIsNextDay = nextDate && bDateOnly.getTime() === nextDate.getTime() && bIsUpcoming;
 
                     // Termine am nächsten Tag kommen GANZ OBEN
                     if (aIsNextDay && !bIsNextDay) return -1;
@@ -3981,23 +3728,18 @@
                         return aDateTime - bDateTime;
                     }
 
-                    // Aktive Events kommen vor beendeten Events
-                    if (aIsActive && !bIsActive) return -1;
-                    if (!aIsActive && bIsActive) return 1;
+                    // Andere bevorstehende Termine kommen danach
+                    if (aIsUpcoming && !bIsUpcoming) return -1;
+                    if (!aIsUpcoming && bIsUpcoming) return 1;
 
-                    // Wenn beide aktiv sind, sortiere nach Datum (zukünftige zuerst, dann vergangene)
-                    if (aIsActive && bIsActive) {
-                        // Zukünftige Events vor vergangenen
-                        if (aIsInFuture && !bIsInFuture) return -1;
-                        if (!aIsInFuture && bIsInFuture) return 1;
-
-                        // Beide zukünftig oder beide vergangen -> chronologisch sortieren
+                    // Wenn beide bevorstehend, sortiere nach Datum
+                    if (aIsUpcoming && bIsUpcoming) {
                         return aDateTime - bDateTime;
                     }
 
-                    // Wenn beide beendet sind, neueste zuerst
-                    if (!aIsActive && !bIsActive) {
-                        return bDateTime - aDateTime;
+                    // Vergangene Termine kommen zuletzt
+                    if (!aIsUpcoming && !bIsUpcoming) {
+                        return bDateTime - aDateTime; // Neueste vergangene zuerst
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
                     // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
@@ -4142,15 +3884,10 @@
 
             bookings.forEach((booking, index) => {
                 const isNext = booking === nextBooking;
-                const urgent = isUrgent(booking);
                 const card = document.createElement('div');
                 card.className = 'booking-card';
                 if (index % 2 === 1) card.classList.add('alternate');
                 if (isNext) card.classList.add('next-booking');
-                if (urgent) {
-                    card.style.border = '3px solid #ff6b6b';
-                    card.style.boxShadow = '0 0 20px rgba(255, 107, 107, 0.5)';
-                }
 
                 // Adresse zusammensetzen
                 const address = [booking.street, booking.plz, booking.city].filter(x => x).join(', ');
@@ -4168,21 +3905,7 @@
                 const travelCost = calculateTravelCost(booking.distance);
                 const travelCostWithMwSt = travelCost * 1.07; // Anfahrtskosten zzgl. 7% MwSt.
 
-                // Verbleibende Zeit berechnen (falls dringend)
-                let urgentBanner = '';
-                if (urgent) {
-                    const appointmentDate = parseDate(booking.date);
-                    const now = new Date();
-                    const hoursUntil = Math.round((appointmentDate - now) / (1000 * 60 * 60));
-                    urgentBanner = `
-                        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: white; padding: 12px; text-align: center; font-weight: bold; font-size: 1.1em; border-radius: 8px 8px 0 0; margin: -15px -15px 15px -15px; box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);">
-                            ⚠️ DRINGEND: Termin in ${hoursUntil} Stunde${hoursUntil !== 1 ? 'n' : ''}!
-                        </div>
-                    `;
-                }
-
                 card.innerHTML = `
-                    ${urgentBanner}
                     <!-- 3-Punkte-Menü -->
                     <div class="card-menu">
                         <button class="card-menu-button" onclick="toggleCardMenu(event, '${booking.id}')">⋮</button>
@@ -4214,10 +3937,9 @@
                         <div>
                             <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
                             <div class="card-company">${booking.company || '-'}</div>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div>
                                 <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
-                                ${booking.invoiceSent || booking.status === 'Rechnung versendet' || booking.status === 'Bezahlte Rechnung' ? '<span style="background: #28a745; color: white; padding: 8px 12px; border-radius: 50px; font-size: 1.2em; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 8px rgba(40,167,69,0.3);">✓</span>' : ''}
                             </div>
                         </div>
                         <div class="card-date">
@@ -5005,15 +4727,12 @@
                 }
 
                 return `
-                    <tr style="border-bottom: 1px solid #e9ecef;">
-                        <td style="padding: 14px; color: #333;">
-                            <strong style="font-size: 14px; color: #222;">${p.name}</strong><br>
-                            <span style="font-size: 12px; color: #888;">${p.priceIncludesTax ? 'inkl.' : 'zzgl.'} 7% Umsatzsteuer</span>
-                        </td>
-                        <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">${p.quantity}</td>
-                        <td style="padding: 14px; text-align: right; color: #555;">${netto.toFixed(2)} €</td>
-                        <td style="padding: 14px; text-align: right; color: #555;">${mwst.toFixed(2)} €</td>
-                        <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${brutto.toFixed(2)} €</td>
+                    <tr>
+                        <td><strong>${p.name}</strong><br>${p.priceIncludesTax ? 'inkl.' : 'zzgl.'} 7% Umsatzsteuer</td>
+                        <td style="text-align: center;">${p.quantity}</td>
+                        <td style="text-align: right;">${netto.toFixed(2)} €</td>
+                        <td style="text-align: right;">${mwst.toFixed(2)} €</td>
+                        <td style="text-align: right;"><strong>${brutto.toFixed(2)} €</strong></td>
                     </tr>
                 `;
             }).join('');
@@ -5041,16 +4760,12 @@
                 sumBrutto = MINDESTUMSATZ;
 
                 mindestumsatzRow = `
-                    <tr style="background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%); border-bottom: 2px solid #ffc107;">
-                        <td style="padding: 14px; color: #333;">
-                            <strong style="font-size: 14px; color: #856404;">Mindestumsatz-Pauschale</strong><br>
-                            <span style="font-size: 12px; color: #888;">inkl. 7% Umsatzsteuer</span><br>
-                            <small style="color: #856404; font-weight: 600;">ℹ️ Mindestumsatz 200,00 € erreicht</small>
-                        </td>
-                        <td style="padding: 14px; text-align: center; color: #856404; font-weight: 600;">1</td>
-                        <td style="padding: 14px; text-align: right; color: #856404;">${pauschaleNetto.toFixed(2)} €</td>
-                        <td style="padding: 14px; text-align: right; color: #856404;">${pauschaleMwst.toFixed(2)} €</td>
-                        <td style="padding: 14px; text-align: right; font-weight: 700; color: #856404; font-size: 14px;">${fehlbetrag.toFixed(2)} €</td>
+                    <tr style="background: #fff3cd;">
+                        <td><strong>Mindestumsatz-Pauschale</strong><br>inkl. 7% Umsatzsteuer<br><small style="color: #856404;">Mindestumsatz 200,00 € wird erreicht</small></td>
+                        <td style="text-align: center;">1</td>
+                        <td style="text-align: right;">${pauschaleNetto.toFixed(2)} €</td>
+                        <td style="text-align: right;">${pauschaleMwst.toFixed(2)} €</td>
+                        <td style="text-align: right;"><strong>${fehlbetrag.toFixed(2)} €</strong></td>
                     </tr>
                 `;
             }
@@ -5061,71 +4776,58 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 210mm; margin: 0 auto;">
-                    <!-- HEADER -->
-                    <table style="width: 100%; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
-                        <tr>
-                            <td style="vertical-align: top; width: 60%;">
-                                <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
-                                <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
-                                    <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
-                                    Favoritenstrasse 11<br>
-                                    76456 Kuppenheim<br>
-                                    Deutschland
-                                </div>
-                            </td>
-                            <td style="vertical-align: top; text-align: right; width: 40%;">
-                                <div style="font-size: 42px; font-weight: 900; color: #333; letter-spacing: -1px;">RECHNUNG</div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <!-- CUSTOMER & DETAILS -->
-                    <table style="width: 100%; margin-bottom: 40px;">
-                        <tr>
-                            <td style="vertical-align: top; width: 55%; padding-right: 30px;">
-                                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
-                                    <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Rechnungsempfänger</div>
-                                    <strong style="font-size: 17px; color: #222;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong>
-                                    <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
-                                        ${customerAddress}
-                                        ${invoiceReference ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;"><strong style="color: #333;">Ansprechpartner:</strong><br>${invoiceReference}</div>` : ''}
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="vertical-align: top; width: 45%;">
-                                <table style="width: 100%; font-size: 14px; line-height: 2;">
-                                    <tr>
-                                        <td style="color: #666; padding: 8px 0;"><strong>Rechnungsnummer:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${invoiceNumber}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666; padding: 8px 0;"><strong>Ausstellungsdatum:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(invoiceDate)}</td>
-                                    </tr>
-                                    <tr style="border-top: 2px solid #667eea;">
-                                        <td style="color: #666; padding: 12px 0;"><strong>Zahlungsziel:</strong></td>
-                                        <td style="text-align: right; color: #667eea; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(invoiceDueDate)}</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <!-- INTRO TEXT -->
-                    <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
-                        <p style="font-size: 15px; color: #555; margin: 0; line-height: 1.7;">Vielen Dank für Ihren Auftrag! Nachfolgend stellen wir Ihnen die <strong style="color: #667eea;">erbrachten Leistungen</strong> in Rechnung:</p>
+                <div class="invoice-preview">
+                    <div class="invoice-header">
+                        <div>
+                            <div class="invoice-logo">🍦 EisFavorite</div>
+                            <div style="margin-top: 10px; font-size: 14px;">
+                                <strong>Eis Agnello</strong><br>
+                                Favoritenstrasse 11<br>
+                                76456 Kuppenheim<br>
+                                Deutschland
+                            </div>
+                        </div>
+                        <div class="invoice-title">RECHNUNG</div>
                     </div>
 
-                    <!-- POSITIONS TABLE -->
-                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 13px;">
+                    <div class="invoice-details">
+                        <div style="flex: 1;">
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 2px solid #333;">
+                                <strong style="font-size: 16px;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong><br><br>
+                                ${customerAddress}
+                                ${invoiceReference ? `<br><br><strong>Ansprechpartner:</strong> ${invoiceReference}` : ''}
+                            </div>
+                        </div>
+                        <div style="flex: 0 0 250px; margin-left: 30px;">
+                            <table style="width: 100%; font-size: 14px;">
+                                <tr>
+                                    <td><strong>Rechnungsnummer:</strong></td>
+                                    <td style="text-align: right;">${invoiceNumber}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ausgestellt:</strong></td>
+                                    <td style="text-align: right;">${formatDate(invoiceDate)}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Zahlungsziel:</strong></td>
+                                    <td style="text-align: right;">${formatDate(invoiceDueDate)}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="margin: 30px 0;">
+                        <p>Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:</p>
+                    </div>
+
+                    <table class="invoice-table">
                         <thead>
-                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                                <th style="padding: 14px; text-align: left; font-weight: 600; letter-spacing: 0.5px;">BESCHREIBUNG</th>
-                                <th style="padding: 14px; text-align: center; font-weight: 600; letter-spacing: 0.5px; width: 80px;">MENGE</th>
-                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 110px;">NETTO</th>
-                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 90px;">MWST</th>
-                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 120px;">BRUTTO</th>
+                            <tr>
+                                <th>BESCHREIBUNG</th>
+                                <th style="text-align: center;">MENGE</th>
+                                <th style="text-align: right;">PREIS (NETTO)</th>
+                                <th style="text-align: right;">MWST</th>
+                                <th style="text-align: right;">GESAMT (BRUTTO)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -5134,59 +4836,52 @@
                         </tbody>
                     </table>
 
-                    <!-- SUMMARY -->
-                    <div style="margin-left: auto; width: 350px; margin-top: 30px;">
-                        <table style="width: 100%; font-size: 14px; line-height: 2;">
+                    <div class="invoice-summary">
+                        <table style="width: 100%; font-size: 14px;">
                             <tr>
-                                <td style="padding: 8px 0; color: #666;"><strong>Summe Netto:</strong></td>
-                                <td style="text-align: right; padding: 8px 0; font-weight: 600; color: #333;">${sumNetto.toFixed(2)} €</td>
+                                <td><strong>SUMME NETTO</strong></td>
+                                <td style="text-align: right;"><strong>${sumNetto.toFixed(2)} €</strong></td>
                             </tr>
                             ${mwst7 > 0 ? `
                             <tr>
-                                <td style="padding: 8px 0; color: #666;">zzgl. 7% MwSt:</td>
-                                <td style="text-align: right; padding: 8px 0; color: #555;">${mwst7.toFixed(2)} €</td>
+                                <td>zzgl. 7% MwSt</td>
+                                <td style="text-align: right;">${mwst7.toFixed(2)} €</td>
                             </tr>` : ''}
                             ${mwst19 > 0 ? `
                             <tr>
-                                <td style="padding: 8px 0; color: #666;">zzgl. 19% MwSt:</td>
-                                <td style="text-align: right; padding: 8px 0; color: #555;">${mwst19.toFixed(2)} €</td>
+                                <td>zzgl. 19% MwSt</td>
+                                <td style="text-align: right;">${mwst19.toFixed(2)} €</td>
                             </tr>` : ''}
-                            <tr style="border-top: 2px solid #667eea; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                                <td style="padding: 15px 12px; font-size: 16px; font-weight: 700; color: #333;"><strong>GESAMT (BRUTTO):</strong></td>
-                                <td style="text-align: right; padding: 15px 12px; font-size: 18px; font-weight: 900; color: #667eea;">${sumBrutto.toFixed(2)} €</td>
+                            <tr>
+                                <td><strong>GESAMT (BRUTTO)</strong></td>
+                                <td style="text-align: right;"><strong>${sumBrutto.toFixed(2)} €</strong></td>
                             </tr>
                         </table>
                     </div>
 
-                    <!-- TOTAL BOX -->
-                    <div style="margin: 35px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);">
-                        <div style="font-size: 15px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
-                            Zahlbetrag<br>
-                            <span style="font-size: 12px; opacity: 0.9; font-weight: 400;">Fällig bis ${formatDate(invoiceDueDate)}</span>
-                        </div>
-                        <div style="font-size: 36px; font-weight: 900; letter-spacing: -1px;">${sumBrutto.toFixed(2)} €</div>
+                    <div class="invoice-total">
+                        <span>GESAMTBETRAG<br>ZU BEZAHLEN</span>
+                        <span style="font-size: 28px;">${sumBrutto.toFixed(2)} €</span>
                     </div>
 
-                    <!-- FOOTER -->
-                    <div style="margin-top: 50px; padding-top: 25px; border-top: 2px solid #e9ecef; display: flex; justify-content: space-between; font-size: 12px; color: #666; line-height: 1.8;">
-                        <div style="flex: 1;">
-                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">INHABER</strong>
+                    <div class="invoice-footer">
+                        <div>
+                            <strong>INHABER</strong><br>
                             Eis Agnello<br>
                             Favoritenstrasse 11<br>
                             76456 Kuppenheim
                         </div>
-                        <div style="flex: 1;">
-                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">KONTAKT</strong>
+                        <div>
+                            <strong>KONTAKT</strong><br>
                             St-Nr.: 39102/26343<br>
-                            Tel: +49 176 56813172<br>
-                            eisfavorit@gmail.com
+                            Handy: +49 176 56813172
                         </div>
-                        <div style="flex: 1;">
-                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">BANKVERBINDUNG</strong>
-                            Andrea Agnello<br>
-                            Sparkasse Baden Baden<br>
+                        <div>
+                            <strong>BANKVERBINDUNG</strong><br>
+                            Empfänger: Andrea Agnello<br>
+                            Bank: Sparkasse Baden Baden<br>
                             IBAN: DE72 6625 0030 0030 4713 20<br>
-                            BIC: SOLADES1BAD
+                            BIC/SWIFT: SOLADES1BAD
                         </div>
                     </div>
                 </div>
@@ -5274,7 +4969,7 @@
             const element = document.getElementById('invoicePreviewContent');
 
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: `Rechnung_${invoiceNumber}_${currentInvoiceBooking.name.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5297,7 +4992,7 @@
             const element = document.getElementById('invoicePreviewContent');
 
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: `Rechnung_${invoiceNumber}_${currentInvoiceBooking.name.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5422,161 +5117,152 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: Arial, sans-serif; line-height: 1.5; width: 100%; max-width: 800px; margin: 0 auto; box-sizing: border-box;">
-                    <!-- HEADER -->
-                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-bottom: 30px; border-bottom: 3px solid #667eea; padding-bottom: 15px;">
-                        <tr>
-                            <td style="width: 50%; vertical-align: top;">
-                                <div style="font-size: 28px; font-weight: bold; color: #667eea; margin-bottom: 10px;">🍦 EisFavorite</div>
-                                <div style="font-size: 12px; color: #555; line-height: 1.6;">
-                                    <strong style="font-size: 14px; color: #333;">Eis Agnello</strong><br>
-                                    Favoritenstrasse 11<br>
-                                    76456 Kuppenheim<br>
-                                    Deutschland<br><br>
+                <div class="invoice-preview" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                    <div class="invoice-header" style="border-bottom: 3px solid #667eea; padding-bottom: 20px; margin-bottom: 30px;">
+                        <div>
+                            <div class="invoice-logo" style="font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.7; color: #555;">
+                                <strong style="color: #333; font-size: 15px;">Eis Agnello</strong><br>
+                                Favoritenstrasse 11<br>
+                                76456 Kuppenheim<br>
+                                Deutschland<br>
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
                                     <strong>Tel:</strong> 017656813172<br>
                                     <strong>E-Mail:</strong> eisfavorit@gmail.com
                                 </div>
-                            </td>
-                            <td style="width: 50%; vertical-align: top; text-align: right;">
-                                <div style="background: #667eea; color: white; padding: 15px 30px; font-size: 32px; font-weight: bold; display: inline-block; margin-top: 10px;">ANGEBOT</div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <!-- CUSTOMER & DETAILS -->
-                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-bottom: 30px;">
-                        <tr>
-                            <td style="width: 50%; vertical-align: top; padding-right: 20px;">
-                                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #667eea; font-weight: bold; margin-bottom: 10px;">ANGEBOT FÜR</div>
-                                    <strong style="font-size: 16px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong><br>
-                                    <div style="margin-top: 10px; font-size: 13px; color: #555; line-height: 1.6;">
-                                        ${customerAddress || 'Adresse nicht angegeben'}
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="width: 50%; vertical-align: top;">
-                                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; font-size: 13px;">
-                                    <tr>
-                                        <td style="color: #666; padding: 6px 0;"><strong>Angebotsnummer:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: bold; padding: 6px 0;">${offerNumber}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666; padding: 6px 0;"><strong>Erstellungsdatum:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: bold; padding: 6px 0;">${formatDate(today)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666; padding: 6px 0;"><strong>Veranstaltung:</strong></td>
-                                        <td style="text-align: right; color: #667eea; font-weight: bold; padding: 6px 0;">${booking.date || '-'}</td>
-                                    </tr>
-                                    <tr style="border-top: 2px solid #e74c3c;">
-                                        <td style="color: #666; padding: 10px 0;"><strong>Gültig bis:</strong></td>
-                                        <td style="text-align: right; color: #e74c3c; font-weight: bold; font-size: 14px; padding: 10px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <!-- INTRO TEXT -->
-                    <div style="margin: 30px 0 25px 0; padding: 15px 20px; background: #f8f9fa; border-left: 4px solid #667eea;">
-                        <p style="font-size: 14px; color: #555; margin: 0; line-height: 1.6;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                            </div>
+                        </div>
+                        <div class="invoice-title" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">ANGEBOT</div>
                     </div>
 
-                    <!-- POSITIONS TABLE -->
-                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
+                    <div class="invoice-details" style="margin-bottom: 35px;">
+                        <div style="flex: 1;">
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                                <strong style="font-size: 18px; color: #667eea; display: block; margin-bottom: 15px;">${booking.company || booking.name || 'Kunde'}</strong>
+                                <div style="color: #555; line-height: 1.7; font-size: 14px;">
+                                    ${customerAddress || 'Adresse nicht angegeben'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex: 0 0 280px; margin-left: 30px;">
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0;">
+                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                    <tr>
+                                        <td style="color: #666;"><strong>Angebotsnummer:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${offerNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Datum:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${formatDate(today)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Veranstaltung:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: 600;">${booking.date || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Gültig bis:</strong></td>
+                                        <td style="text-align: right; color: #e74c3c; font-weight: 600; padding-top: 10px; border-top: 1px solid #ddd;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 35px 0 25px 0; padding: 15px 20px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 4px;">
+                        <p style="font-size: 15px; line-height: 1.8; color: #555; margin: 0;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                    </div>
+
+                    <table class="invoice-table">
                         <thead>
-                            <tr style="background: #667eea; color: white;">
-                                <th style="padding: 12px; text-align: left; font-weight: bold;">POSITION</th>
-                                <th style="padding: 12px; text-align: center; font-weight: bold; width: 80px;">MENGE</th>
-                                <th style="padding: 12px; text-align: right; font-weight: bold; width: 100px;">EINZELPREIS</th>
-                                <th style="padding: 12px; text-align: right; font-weight: bold; width: 120px;">GESAMT</th>
+                            <tr>
+                                <th style="text-align: left;">Position</th>
+                                <th style="text-align: center;">Menge</th>
+                                <th style="text-align: right;">Einzelpreis</th>
+                                <th style="text-align: right;">Gesamt</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 12px; color: #333;">
-                                    <strong style="font-size: 13px; color: #222;">Kugel Eis</strong><br>
-                                    <span style="font-size: 11px; color: #888;">${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</span><br>
-                                    <span style="font-size: 11px; color: #888;">inkl. 7% MwSt.</span>
+                            <tr>
+                                <td><strong>Kugel Eis</strong><br>
+                                    <small>${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</small><br>
+                                    <small style="color: #666;">inkl. 7% MwSt.</small>
                                 </td>
-                                <td style="padding: 12px; text-align: center; color: #555; font-weight: bold;">${totalKugeln}</td>
-                                <td style="padding: 12px; text-align: right; color: #555;">${kugelPrice.toFixed(2)} €</td>
-                                <td style="padding: 12px; text-align: right; font-weight: bold; color: #333;">${kugelTotal.toFixed(2)} €</td>
+                                <td style="text-align: center;">${totalKugeln}</td>
+                                <td style="text-align: right;">${kugelPrice.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${kugelTotal.toFixed(2)} €</strong></td>
                             </tr>
                             ${travelCost > 0 ? `
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 12px; color: #333;">
-                                    <strong style="font-size: 13px; color: #222;">Anfahrt & Service Pauschale</strong><br>
-                                    <span style="font-size: 11px; color: #888;">Entfernung: ${distance.toFixed(0)} km</span><br>
-                                    <span style="font-size: 11px; color: #888;">zzgl. 7% MwSt.</span>
+                            <tr>
+                                <td><strong>Anfahrt & Service Pauschale</strong><br>
+                                    <small>Entfernung: ${distance.toFixed(0)} km</small><br>
+                                    <small style="color: #666;">zzgl. 7% MwSt.</small>
                                 </td>
-                                <td style="padding: 12px; text-align: center; color: #555; font-weight: bold;">1</td>
-                                <td style="padding: 12px; text-align: right; color: #555;">${travelCost.toFixed(2)} €</td>
-                                <td style="padding: 12px; text-align: right; font-weight: bold; color: #333;">${travelCost.toFixed(2)} €</td>
+                                <td style="text-align: center;">1</td>
+                                <td style="text-align: right;">${travelCost.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${travelCost.toFixed(2)} €</strong></td>
                             </tr>
                             ` : ''}
                         </tbody>
                     </table>
 
-                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border: 2px solid #667eea;">
-                        <h3 style="margin-bottom: 15px; color: #667eea; font-size: 18px;">
-                            <span style="font-size: 20px;">🌟</span>
-                            <span> Zusätzliche Spezialitäten</span>
+                    <div style="margin-top: 35px; padding: 25px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                        <h3 style="margin-bottom: 20px; color: #667eea; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">🌟</span>
+                            <span>Zusätzliche Spezialitäten</span>
                         </h3>
-                        <p style="margin-bottom: 15px; font-size: 13px; color: #555; line-height: 1.6;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
+                        <p style="margin-bottom: 20px; font-size: 15px; color: #555; line-height: 1.7;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
 
-                        <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
-                            <tr style="background: #667eea; color: white;">
-                                <th style="padding: 10px; text-align: left; font-weight: bold;">Produkt</th>
-                                <th style="padding: 10px; text-align: right; font-weight: bold;">Preis</th>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600;">Produkt</th>
+                                <th style="padding: 12px; text-align: right; font-weight: 600;">Preis</th>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>🍝 Spaghetti Eis</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍝 Spaghetti Eis</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>🍫 Schoko Becher</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍫 Schoko Becher</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>☕ Eiskaffee</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>☕ Eiskaffee</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>🥤 Milchshake</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥤 Milchshake</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>🥛 Sahne (Extra)</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥛 Sahne (Extra)</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #e0e0e0;">
-                                <td style="padding: 10px; font-size: 13px;"><strong>🎨 Streussel</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🎨 Streussel</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px; font-size: 13px;"><strong>🍓 Toppings</strong></td>
-                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍓 Toppings</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
                             </tr>
                         </table>
 
-                        <p style="margin-top: 12px; font-size: 11px; color: #888; font-style: italic;">
+                        <p style="margin-top: 18px; font-size: 13px; color: #888; font-style: italic;">
                             * Alle Preise verstehen sich inklusive 7% MwSt.
                         </p>
                     </div>
 
-                    <div style="text-align: right; margin-top: 30px; padding: 25px; background: #667eea; color: white;">
-                        <div style="font-size: 15px; margin-bottom: 5px; font-weight: bold;">Gesamtpreis (Hauptangebot):</div>
-                        <div style="font-size: 36px; font-weight: bold;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
-                        <div style="font-size: 13px; margin-top: 5px; font-weight: bold;">inkl. MwSt. | Gültig 7 Tage</div>
+                    <div style="text-align: right; margin-top: 35px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);">
+                        <div style="font-size: 17px; margin-bottom: 8px; opacity: 0.95; font-weight: 500;">Gesamtpreis (Hauptangebot):</div>
+                        <div style="font-size: 42px; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: -1px;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
+                        <div style="font-size: 15px; margin-top: 8px; opacity: 0.9; font-weight: 500;">inkl. MwSt. | Gültig 7 Tage</div>
                     </div>
 
-                    <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107;">
-                        <p style="margin-bottom: 12px; font-size: 14px; font-weight: bold; color: #856404;">📝 Wichtige Hinweise:</p>
-                        <ul style="margin-left: 20px; line-height: 1.8; font-size: 12px; color: #555;">
+                    <div style="margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); border-left: 5px solid #ffc107; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #856404;">📝 Wichtige Hinweise:</p>
+                        <ul style="margin-left: 20px; line-height: 2; font-size: 14px; color: #555;">
                             <li><strong>Gültigkeit:</strong> Dieses Angebot ist 7 Tage gültig</li>
-                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: bold;">200,00 € pro Veranstaltung</span></li>
+                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: 600;">200,00 € pro Veranstaltung</span></li>
                             <li><strong>Mindestabnahme:</strong> 50 Gäste bei Veranstaltungen</li>
                             <li><strong>Flexibilität:</strong> Zusätzliche Spezialitäten können jederzeit dazugebucht werden</li>
                             <li><strong>Änderungen:</strong> Gästezahl kann bis 3 Tage vor Veranstaltung angepasst werden</li>
@@ -5584,11 +5270,11 @@
                         </ul>
                     </div>
 
-                    <div style="margin-top: 30px; text-align: center; padding: 25px; background: #f8f9fa; border-top: 3px solid #667eea;">
-                        <p style="font-size: 16px; color: #667eea; font-weight: bold; margin-bottom: 10px;">
+                    <div style="margin-top: 40px; text-align: center; padding: 30px; background: linear-gradient(to bottom, white, #f8f9fa); border-top: 3px solid #667eea; border-radius: 8px;">
+                        <p style="font-size: 18px; color: #667eea; font-weight: 700; margin-bottom: 12px;">
                             Wir freuen uns auf Ihre Veranstaltung! 🍦
                         </p>
-                        <p style="font-size: 13px; color: #666; line-height: 1.6;">
+                        <p style="font-size: 14px; color: #666; line-height: 1.7;">
                             Bei Fragen oder individuellen Wünschen stehen wir Ihnen jederzeit gerne zur Verfügung.<br>
                             <strong style="color: #667eea;">Kontaktieren Sie uns einfach!</strong>
                         </p>
@@ -5603,7 +5289,7 @@
             const customerName = currentOfferBooking.company || currentOfferBooking.name || 'Kunde';
 
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -5627,7 +5313,7 @@
             const element = document.getElementById('offerPreviewContent');
 
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -6707,144 +6393,182 @@
         // FIREBASE ECHTZEIT-SYNCHRONISATION
         // ==========================================
 
-        // NEU: Einfache und robuste Echtzeit-Synchronisation
         function startRealtimeSync() {
             if (!firebaseInitialized || !db) {
                 console.error('❌ Firebase nicht bereit - Listener kann nicht gestartet werden');
                 return;
             }
 
-            console.log('🚀 ==========================================');
-            console.log('🚀 NEUE ECHTZEIT-SYNCHRONISATION GESTARTET');
-            console.log('🚀 ==========================================');
+            console.log('🔄 Starte Echtzeit-Synchronisation...');
 
             // Echtzeit-Listener für Buchungen
             db.collection('buchungen').onSnapshot((snapshot) => {
-                const timestamp = new Date().toLocaleTimeString();
-                console.log('📡 ==========================================');
-                console.log('📡 FIREBASE SNAPSHOT EMPFANGEN');
-                console.log('📡 Zeit:', timestamp);
-                console.log('📡 Dokumente in Firebase:', snapshot.size);
-                console.log('📡 Dokumente lokal:', allBookings.length);
+                console.log('📡 FIREBASE SNAPSHOT ERHALTEN:', snapshot.size, 'Dokumente');
+                console.log('📡 Zeitpunkt:', new Date().toLocaleTimeString());
 
-                // Während Löschung: Nichts tun
+                // WICHTIG: Während einer Löschung nichts tun, sonst lädt der Listener die Buchung wieder hoch
                 if (isDeletingBooking) {
-                    console.log('⏸️ Löschvorgang aktiv - Snapshot übersprungen');
+                    console.log('⏸️ Löschvorgang läuft - Listener übersprungen');
                     updateFirebaseStatus('connected', '🟢 Live verbunden');
                     return;
                 }
 
-                // Während lokalem Update: Nicht überschreiben
-                if (isUpdatingFromFirebase) {
-                    console.log('⏸️ Update läuft bereits - Snapshot übersprungen');
+                // Flag setzen, um Endlos-Loop zu vermeiden
+                isUpdatingFromFirebase = true;
+
+                const firebaseBookings = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Entferne Firebase-spezifische Felder für besseren Vergleich
+                    delete data.updatedAt;
+
+                    const booking = {
+                        ...data,
+                        id: doc.id
+                    };
+
+                    // Logging für Strichlisten-Daten
+                    if (booking.tally) {
+                        console.log('📥 Buchung mit Strichliste von Firebase:', doc.id, 'Tally:', booking.tally);
+                    }
+
+                    // Logging für Chat-Verlauf
+                    if (booking.emailHistory && booking.emailHistory.length > 0) {
+                        console.log('📥 Buchung mit Chat-Verlauf von Firebase:', doc.id, 'Nachrichten:', booking.emailHistory.length);
+                    }
+
+                    firebaseBookings.push(booking);
+                });
+
+                console.log('🔍 Vergleiche Daten - Lokal:', allBookings.length, 'Firebase:', firebaseBookings.length);
+
+                // WICHTIG: Wenn lokal KEINE Daten vorhanden sind, übernimm IMMER Firebase-Daten
+                if (allBookings.length === 0 && firebaseBookings.length > 0) {
+                    console.log('📥 Erste Synchronisation: Übernehme alle Daten von Firebase');
+                    allBookings = firebaseBookings;
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+                    updateStats();
+                    filterAndDisplay();
+                    isUpdatingFromFirebase = false;
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
                     return;
                 }
 
-                // Flag setzen: Wir aktualisieren gerade
-                isUpdatingFromFirebase = true;
+                // Sortiere beide Arrays für besseren Vergleich
+                const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
+                const sortedFirebase = [...firebaseBookings].sort((a, b) => a.id.localeCompare(b.id));
 
-                try {
-                    // Schritt 1: Firebase-Daten sammeln
-                    const firebaseBookings = [];
-                    snapshot.forEach((doc) => {
-                        const data = doc.data();
-                        firebaseBookings.push({
-                            ...data,
-                            id: doc.id
+                // Wenn Firebase leer ist aber lokale Daten vorhanden sind, dann lokale Daten hochladen
+                if (firebaseBookings.length === 0 && allBookings.length > 0) {
+                    console.log('📤 Firebase ist leer, lokale Daten werden hochgeladen...');
+                    isUpdatingFromFirebase = false;
+                    saveToFirebase();
+                    return;
+                }
+
+                // Aktualisiere nur, wenn sich wirklich etwas geändert hat
+                if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
+                    console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
+
+                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt immer (egal von welchem Gerät)
+                    const bookingsMap = new Map();
+                    let hasUpdates = false;
+                    let shouldUploadNew = false;
+
+                    // 1. Füge alle Firebase-Buchungen zur Map hinzu
+                    firebaseBookings.forEach(fbBooking => {
+                        bookingsMap.set(fbBooking.id, {
+                            data: fbBooking,
+                            timestamp: new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime(),
+                            source: 'firebase'
                         });
                     });
 
-                    console.log('📊 Firebase hat', firebaseBookings.length, 'Buchungen');
-                    console.log('📊 Lokal haben wir', allBookings.length, 'Buchungen');
+                    // 2. Vergleiche mit lokalen Buchungen
+                    allBookings.forEach(localBooking => {
+                        const localTimestamp = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
 
-                    // Schritt 2: Erste Synchronisation (lokal leer)
-                    if (allBookings.length === 0 && firebaseBookings.length > 0) {
-                        console.log('📥 ERSTE SYNC: Übernehme alle Firebase-Daten');
-                        allBookings = firebaseBookings;
+                        if (bookingsMap.has(localBooking.id)) {
+                            // Buchung existiert in Firebase - vergleiche Timestamps
+                            const fbEntry = bookingsMap.get(localBooking.id);
+
+                            if (localTimestamp > fbEntry.timestamp) {
+                                // LOKALE Version ist NEUER - verwende lokale und markiere für Upload
+                                console.log('📤 Lokale Version ist neuer, wird hochgeladen:', localBooking.id);
+                                bookingsMap.set(localBooking.id, {
+                                    data: localBooking,
+                                    timestamp: localTimestamp,
+                                    source: 'local-newer'
+                                });
+                                shouldUploadNew = true;
+                                hasUpdates = true;
+                            } else if (localTimestamp < fbEntry.timestamp) {
+                                // Firebase-Version ist NEUER - wurde schon zur Map hinzugefügt
+                                console.log('🔄 Firebase-Version ist neuer:', localBooking.id);
+                                hasUpdates = true;
+                            }
+                            // Wenn Timestamps gleich sind, behalte Firebase-Version
+                        } else {
+                            // Buchung ist nur lokal, nicht in Firebase
+                            const ageInSeconds = (Date.now() - localTimestamp) / 1000;
+
+                            if (ageInSeconds < 30) {
+                                // Neu (< 30 Sekunden) - zu Firebase hochladen
+                                console.log('📤 Neue lokale Buchung wird hochgeladen:', localBooking.id);
+                                bookingsMap.set(localBooking.id, {
+                                    data: localBooking,
+                                    timestamp: localTimestamp,
+                                    source: 'local-new'
+                                });
+                                shouldUploadNew = true;
+                                hasUpdates = true;
+                            } else {
+                                // Alt und nicht in Firebase - wurde gelöscht
+                                console.log('🗑️ Alte lokale Buchung (nicht in Firebase), verwerfen:', localBooking.id);
+                                hasUpdates = true;
+                            }
+                        }
+                    });
+
+                    // 3. Konvertiere Map zurück zu Array
+                    const mergedBookings = Array.from(bookingsMap.values()).map(entry => entry.data);
+
+                    if (hasUpdates) {
+                        allBookings = mergedBookings;
+
+                        // LocalStorage als Backup aktualisieren
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+
+                        // UI aktualisieren
                         updateStats();
                         filterAndDisplay();
-                        isUpdatingFromFirebase = false;
-                        updateFirebaseStatus('connected', '🟢 Live verbunden');
-                        console.log('✅ Erste Synchronisation abgeschlossen');
-                        return;
-                    }
 
-                    // Schritt 3: Firebase leer, lokale Daten vorhanden → Hochladen
-                    if (firebaseBookings.length === 0 && allBookings.length > 0) {
-                        console.log('📤 Firebase leer - Lade lokale Daten hoch');
-                        isUpdatingFromFirebase = false;
-                        saveToFirebase();
-                        return;
-                    }
+                        console.log('✓ Daten gemerged:', allBookings.length, 'Buchungen');
 
-                    // Schritt 4: NEUE STRATEGIE - Firebase ist IMMER die Quelle der Wahrheit
-                    // Prüfe ob sich etwas geändert hat
-                    const localJSON = JSON.stringify(allBookings.sort((a,b) => a.id.localeCompare(b.id)));
-                    const firebaseJSON = JSON.stringify(firebaseBookings.sort((a,b) => a.id.localeCompare(b.id)));
-
-                    if (localJSON !== firebaseJSON) {
-                        console.log('🔄 ÄNDERUNG ERKANNT - Übernehme Firebase-Daten');
-
-                        // Zeige Details der Änderungen
-                        const firebaseIds = new Set(firebaseBookings.map(b => b.id));
-                        const localIds = new Set(allBookings.map(b => b.id));
-
-                        // Neue Buchungen in Firebase
-                        const newInFirebase = firebaseBookings.filter(b => !localIds.has(b.id));
-                        if (newInFirebase.length > 0) {
-                            console.log('➕ Neue Buchungen von Firebase:', newInFirebase.map(b => b.name).join(', '));
+                        // Wenn lokale Daten neuer sind, zu Firebase hochladen
+                        if (shouldUploadNew) {
+                            setTimeout(() => {
+                                if (!isUpdatingFromFirebase) {
+                                    console.log('📤 Neue lokale Änderungen zu Firebase hochladen');
+                                    saveToFirebase();
+                                }
+                            }, 1000);
                         }
-
-                        // Gelöschte Buchungen
-                        const deletedInFirebase = allBookings.filter(b => !firebaseIds.has(b.id));
-                        if (deletedInFirebase.length > 0) {
-                            console.log('➖ Gelöschte Buchungen:', deletedInFirebase.map(b => b.name).join(', '));
-                        }
-
-                        // Firebase-Daten übernehmen
-                        allBookings = firebaseBookings;
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-                        updateStats();
-                        filterAndDisplay();
-
-                        console.log('✅ Lokale Daten mit Firebase synchronisiert');
-                        updateFirebaseStatus('connected', '🟢 Live verbunden');
                     } else {
-                        console.log('✓ Keine Änderungen - Daten sind identisch');
-                        updateFirebaseStatus('connected', '🟢 Live verbunden');
-
-                        // WICHTIG: updateStats() auch aufrufen, wenn keine Änderungen erkannt wurden
-                        // (könnte sein, dass nur Felder wie invoiceSent geändert wurden)
-                        updateStats();
+                        console.log('✓ Daten bereits aktuell');
                     }
-
-                } catch (error) {
-                    console.error('❌ Fehler beim Verarbeiten des Snapshots:', error);
-                    updateFirebaseStatus('error', '🔴 Sync-Fehler');
-                } finally {
-                    isUpdatingFromFirebase = false;
-                    console.log('📡 ==========================================');
+                } else {
+                    console.log('✓ Daten identisch - keine Updates nötig');
                 }
 
+                // Flag zurücksetzen und Status auf "Live verbunden" setzen
+                isUpdatingFromFirebase = false;
+                updateFirebaseStatus('connected', '🟢 Live verbunden');
             }, (error) => {
-                console.error('❌ ==========================================');
-                console.error('❌ FIREBASE LISTENER FEHLER:', error);
-                console.error('❌ ==========================================');
-                updateFirebaseStatus('error', '🔴 Verbindungsfehler: ' + error.message);
+                console.error('✗ Synchronisations-Fehler:', error);
+                updateFirebaseStatus('error', '🔴 Sync-Fehler: ' + error.message);
                 isUpdatingFromFirebase = false;
             });
-
-            console.log('✅ Echtzeit-Listener aktiviert');
-
-            // ZUSÄTZLICH: Statistiken alle 5 Sekunden aktualisieren
-            // (Sicherheit, falls Firebase-Updates nicht erkannt werden)
-            setInterval(() => {
-                if (allBookings.length > 0) {
-                    console.log('🔄 Auto-Refresh: Aktualisiere Statistiken...');
-                    updateStats();
-                }
-            }, 5000); // Alle 5 Sekunden
         }
 
         // ==========================================
@@ -7179,7 +6903,6 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const statusParam = urlParams.get('status');
                 const dateFromParam = urlParams.get('dateFrom');
-                const filterParam = urlParams.get('filter'); // Widget-Filter
 
                 if (statusParam) {
                     document.getElementById('statusFilter').value = statusParam;
@@ -7189,24 +6912,6 @@
                 if (dateFromParam) {
                     document.getElementById('dateFromFilter').value = dateFromParam;
                     console.log('📅 Datums-Filter aus URL gesetzt:', dateFromParam);
-                }
-
-                // Widget-Filter anwenden
-                if (filterParam) {
-                    console.log('🎯 Widget-Filter erkannt:', filterParam);
-                    setTimeout(() => {
-                        if (filterParam === 'Gebucht') {
-                            document.getElementById('statusFilter').value = 'Gebucht';
-                            filterAndDisplay();
-                        } else if (filterParam === 'Neu') {
-                            document.getElementById('statusFilter').value = 'Neu';
-                            filterAndDisplay();
-                        } else if (filterParam === 'Dringend') {
-                            filterByUrgentBookings();
-                        } else if (filterParam === 'Email') {
-                            showEmailReminderModal();
-                        }
-                    }, 500);
                 }
 
                 // Filter anwenden, wenn URL-Parameter gesetzt wurden
@@ -7311,368 +7016,6 @@
             }, 100);
         }
 
-        function filterByOpenInvoices() {
-            // Zur Kartenansicht wechseln
-            currentView = 'cards';
-            document.getElementById('viewCards').classList.add('active');
-            document.getElementById('viewTable').classList.remove('active');
-
-            // Alle Filter zurücksetzen
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('nameFilter').value = '';
-            document.getElementById('dateFromFilter').value = '';
-            document.getElementById('dateToFilter').value = '';
-
-            // Nur offene Rechnungen anzeigen
-            const offeneRechnungen = allBookings.filter(b => {
-                const istVersendet = b.invoiceSent === true || b.status === 'Rechnung versendet';
-                const istBezahlt = b.invoicePaid === true || b.status === 'Bezahlte Rechnung';
-                const istBeendet = b.status === 'Event beendet';
-                return istVersendet && !istBezahlt && !istBeendet;
-            });
-
-            console.log('💰 OFFENE RECHNUNGEN FILTER:', offeneRechnungen.length, 'Buchungen gefunden');
-
-            // Sortieren
-            sortBookings(offeneRechnungen, true);
-
-            // Bevorstehende Termine diese Woche anzeigen
-            displayUpcomingWeek();
-
-            // Karten anzeigen
-            displayCards(offeneRechnungen);
-
-            // App-Zustand speichern
-            saveAppState();
-
-            // Zu den Karten scrollen
-            setTimeout(() => {
-                const cardsContainer = document.getElementById('cardsContainer');
-                if (cardsContainer) {
-                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
-        }
-
-        function filterByUrgentBookings() {
-            // Zur Kartenansicht wechseln
-            currentView = 'cards';
-            document.getElementById('viewCards').classList.add('active');
-            document.getElementById('viewTable').classList.remove('active');
-
-            // Alle Filter zurücksetzen
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('nameFilter').value = '';
-            document.getElementById('dateFromFilter').value = '';
-            document.getElementById('dateToFilter').value = '';
-
-            // Nur dringende Termine anzeigen (nächste 24 Stunden)
-            const dringendeTermine = allBookings.filter(b => isUrgent(b));
-
-            console.log('⚠️ DRINGENDE TERMINE FILTER:', dringendeTermine.length, 'Buchungen in den nächsten 24h');
-
-            // Nach Datum sortieren (nächster zuerst)
-            dringendeTermine.sort((a, b) => {
-                const dateA = parseDate(a.date);
-                const dateB = parseDate(b.date);
-                return dateA - dateB;
-            });
-
-            // Bevorstehende Termine diese Woche anzeigen
-            displayUpcomingWeek();
-
-            // Karten anzeigen
-            displayCards(dringendeTermine);
-
-            // App-Zustand speichern
-            saveAppState();
-
-            // Zu den Karten scrollen
-            setTimeout(() => {
-                const cardsContainer = document.getElementById('cardsContainer');
-                if (cardsContainer) {
-                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
-        }
-
-        function showEmailReminderModal() {
-            const emailBookings = allBookings.filter(b => needsEmailReminder(b));
-
-            if (emailBookings.length === 0) {
-                alert('✓ Keine E-Mail-Erinnerungen nötig!\n\nAlle Kunden mit Terminen morgen wurden bereits benachrichtigt oder haben keine E-Mail-Adresse hinterlegt.');
-                return;
-            }
-
-            // Sortiere nach Datum
-            emailBookings.sort((a, b) => {
-                const dateA = parseDate(a.date);
-                const dateB = parseDate(b.date);
-                return dateA - dateB;
-            });
-
-            // Modal erstellen
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.8);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 99999;
-                padding: 20px;
-            `;
-
-            let customersHTML = '';
-            emailBookings.forEach(booking => {
-                customersHTML += `
-                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #00b4db;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-                            <div style="flex: 1;">
-                                <div style="font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 5px;">
-                                    ${booking.name || 'Unbekannt'}
-                                </div>
-                                <div style="font-size: 0.9em; color: #666; margin-bottom: 3px;">
-                                    📅 ${booking.date} um ${booking.time || '-'}
-                                </div>
-                                <div style="font-size: 0.9em; color: #666; margin-bottom: 3px;">
-                                    📧 ${booking.email}
-                                </div>
-                                <div style="font-size: 0.9em; color: #666;">
-                                    📍 ${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}
-                                </div>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <button onclick="sendAutomaticEmail('${booking.id}')" style="padding: 10px 20px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,180,219,0.3);">
-                                    🚀 AUTOMATISCH SENDEN
-                                </button>
-                                <button onclick="markEmailAsSent('${booking.id}')" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85em;">
-                                    ✓ Als versendet markieren
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            modal.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 800px; max-height: 80vh; overflow-y: auto; width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; color: #333;">📧 E-Mail-Erinnerungen versenden</h2>
-                        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background: #ff6b6b; color: white; border: none; border-radius: 50%; width: 35px; height: 35px; font-size: 1.2em; cursor: pointer; font-weight: bold;">×</button>
-                    </div>
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #00b4db;">
-                        <strong>📋 ${emailBookings.length} Kunde(n)</strong> haben morgen einen Termin und brauchen eine E-Mail-Erinnerung!
-                    </div>
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <button onclick="this.closest('div').parentElement.parentElement.remove(); sendAllEmailReminders();" style="padding: 15px 30px; background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1.1em; box-shadow: 0 4px 12px rgba(0,180,219,0.4); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                            🚀 ALLE ${emailBookings.length} E-MAILS AUTOMATISCH SENDEN
-                        </button>
-                        <div style="font-size: 0.85em; color: #666; margin-top: 8px;">
-                            ✅ Komplett kostenlos (bis 200 E-Mails/Monat)
-                        </div>
-                    </div>
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 15px; margin-bottom: 15px;">
-                        <div style="font-size: 0.9em; color: #666; text-align: center; margin-bottom: 10px;">
-                            <strong>Oder einzeln versenden:</strong>
-                        </div>
-                    </div>
-                    ${customersHTML}
-                    <div style="text-align: center; margin-top: 20px;">
-                        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="padding: 12px 30px; background: #666; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                            Schließen
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            // Automatisch E-Mail-Versendung starten nach kurzer Verzögerung
-            setTimeout(() => {
-                if (confirm(`📧 E-Mail-Erinnerungen automatisch versenden?\n\n${emailBookings.length} E-Mail(s) werden jetzt an alle Kunden mit Terminen morgen gesendet.\n\nMöchten Sie fortfahren?`)) {
-                    modal.remove();
-                    sendAllEmailReminders();
-                }
-            }, 500);
-        }
-
-        function markEmailAsSent(bookingId) {
-            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
-
-            if (bookingIndex !== -1) {
-                bookings[bookingIndex].emailReminderSent = true;
-                bookings[bookingIndex].emailReminderSentDate = new Date().toISOString();
-                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-
-                // Firebase-Upload
-                if (firebaseInitialized && db) {
-                    saveToFirebase().then(() => {
-                        console.log('✅ E-Mail-Status zu Firebase hochgeladen');
-                    });
-                }
-
-                // Statistiken aktualisieren
-                allBookings = bookings;
-                updateStats();
-
-                console.log('✅ E-Mail als versendet markiert für:', bookings[bookingIndex].name);
-            }
-        }
-
-        // ==========================================
-        // AUTOMATISCHE E-MAIL-VERSENDUNG MIT EMAILJS
-        // ==========================================
-        async function sendAutomaticEmail(bookingId) {
-            if (!EMAILJS_ENABLED) {
-                alert('❌ E-Mail-Versand nicht konfiguriert!\n\nBitte tragen Sie zuerst Ihre EmailJS-Zugangsdaten im Code ein.\n\nAnleitung: Siehe EMAILJS-SETUP.md\n\n1. Kostenlosen EmailJS-Account erstellen auf: https://www.emailjs.com\n2. Service, Template und Public Key erstellen\n3. Im Code (Zeile 2781-2785) eintragen');
-                return false;
-            }
-
-            // Buchung finden
-            const booking = allBookings.find(b => b.id === bookingId);
-            if (!booking) {
-                alert('❌ Buchung nicht gefunden!');
-                return false;
-            }
-
-            console.log('📧 Sende E-Mail an:', booking.email);
-
-            // E-Mail-Parameter erstellen
-            const templateParams = {
-                to_email: booking.email,
-                to_name: booking.name || 'Kunde',
-                customer_name: booking.name || 'Kunde',
-                event_date: booking.date,
-                event_time: booking.time || 'zur vereinbarten Zeit',
-                company: booking.company || 'Ihnen',
-                street: booking.street || '',
-                plz: booking.plz || '',
-                city: booking.city || '',
-                full_address: `${booking.street || ''}, ${booking.plz || ''} ${booking.city || ''}`,
-                message: `Dies ist eine freundliche Erinnerung an Ihren Termin morgen. Der Termin steht noch und ich komme wie vereinbart.`
-            };
-
-            console.log('📝 E-Mail-Parameter:', templateParams);
-
-            try {
-                const response = await emailjs.send(
-                    EMAILJS_CONFIG.serviceId,
-                    EMAILJS_CONFIG.templateId,
-                    templateParams
-                );
-
-                console.log('✅ E-Mail erfolgreich versendet!', response);
-
-                // Als versendet markieren
-                markEmailAsSent(bookingId);
-
-                alert(`✅ E-Mail erfolgreich versendet an ${booking.email}!`);
-                return true;
-
-            } catch (error) {
-                console.error('❌ E-Mail-Versand fehlgeschlagen:', error);
-
-                let errorMsg = '❌ E-Mail konnte nicht versendet werden!\n\n';
-                if (error.text) {
-                    errorMsg += `Fehler: ${error.text}\n\n`;
-                }
-                errorMsg += 'Bitte überprüfen Sie:\n';
-                errorMsg += '- EmailJS Service ID\n';
-                errorMsg += '- EmailJS Template ID\n';
-                errorMsg += '- EmailJS Public Key\n';
-                errorMsg += '- Internet-Verbindung';
-
-                alert(errorMsg);
-                return false;
-            }
-        }
-
-        // Alle E-Mails auf einmal senden
-        async function sendAllEmailReminders() {
-            const emailBookings = allBookings.filter(b => needsEmailReminder(b));
-
-            if (emailBookings.length === 0) {
-                alert('✓ Keine E-Mail-Erinnerungen nötig!');
-                return;
-            }
-
-            if (!EMAILJS_ENABLED) {
-                alert('❌ E-Mail-Versand nicht konfiguriert!\n\nBitte tragen Sie zuerst Ihre EmailJS-Zugangsdaten im Code ein.\n\nAnleitung: Siehe EMAILJS-SETUP.md');
-                return;
-            }
-
-            if (!confirm(`📧 Möchten Sie wirklich ${emailBookings.length} E-Mail(s) versenden?\n\n✅ Komplett kostenlos!\n\nDie E-Mails werden automatisch an alle Kunden versendet.`)) {
-                return;
-            }
-
-            // Loading-Anzeige
-            const loader = document.createElement('div');
-            loader.id = 'email-loader';
-            loader.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.8);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 999999;
-            `;
-            loader.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px;">
-                    <div style="font-size: 50px; margin-bottom: 15px;">📧</div>
-                    <div id="email-progress" style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">Sende E-Mail 0/${emailBookings.length}...</div>
-                    <div style="font-size: 14px; color: #666;">Bitte warten...</div>
-                </div>
-            `;
-            document.body.appendChild(loader);
-
-            let successCount = 0;
-            let failCount = 0;
-
-            // E-Mails nacheinander senden (nicht parallel, um Rate-Limits zu vermeiden)
-            for (let i = 0; i < emailBookings.length; i++) {
-                const booking = emailBookings[i];
-                document.getElementById('email-progress').textContent = `Sende E-Mail ${i + 1}/${emailBookings.length} an ${booking.name}...`;
-
-                const success = await sendAutomaticEmail(booking.id);
-                if (success) {
-                    successCount++;
-                } else {
-                    failCount++;
-                }
-
-                // Kurze Pause zwischen E-Mails (1 Sekunde)
-                if (i < emailBookings.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-
-            // Loading-Anzeige entfernen
-            loader.remove();
-
-            // Ergebnis anzeigen
-            let resultMsg = `✅ E-Mail-Versand abgeschlossen!\n\n`;
-            resultMsg += `✓ Erfolgreich: ${successCount} E-Mail(s)\n`;
-            if (failCount > 0) {
-                resultMsg += `❌ Fehlgeschlagen: ${failCount} E-Mail(s)\n`;
-            }
-            resultMsg += `\n✅ Komplett kostenlos!`;
-
-            alert(resultMsg);
-
-            // Statistiken aktualisieren
-            updateStats();
-        }
-
         function toggleNewRequestsSection() {
             const section = document.getElementById('newRequestsSection');
             if (section.style.display === 'none' || !section.style.display) {
@@ -7773,19 +7116,6 @@
             } else {
                 card.style.display = 'none';
             }
-        }
-
-        // Service Worker registrieren (PWA)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('✅ Service Worker registriert:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('❌ Service Worker Fehler:', error);
-                    });
-            });
         }
     </script>
 </body>

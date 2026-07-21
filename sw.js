@@ -1,52 +1,48 @@
-const CACHE_NAME = 'eisfavorite-v2-20260721';
+const CACHE_NAME = 'eisfavorite-backup-20260719';
 const urlsToCache = [
-  './buchungen-uebersicht.html',
-  './rechnung-erstellen.html',
-  './email-zu-json.html',
-  './rechnung-mobil.html',
-  './strichliste-mobil.html',
-  './strichliste-kunde-mobil.html',
-  './manifest.json'
+  '/',
+  '/buchungen-uebersicht.html',
+  '/logo.svg',
+  '/icon-192.svg',
+  '/icon-512.svg',
+  '/manifest.json'
 ];
 
-// Installation
+// Installation - Cache-Dateien speichern
 self.addEventListener('install', event => {
-  console.log('🔧 Service Worker: Installiere...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('📦 Service Worker: Cache geöffnet');
+        console.log('Cache geöffnet');
         return cache.addAll(urlsToCache);
       })
-      .catch(err => console.error('❌ Cache-Fehler:', err))
   );
   self.skipWaiting();
 });
 
-// Aktivierung
+// Aktivierung - Alte Caches löschen
 self.addEventListener('activate', event => {
-  console.log('✅ Service Worker: Aktiviert');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Service Worker: Lösche alten Cache:', cacheName);
+            console.log('Lösche alten Cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
-  return self.clients.claim();
+  self.clients.claim();
 });
 
-// Fetch - Network First, dann Cache
+// Fetch - Netzwerk zuerst, dann Cache
 self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Wenn erfolgreich, klone und cache die Response
+        // Wenn die Anfrage erfolgreich ist, speichere sie im Cache
         if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -56,16 +52,15 @@ self.addEventListener('fetch', event => {
         return response;
       })
       .catch(() => {
-        // Bei Fehler (offline), nutze Cache
+        // Bei Netzwerkfehler, verwende Cache
         return caches.match(event.request).then(response => {
           if (response) {
             return response;
           }
-          // Falls nicht im Cache, zeige Offline-Nachricht
-          return new Response('Offline - Keine Verbindung', {
-            status: 503,
-            statusText: 'Service Unavailable'
-          });
+          // Fallback für HTML-Seiten
+          if (event.request.headers.get('accept').includes('text/html')) {
+            return caches.match('/buchungen-uebersicht.html');
+          }
         });
       })
   );
