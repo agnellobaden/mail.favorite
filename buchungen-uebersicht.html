@@ -3161,6 +3161,51 @@
         // DATEN SPEICHERN (Firebase + LocalStorage Fallback)
         // ==========================================
 
+        // Zeige kurze Sync-Benachrichtigung
+        function showSyncNotification(message, type = 'success') {
+            // Erstelle Notification-Element wenn nicht vorhanden
+            let notification = document.getElementById('syncNotification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'syncNotification';
+                notification.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+                    color: white;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                    font-weight: 600;
+                    font-size: 14px;
+                    z-index: 100000;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(notification);
+            }
+
+            // Farbe je nach Typ
+            if (type === 'error') {
+                notification.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
+            } else if (type === 'info') {
+                notification.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            } else {
+                notification.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+            }
+
+            // Zeige Nachricht
+            notification.textContent = message;
+            notification.style.opacity = '1';
+
+            // Nach 3 Sekunden ausblenden
+            setTimeout(() => {
+                notification.style.opacity = '0';
+            }, 3000);
+        }
+
         function saveToLocalStorage() {
             // Immer in LocalStorage als Backup speichern
             try {
@@ -3176,8 +3221,11 @@
                 // Verwende Promise ohne await, damit es nicht blockiert
                 saveToFirebase().then(() => {
                     console.log('✅ Firebase-Upload erfolgreich abgeschlossen!');
+                    // Kurze visuelle Bestätigung
+                    showSyncNotification('✅ Auf allen Geräten synchronisiert');
                 }).catch((e) => {
                     console.error('❌ Firebase-Upload fehlgeschlagen:', e);
+                    showSyncNotification('⚠️ Sync-Fehler - nur lokal gespeichert', 'error');
                 });
             } else {
                 console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
