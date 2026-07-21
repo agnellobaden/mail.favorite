@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-local-priority-20260721-v3';
+const CACHE_NAME = 'eisfavorite-guaranteed-save-20260721-v4';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
