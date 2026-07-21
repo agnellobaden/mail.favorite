@@ -3923,6 +3923,14 @@
                             <button class="card-menu-item paid" onclick="markAsPaid('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💰 Als bezahlt markieren
                             </button>
+                            <button class="card-menu-item" onclick="undoInvoiceSent('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800; font-weight: 600;">
+                                🔙 Rückgängig: Rechnung versendet
+                            </button>
+                            ` : ''}
+                            ${booking.status === 'Bezahlte Rechnung' ? `
+                            <button class="card-menu-item" onclick="undoInvoicePaid('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800; font-weight: 600;">
+                                🔙 Rückgängig: Bezahlt
+                            </button>
                             ` : ''}
                             <button class="card-menu-item" onclick="openTally('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #28a745;">
                                 📋 Strichliste
@@ -5003,10 +5011,14 @@
             html2pdf().set(opt).from(element).save().then(() => {
                 // Status auf "Rechnung versendet" setzen
                 if (currentInvoiceBooking) {
+                    // Vorherigen Status speichern für Rückgängig-Funktion
+                    currentInvoiceBooking.previousStatus = currentInvoiceBooking.status;
                     currentInvoiceBooking.status = 'Rechnung versendet';
                     currentInvoiceBooking.rechnungUrl = `Rechnung ${invoiceNumber} vom ${invoiceDate}`;
+                    currentInvoiceBooking.invoiceSentDate = new Date().toISOString();
                     currentInvoiceBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     saveToLocalStorage();
+                    saveToFirebase();
                     updateStats();
                     filterAndDisplay();
                 }
@@ -5393,6 +5405,8 @@
             }
 
             if (confirm(`Rechnung für ${booking.name} als bezahlt markieren?`)) {
+                // Vorherigen Status speichern für Rückgängig-Funktion
+                booking.previousStatus = booking.status;
                 booking.status = 'Bezahlte Rechnung';
                 booking.invoicePaid = true;
                 booking.invoicePaidDate = new Date().toISOString();
@@ -5436,6 +5450,55 @@
                 filterAndDisplay();
 
                 alert('✓ Rechnung wurde als bezahlt markiert!\n\nBetrag: ' + booking.invoiceAmount);
+            }
+        }
+
+        // Status "Rechnung versendet" rückgängig machen
+        function undoInvoiceSent(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('Buchung nicht gefunden!');
+                return;
+            }
+
+            if (confirm(`Status "Rechnung versendet" für ${booking.name} rückgängig machen?`)) {
+                // Auf vorherigen Status zurücksetzen
+                booking.status = booking.previousStatus || 'Gebucht';
+                delete booking.invoiceSentDate;
+                delete booking.rechnungUrl;
+                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                saveToLocalStorage();
+                saveToFirebase();
+                updateStats();
+                filterAndDisplay();
+
+                alert('✓ Status wurde zurückgesetzt auf: ' + booking.status);
+            }
+        }
+
+        // Status "Bezahlte Rechnung" rückgängig machen
+        function undoInvoicePaid(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) {
+                alert('Buchung nicht gefunden!');
+                return;
+            }
+
+            if (confirm(`Status "Bezahlte Rechnung" für ${booking.name} rückgängig machen?`)) {
+                // Auf vorherigen Status zurücksetzen
+                booking.status = booking.previousStatus || 'Rechnung versendet';
+                booking.invoicePaid = false;
+                delete booking.invoicePaidDate;
+                delete booking.invoiceAmount;
+                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                saveToLocalStorage();
+                saveToFirebase();
+                updateStats();
+                filterAndDisplay();
+
+                alert('✓ Status wurde zurückgesetzt auf: ' + booking.status);
             }
         }
 
