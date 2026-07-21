@@ -559,8 +559,8 @@
 
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td><a href="rechnung-erstellen.html?bookingId=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; cursor: pointer;" title="Rechnung öffnen">${inv.invoiceNumber || 'N/A'}</a></td>
-                    <td><a href="rechnung-erstellen.html?bookingId=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;" title="Rechnung öffnen">${inv.company || inv.name || 'N/A'}</a></td>
+                    <td>${inv.invoiceNumber || 'N/A'}</td>
+                    <td>${inv.company || inv.name || 'N/A'}</td>
                     <td><strong>${inv.invoiceAmount || '0,00 €'}</strong></td>
                     <td>${dueDate.toLocaleDateString('de-DE')}</td>
                     <td><span class="status-badge status-overdue">${daysOverdue} Tage</span></td>
@@ -612,8 +612,8 @@
 
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td><a href="rechnung-erstellen.html?bookingId=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; cursor: pointer;" title="Rechnung öffnen">${inv.invoiceNumber || 'N/A'}</a></td>
-                    <td><a href="rechnung-erstellen.html?bookingId=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;" title="Rechnung öffnen">${inv.company || inv.name || 'N/A'}</a></td>
+                    <td>${inv.invoiceNumber || 'N/A'}</td>
+                    <td>${inv.company || inv.name || 'N/A'}</td>
                     <td><strong>${inv.invoiceAmount || '0,00 €'}</strong></td>
                     <td>${dueDate.toLocaleDateString('de-DE')}</td>
                     <td>${sentDate.toLocaleDateString('de-DE')}</td>

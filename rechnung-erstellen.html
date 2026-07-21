@@ -610,213 +610,6 @@
 
     <script>
         let allBookings = [];
-        let db = null;
-        let firebaseInitialized = false;
-
-        // ==========================================
-        // FIREBASE INITIALISIERUNG
-        // ==========================================
-        function initializeFirebase(config) {
-            // Prüfe ob Firebase SDK geladen ist
-            if (typeof firebase === 'undefined') {
-                console.error('❌ Firebase SDK nicht geladen! Warte 1 Sekunde und versuche erneut...');
-                setTimeout(() => initializeFirebase(config), 1000);
-                return false;
-            }
-
-            try {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(config);
-                    console.log('✅ Firebase App initialisiert');
-                } else {
-                    console.log('ℹ️ Firebase App bereits initialisiert');
-                }
-
-                db = firebase.firestore();
-                firebaseInitialized = true;
-                console.log('✅ Firebase Firestore verbunden');
-                return true;
-            } catch (error) {
-                console.error('❌ Firebase-Initialisierung fehlgeschlagen:', error);
-                firebaseInitialized = false;
-                return false;
-            }
-        }
-
-        function checkFirebaseSetup() {
-            // Standard Firebase-Konfiguration
-            const defaultConfig = {
-                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
-                authDomain: "mailfavorite-e8f49.firebaseapp.com",
-                projectId: "mailfavorite-e8f49",
-                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
-                messagingSenderId: "73719715044",
-                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
-                measurementId: "G-WGRT5L3NCX"
-            };
-
-            console.log('🔧 Verwende fest hinterlegte Firebase-Konfiguration');
-            return initializeFirebase(defaultConfig);
-        }
-
-        function sanitizeFirebaseId(id) {
-            if (!id) return 'booking-' + Date.now();
-
-            // WICHTIG: Muss identisch mit buchungen-uebersicht.html sein!
-            // Entferne oder ersetze ungültige Zeichen für Firebase Document IDs
-            // Erlaubt: A-Z, a-z, 0-9, _, -, .
-            let cleanId = String(id)
-                .replace(/[\/\\]/g, '-')  // Ersetze Slashes mit Bindestrichen
-                .replace(/[^a-zA-Z0-9_.-]/g, '_')  // Ersetze andere Sonderzeichen mit Unterstrich
-                .replace(/^\.+|\.+$/g, '')  // Entferne Punkte am Anfang/Ende
-                .substring(0, 1500);  // Firebase limit: 1500 bytes
-
-            // Fallback wenn ID leer wird
-            if (!cleanId) {
-                cleanId = 'booking-' + Date.now();
-            }
-
-            return cleanId;
-        }
-
-        // Loading-Anzeige erstellen
-        function showLoading(message = 'Wird gespeichert...') {
-            const existingLoader = document.getElementById('firebase-loader');
-            if (existingLoader) {
-                existingLoader.remove();
-            }
-
-            const loader = document.createElement('div');
-            loader.id = 'firebase-loader';
-            loader.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.7);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 99999;
-                font-family: Arial, sans-serif;
-            `;
-
-            loader.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 300px;">
-                    <div style="font-size: 50px; margin-bottom: 15px;">⏳</div>
-                    <div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">${message}</div>
-                    <div style="font-size: 14px; color: #666;">Bitte warten...</div>
-                </div>
-            `;
-
-            document.body.appendChild(loader);
-            return loader;
-        }
-
-        function hideLoading() {
-            const loader = document.getElementById('firebase-loader');
-            if (loader) {
-                loader.remove();
-            }
-        }
-
-        async function loadFromFirebase(bookingId) {
-            if (!firebaseInitialized || !db) {
-                console.warn('⚠️ FIREBASE NICHT VERFÜGBAR - Lade nur aus localStorage');
-                return null;
-            }
-
-            try {
-                const cleanId = sanitizeFirebaseId(bookingId);
-                console.log('📥 Lade Buchung von Firebase:', cleanId);
-
-                const docRef = db.collection('buchungen').doc(cleanId);
-                const doc = await docRef.get();
-
-                if (doc.exists) {
-                    const firebaseData = doc.data();
-                    console.log('✅ Firebase-Daten geladen:', firebaseData);
-
-                    // Aktualisiere localStorage mit Firebase-Daten
-                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
-
-                    if (bookingIndex !== -1) {
-                        // Merge Firebase-Daten mit lokalen Daten
-                        bookings[bookingIndex] = { ...bookings[bookingIndex], ...firebaseData };
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-                        console.log('✅ localStorage aktualisiert mit Firebase-Daten');
-                        return bookings[bookingIndex];
-                    }
-
-                    return firebaseData;
-                } else {
-                    console.log('ℹ️ Keine Firebase-Daten gefunden für:', cleanId);
-                    return null;
-                }
-            } catch (error) {
-                console.error('❌ Fehler beim Laden von Firebase:', error);
-                return null;
-            }
-        }
-
-        async function saveToFirebase() {
-            if (!firebaseInitialized || !db) {
-                console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
-                return false;
-            }
-
-            console.log('💾 STARTE FIREBASE-UPLOAD');
-
-            try {
-                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                console.log('💾 Speichere', bookings.length, 'Buchungen in Firebase...');
-
-                const batch = db.batch();
-                let processedCount = 0;
-
-                for (let i = 0; i < bookings.length; i++) {
-                    const booking = bookings[i];
-
-                    if (!booking.id) {
-                        console.warn('⚠️ Buchung ohne ID - überspringe');
-                        continue;
-                    }
-
-                    const cleanId = sanitizeFirebaseId(booking.id);
-                    const docRef = db.collection('buchungen').doc(cleanId);
-
-                    // Erstelle eine saubere Kopie der Buchung
-                    const cleanBooking = {};
-                    for (const key in booking) {
-                        if (booking[key] !== undefined && booking[key] !== null) {
-                            cleanBooking[key] = booking[key];
-                        }
-                    }
-
-                    batch.set(docRef, {
-                        ...cleanBooking,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-
-                    processedCount++;
-                }
-
-                // WICHTIG: Wirklich auf den Upload warten!
-                await batch.commit();
-
-                // Extra Sicherheit: Kurze Pause, damit Firebase wirklich fertig ist
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                console.log('✅ FIREBASE-UPLOAD ERFOLGREICH!');
-                console.log('✅ Gespeichert:', processedCount, 'von', bookings.length, 'Buchungen');
-                return true;
-            } catch (error) {
-                console.error('❌ FIREBASE-UPLOAD FEHLGESCHLAGEN!', error);
-                return false;
-            }
-        }
 
         // ==========================================
         // AUTO-SAVE & SCROLL-POSITION SYSTEM
@@ -913,10 +706,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Firebase initialisieren
-            console.log('🔥 Initialisiere Firebase...');
-            checkFirebaseSetup();
-
             // Datum setzen
             const today = new Date();
             const invoiceDate = formatDate(today);
@@ -942,52 +731,22 @@
             console.log('🔍 URL bookingId:', bookingId);
 
             if (bookingId) {
-                // Buchung laden - ERST von Firebase, DANN aus localStorage
+                // Buchung direkt aus localStorage laden (nicht auf loadBookings() warten)
                 console.log('📋 Lade Buchung mit ID:', bookingId);
                 document.querySelector('.search-section').style.display = 'none';
 
-                // Warte auf Firebase-Initialisierung (max 3 Sekunden)
-                const waitForFirebase = async () => {
-                    const maxWait = 30; // 30 × 100ms = 3 Sekunden
-                    let waited = 0;
-                    while (!firebaseInitialized && waited < maxWait) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        waited++;
-                    }
-                };
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                console.log('📦 Verfügbare Buchungen:', bookings.length);
 
-                // ASYNCHRON: Lade Daten von Firebase
-                waitForFirebase().then(async () => {
-                    // Zeige kurz einen Hinweis
-                    const loader = showLoading('Synchronisiere Daten...');
+                const booking = bookings.find(b => b.id === bookingId);
 
-                    try {
-                        // Versuche von Firebase zu laden
-                        const firebaseBooking = await loadFromFirebase(bookingId);
-
-                        // Lade aus localStorage (entweder frisch von Firebase oder lokal)
-                        const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                        console.log('📦 Verfügbare Buchungen:', bookings.length);
-
-                        const booking = bookings.find(b => b.id === bookingId);
-
-                        hideLoading();
-
-                        if (booking) {
-                            console.log('✅ Buchung gefunden:', booking.name);
-                            console.log('📊 Status:', booking.status);
-                            console.log('📧 invoiceSent:', booking.invoiceSent);
-                            loadBookingData(booking);
-                        } else {
-                            console.error('❌ Buchung nicht gefunden für ID:', bookingId);
-                            alert('Buchung konnte nicht gefunden werden!');
-                        }
-                    } catch (error) {
-                        hideLoading();
-                        console.error('❌ Fehler beim Laden:', error);
-                        alert('Fehler beim Laden der Buchung: ' + error.message);
-                    }
-                });
+                if (booking) {
+                    console.log('✅ Buchung gefunden:', booking.name);
+                    loadBookingData(booking);
+                } else {
+                    console.error('❌ Buchung nicht gefunden für ID:', bookingId);
+                    alert('Buchung konnte nicht gefunden werden!');
+                }
             } else {
                 console.log('ℹ️ Keine bookingId in URL - zeige Suchfeld');
                 addItem();
@@ -1509,7 +1268,7 @@
             doc.save(filename);
         }
 
-        async function sendInvoiceByEmail() {
+        function sendInvoiceByEmail() {
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
             const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
@@ -1537,9 +1296,6 @@
             try {
                 // Buchungsstatus aktualisieren
                 if (bookingId) {
-                    // Loading-Anzeige
-                    showLoading('Speichere Status...');
-
                     const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
                     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
@@ -1551,20 +1307,6 @@
                         bookings[bookingIndex].invoiceAmount = totalBrutto;
                         bookings[bookingIndex].status = 'Rechnung versendet';
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-
-                        // WICHTIG: Zu Firebase hochladen und WARTEN!
-                        console.log('📤 Lade Status zu Firebase hoch...');
-                        const uploaded = await saveToFirebase();
-
-                        hideLoading();
-
-                        if (uploaded) {
-                            console.log('✅ Status erfolgreich zu Firebase hochgeladen!');
-                        } else {
-                            console.warn('⚠️ Firebase-Upload fehlgeschlagen - Status nur lokal gespeichert');
-                        }
-                    } else {
-                        hideLoading();
                     }
                 }
 
@@ -1608,20 +1350,20 @@ Tel: +49 176 56813172`;
                 console.log('📄 Lade PDF automatisch herunter...');
                 generatePDF();
 
-                // Gmail-Link erstellen (öffnet Gmail direkt)
-                const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customerEmail)}&cc=eisfavorit@gmail.com&su=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
+                // Mailto-Link erstellen (funktioniert auf PC und Handy)
+                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`)}&body=${encodeURIComponent(emailBody)}`;
 
-                console.log('📧 Öffne Gmail für:', customerEmail);
-                console.log('📧 CC-Kopie geht an: eisfavorit@gmail.com');
+                console.log('📧 Öffne E-Mail-App für:', customerEmail);
+                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
 
-                // Gmail öffnen (funktioniert auf allen Geräten)
+                // E-Mail-App öffnen (funktioniert auf allen Geräten)
                 // Kurze Verzögerung, damit PDF-Download zuerst startet
                 setTimeout(() => {
-                    window.open(gmailLink, '_blank');
+                    window.location.href = mailtoLink;
                 }, 500);
 
                 // Erfolgsmeldung
-                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ CC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                alert('✓ PDF wird automatisch heruntergeladen!\n✓ E-Mail-App wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
@@ -1629,7 +1371,7 @@ Tel: +49 176 56813172`;
             }
         }
 
-        async function markInvoiceAsSent() {
+        function markInvoiceAsSent() {
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
             const totalBrutto = document.getElementById('totalBrutto').textContent;
@@ -1642,47 +1384,27 @@ Tel: +49 176 56813172`;
             const bookingId = urlParams.get('bookingId');
 
             if (bookingId) {
-                // Loading-Anzeige
-                showLoading('Speichere zu Firebase...');
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
-                try {
-                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].invoiceSent = true;
+                    bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
+                    bookings[bookingIndex].status = 'Rechnung versendet';
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    if (bookingIndex !== -1) {
-                        bookings[bookingIndex].invoiceSent = true;
-                        bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
-                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
-                        bookings[bookingIndex].invoiceAmount = totalBrutto;
-                        bookings[bookingIndex].status = 'Rechnung versendet';
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-
-                        // WICHTIG: Zu Firebase hochladen und WARTEN!
-                        console.log('📤 Lade Status zu Firebase hoch...');
-                        const uploaded = await saveToFirebase();
-
-                        hideLoading();
-
-                        if (uploaded) {
-                            alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n✅ Zu Firebase hochgeladen!\n💰 Betrag: ' + totalBrutto);
-                        } else {
-                            alert('✅ Rechnung wurde als versendet markiert!\n⚠️ Firebase-Upload fehlgeschlagen (nur lokal gespeichert)\n💰 Betrag: ' + totalBrutto);
-                        }
-                    } else {
-                        hideLoading();
-                        alert('❌ Fehler: Buchung nicht gefunden.');
-                    }
-                } catch (error) {
-                    hideLoading();
-                    console.error('❌ Fehler:', error);
-                    alert('❌ Fehler beim Speichern: ' + error.message);
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto);
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
                 }
             } else {
                 alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
             }
         }
 
-        async function markInvoiceAsPaid() {
+        function markInvoiceAsPaid() {
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
             const totalBrutto = document.getElementById('totalBrutto').textContent;
@@ -1695,43 +1417,23 @@ Tel: +49 176 56813172`;
             const bookingId = urlParams.get('bookingId');
 
             if (bookingId) {
-                // Loading-Anzeige
-                showLoading('Speichere zu Firebase...');
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
-                try {
-                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
-                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].invoicePaid = true;
+                    bookings[bookingIndex].invoicePaidDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
+                    bookings[bookingIndex].status = 'Bezahlte Rechnung';
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    if (bookingIndex !== -1) {
-                        bookings[bookingIndex].invoicePaid = true;
-                        bookings[bookingIndex].invoicePaidDate = new Date().toISOString();
-                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
-                        bookings[bookingIndex].invoiceAmount = totalBrutto;
-                        bookings[bookingIndex].status = 'Bezahlte Rechnung';
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
 
-                        // WICHTIG: Zu Firebase hochladen und WARTEN!
-                        console.log('📤 Lade Status zu Firebase hoch...');
-                        const uploaded = await saveToFirebase();
-
-                        hideLoading();
-
-                        if (uploaded) {
-                            alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n✅ Zu Firebase hochgeladen!\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
-                        } else {
-                            alert('✅ Rechnung wurde als BEZAHLT markiert!\n⚠️ Firebase-Upload fehlgeschlagen (nur lokal gespeichert)\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
-                        }
-
-                        // Seite neu laden, um Status-Banner anzuzeigen
-                        location.reload();
-                    } else {
-                        hideLoading();
-                        alert('❌ Fehler: Buchung nicht gefunden.');
-                    }
-                } catch (error) {
-                    hideLoading();
-                    console.error('❌ Fehler:', error);
-                    alert('❌ Fehler beim Speichern: ' + error.message);
+                    // Seite neu laden, um Status-Banner anzuzeigen
+                    location.reload();
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
                 }
             } else {
                 alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
@@ -1830,17 +1532,17 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // Gmail-Link erstellen
-                const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customerEmail)}&cc=eisfavorit@gmail.com&su=${encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`)}&body=${encodeURIComponent(emailBody)}`;
+                // Mailto-Link erstellen
+                const mailtoLink = `mailto:${customerEmail}?bcc=eisfavorit@gmail.com&subject=${encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`)}&body=${encodeURIComponent(emailBody)}`;
 
-                console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
-                console.log('📧 CC-Kopie geht an: eisfavorit@gmail.com');
+                console.log('📧 Öffne E-Mail für Zahlungserinnerung:', customerEmail);
+                console.log('📧 BCC-Kopie geht an: eisfavorit@gmail.com');
 
-                // Gmail öffnen
-                window.open(gmailLink, '_blank');
+                // E-Mail-App öffnen
+                window.location.href = mailtoLink;
 
                 // Erfolgsmeldung
-                alert(`✓ Gmail wird geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}✓ CC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)`);
+                alert(`✓ Zahlungserinnerung wird versendet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}✓ BCC-Kopie geht an eisfavorit@gmail.com (Buchhaltung)`);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
