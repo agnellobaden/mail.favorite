@@ -5559,6 +5559,7 @@
                     booking.invoiceSentDate = booking.invoicePaidDate;
                 }
 
+                console.log('💰💰💰 MARKIERE ALS BEZAHLT:', bookingId);
                 saveToLocalStorage();
                 updateStats();
                 filterAndDisplay();
@@ -5582,8 +5583,8 @@
                 delete booking.rechnungUrl;
                 updateBookingTimestamp(booking);
 
+                console.log('🔙🔙🔙 RÜCKGÄNGIG RECHNUNG VERSENDET:', bookingId);
                 saveToLocalStorage();
-                saveToFirebase();
                 updateStats();
                 filterAndDisplay();
 
@@ -5595,7 +5596,7 @@
         function undoInvoicePaid(bookingId) {
             const booking = allBookings.find(b => b.id === bookingId);
             if (!booking) {
-                alert('Buchung nicht gefunden!');
+                alert('Buchnung nicht gefunden!');
                 return;
             }
 
@@ -5607,8 +5608,8 @@
                 delete booking.invoiceAmount;
                 updateBookingTimestamp(booking);
 
+                console.log('🔙🔙🔙 RÜCKGÄNGIG BEZAHLT:', bookingId);
                 saveToLocalStorage();
-                saveToFirebase();
                 updateStats();
                 filterAndDisplay();
 
