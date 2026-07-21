@@ -3138,6 +3138,9 @@
                     aktualisiertAm: values[23]
                 };
 
+                // Setze präzisen Timestamp für Synchronisation
+                updateBookingTimestamp(booking);
+
                 allBookings.push(booking);
             }
 
@@ -3204,6 +3207,24 @@
             setTimeout(() => {
                 notification.style.opacity = '0';
             }, 3000);
+        }
+
+        // Hilfsfunktion: Setzt präzisen Timestamp für Synchronisation
+        function updateBookingTimestamp(booking) {
+            const now = new Date();
+
+            // Deutsches Datumsformat für Anzeige
+            booking.aktualisiertAm = now.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+
+            // ISO-Timestamp für präzise Synchronisation (Millisekunden-genau)
+            booking.lastModified = now.toISOString();
+            booking.lastModifiedMs = now.getTime(); // Für noch schnelleren Vergleich
+
+            console.log('⏰ Timestamp aktualisiert:', booking.id, '→', booking.lastModified);
         }
 
         function saveToLocalStorage() {
@@ -4324,6 +4345,9 @@
                     booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
                     booking.aktualisiertAm = updatedDate;
 
+                    // Setze präzisen Timestamp für Synchronisation
+                    updateBookingTimestamp(booking);
+
                     // Entferne "Neu eingetroffen" Markierung wenn bearbeitet
                     booking.isNewFromEmail = false;
 
@@ -4362,6 +4386,9 @@
                     erstelltAm: updatedDate,
                     aktualisiertAm: updatedDate
                 };
+
+                // Setze präzisen Timestamp für Synchronisation
+                updateBookingTimestamp(newBooking);
 
                 allBookings.push(newBooking);
                 alert('✓ Neue Buchung wurde erstellt!');
@@ -4992,7 +5019,7 @@
                 };
 
                 currentInvoiceBooking.rechnungUrl = `Rechnung ${invoiceNumber} vom ${invoiceDate}`;
-                currentInvoiceBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                updateBookingTimestamp(currentInvoiceBooking);
 
                 saveToLocalStorage();
                 updateStats();
@@ -5064,7 +5091,7 @@
                     currentInvoiceBooking.status = 'Rechnung versendet';
                     currentInvoiceBooking.rechnungUrl = `Rechnung ${invoiceNumber} vom ${invoiceDate}`;
                     currentInvoiceBooking.invoiceSentDate = new Date().toISOString();
-                    currentInvoiceBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    updateBookingTimestamp(currentInvoiceBooking);
                     saveToLocalStorage();
                     saveToFirebase();
                     updateStats();
@@ -5458,7 +5485,7 @@
                 booking.status = 'Bezahlte Rechnung';
                 booking.invoicePaid = true;
                 booking.invoicePaidDate = new Date().toISOString();
-                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                updateBookingTimestamp(booking);
 
                 // Wenn kein invoiceAmount vorhanden, berechne den Betrag
                 if (!booking.invoiceAmount) {
@@ -5514,7 +5541,7 @@
                 booking.status = booking.previousStatus || 'Gebucht';
                 delete booking.invoiceSentDate;
                 delete booking.rechnungUrl;
-                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                updateBookingTimestamp(booking);
 
                 saveToLocalStorage();
                 saveToFirebase();
@@ -5539,7 +5566,7 @@
                 booking.invoicePaid = false;
                 delete booking.invoicePaidDate;
                 delete booking.invoiceAmount;
-                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                updateBookingTimestamp(booking);
 
                 saveToLocalStorage();
                 saveToFirebase();
@@ -5845,6 +5872,9 @@
                 timestamp: new Date().toISOString()
             });
 
+            // Timestamp der Buchung aktualisieren
+            updateBookingTimestamp(currentEmailChatBooking);
+
             // Felder zurücksetzen
             document.getElementById('emailSubject').value = '';
             document.getElementById('emailMessage').value = '';
@@ -5966,9 +5996,7 @@
             });
 
             // Aktualisiere Timestamp für Sync
-            const now = new Date();
-            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
-            booking.aktualisiertAm = updatedDate;
+            updateBookingTimestamp(booking);
 
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
@@ -6031,9 +6059,7 @@
             });
 
             // Aktualisiere Timestamp für Sync
-            const now = new Date();
-            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
-            booking.aktualisiertAm = updatedDate;
+            updateBookingTimestamp(booking);
 
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
@@ -6598,31 +6624,46 @@
                 if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
                     console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
 
-                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt immer (egal von welchem Gerät)
+                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt IMMER (Millisekunden-genau)
                     const bookingsMap = new Map();
                     let hasUpdates = false;
                     let shouldUploadNew = false;
 
                     // 1. Füge alle Firebase-Buchungen zur Map hinzu
                     firebaseBookings.forEach(fbBooking => {
+                        // Verwende präzisen ISO-Timestamp, fallback auf alte Methode
+                        const timestamp = fbBooking.lastModifiedMs ||
+                                        (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0) ||
+                                        new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime();
+
                         bookingsMap.set(fbBooking.id, {
                             data: fbBooking,
-                            timestamp: new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime(),
+                            timestamp: timestamp,
                             source: 'firebase'
                         });
+
+                        console.log('📥 Firebase:', fbBooking.id.substring(0, 20), '→ Timestamp:', timestamp, '→', new Date(timestamp).toLocaleString('de-DE'));
                     });
 
                     // 2. Vergleiche mit lokalen Buchungen
                     allBookings.forEach(localBooking => {
-                        const localTimestamp = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
+                        // Verwende präzisen ISO-Timestamp, fallback auf alte Methode
+                        const localTimestamp = localBooking.lastModifiedMs ||
+                                              (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0) ||
+                                              new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
 
                         if (bookingsMap.has(localBooking.id)) {
                             // Buchung existiert in Firebase - vergleiche Timestamps
                             const fbEntry = bookingsMap.get(localBooking.id);
 
+                            console.log('🔍 Vergleich für:', localBooking.id.substring(0, 20));
+                            console.log('   Lokal:', localTimestamp, '→', new Date(localTimestamp).toLocaleString('de-DE'));
+                            console.log('   Firebase:', fbEntry.timestamp, '→', new Date(fbEntry.timestamp).toLocaleString('de-DE'));
+
                             if (localTimestamp > fbEntry.timestamp) {
                                 // LOKALE Version ist NEUER - verwende lokale und markiere für Upload
-                                console.log('📤 Lokale Version ist neuer, wird hochgeladen:', localBooking.id);
+                                const diff = localTimestamp - fbEntry.timestamp;
+                                console.log('✅ LOKALE VERSION GEWINNT! (' + diff + 'ms neuer) → Wird hochgeladen:', localBooking.id.substring(0, 30));
                                 bookingsMap.set(localBooking.id, {
                                     data: localBooking,
                                     timestamp: localTimestamp,
@@ -6632,10 +6673,12 @@
                                 hasUpdates = true;
                             } else if (localTimestamp < fbEntry.timestamp) {
                                 // Firebase-Version ist NEUER - wurde schon zur Map hinzugefügt
-                                console.log('🔄 Firebase-Version ist neuer:', localBooking.id);
+                                const diff = fbEntry.timestamp - localTimestamp;
+                                console.log('⬇️ FIREBASE VERSION GEWINNT! (' + diff + 'ms neuer) → Übernehme von Firebase:', localBooking.id.substring(0, 30));
                                 hasUpdates = true;
+                            } else {
+                                console.log('⚖️ Identische Timestamps - behalte Firebase-Version');
                             }
-                            // Wenn Timestamps gleich sind, behalte Firebase-Version
                         } else {
                             // Buchung ist nur lokal, nicht in Firebase
                             const ageInSeconds = (Date.now() - localTimestamp) / 1000;
@@ -6839,13 +6882,7 @@
 
             // Aktualisiere den Status
             allBookings[bookingIndex].status = 'Gebucht';
-            allBookings[bookingIndex].aktualisiertAm = new Date().toLocaleString('de-DE', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            updateBookingTimestamp(allBookings[bookingIndex]);
 
             console.log('✓ Status geändert zu: Gebucht');
 
