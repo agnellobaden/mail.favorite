@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-guaranteed-save-20260721-v4';
+const CACHE_NAME = 'eisfavorite-sticky-filter-mobile-20260721-v5';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
