@@ -7036,32 +7036,15 @@
                 }, 1000);
             }
 
-            // WICHTIG: Wenn Firebase aktiv ist, warte auf erste Daten von Firebase
-            // NUR wenn Firebase nicht verfügbar, lade aus LocalStorage
-            if (firebaseInitialized && db) {
-                console.log('⏳ Warte auf Firebase-Daten...');
-                // Warte max 3 Sekunden auf Firebase-Daten
-                await new Promise((resolve) => {
-                    const timeout = setTimeout(() => {
-                        console.log('⚠️ Firebase-Timeout - verwende LocalStorage als Fallback');
-                        loadFromLocalStorage();
-                        resolve();
-                    }, 3000);
+            // WICHTIG: IMMER zuerst lokale Daten laden!
+            // Lokale Daten können neuer sein als Firebase
+            console.log('📂 Lade IMMER zuerst lokale Daten (können neuer sein!)');
+            loadFromLocalStorage();
 
-                    // Der Listener wird die Daten laden
-                    const checkInterval = setInterval(() => {
-                        if (allBookings.length > 0 || !firebaseInitialized) {
-                            clearTimeout(timeout);
-                            clearInterval(checkInterval);
-                            console.log('✓ Firebase-Daten geladen:', allBookings.length, 'Buchungen');
-                            resolve();
-                        }
-                    }, 100);
-                });
-            } else {
-                // Kein Firebase - lade aus LocalStorage
-                console.log('📂 Lade aus LocalStorage (Firebase nicht verfügbar)');
-                loadFromLocalStorage();
+            // Firebase-Sync läuft im Hintergrund und merged automatisch
+            // Der Listener und das Polling sorgen dafür dass neueste Daten synchronisiert werden
+            if (firebaseInitialized && db) {
+                console.log('🔄 Firebase-Sync läuft im Hintergrund und merged automatisch');
             }
 
             // App-Zustand wiederherstellen
