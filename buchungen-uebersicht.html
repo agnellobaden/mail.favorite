@@ -5061,52 +5061,56 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6;">
+                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 210mm; margin: 0 auto;">
                     <!-- HEADER -->
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
-                        <div>
-                            <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
-                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
-                                <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
-                                Favoritenstrasse 11<br>
-                                76456 Kuppenheim<br>
-                                Deutschland
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 42px; font-weight: 900; color: #333; letter-spacing: -1px;">RECHNUNG</div>
-                        </div>
-                    </div>
+                    <table style="width: 100%; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
+                        <tr>
+                            <td style="vertical-align: top; width: 60%;">
+                                <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                                <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
+                                    <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
+                                    Favoritenstrasse 11<br>
+                                    76456 Kuppenheim<br>
+                                    Deutschland
+                                </div>
+                            </td>
+                            <td style="vertical-align: top; text-align: right; width: 40%;">
+                                <div style="font-size: 42px; font-weight: 900; color: #333; letter-spacing: -1px;">RECHNUNG</div>
+                            </td>
+                        </tr>
+                    </table>
 
                     <!-- CUSTOMER & DETAILS -->
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
-                        <div style="flex: 1; padding-right: 30px;">
-                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
-                                <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Rechnungsempfänger</div>
-                                <strong style="font-size: 17px; color: #222;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong>
-                                <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
-                                    ${customerAddress}
-                                    ${invoiceReference ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;"><strong style="color: #333;">Ansprechpartner:</strong><br>${invoiceReference}</div>` : ''}
+                    <table style="width: 100%; margin-bottom: 40px;">
+                        <tr>
+                            <td style="vertical-align: top; width: 55%; padding-right: 30px;">
+                                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
+                                    <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Rechnungsempfänger</div>
+                                    <strong style="font-size: 17px; color: #222;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong>
+                                    <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
+                                        ${customerAddress}
+                                        ${invoiceReference ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;"><strong style="color: #333;">Ansprechpartner:</strong><br>${invoiceReference}</div>` : ''}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div style="flex: 0 0 280px;">
-                            <table style="width: 100%; font-size: 14px; line-height: 2;">
-                                <tr>
-                                    <td style="color: #666; padding: 8px 0;"><strong>Rechnungsnummer:</strong></td>
-                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${invoiceNumber}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #666; padding: 8px 0;"><strong>Ausstellungsdatum:</strong></td>
-                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(invoiceDate)}</td>
-                                </tr>
-                                <tr style="border-top: 2px solid #667eea;">
-                                    <td style="color: #666; padding: 12px 0;"><strong>Zahlungsziel:</strong></td>
-                                    <td style="text-align: right; color: #667eea; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(invoiceDueDate)}</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+                            </td>
+                            <td style="vertical-align: top; width: 45%;">
+                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                    <tr>
+                                        <td style="color: #666; padding: 8px 0;"><strong>Rechnungsnummer:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${invoiceNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding: 8px 0;"><strong>Ausstellungsdatum:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(invoiceDate)}</td>
+                                    </tr>
+                                    <tr style="border-top: 2px solid #667eea;">
+                                        <td style="color: #666; padding: 12px 0;"><strong>Zahlungsziel:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(invoiceDueDate)}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
 
                     <!-- INTRO TEXT -->
                     <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
@@ -5418,59 +5422,63 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6;">
+                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 210mm; margin: 0 auto;">
                     <!-- HEADER -->
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
-                        <div>
-                            <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
-                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
-                                <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
-                                Favoritenstrasse 11<br>
-                                76456 Kuppenheim<br>
-                                Deutschland
-                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
-                                    <strong>Tel:</strong> 017656813172<br>
-                                    <strong>E-Mail:</strong> eisfavorit@gmail.com
+                    <table style="width: 100%; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
+                        <tr>
+                            <td style="vertical-align: top; width: 60%;">
+                                <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                                <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
+                                    <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
+                                    Favoritenstrasse 11<br>
+                                    76456 Kuppenheim<br>
+                                    Deutschland
+                                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                                        <strong>Tel:</strong> 017656813172<br>
+                                        <strong>E-Mail:</strong> eisfavorit@gmail.com
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); font-size: 36px; font-weight: 900; letter-spacing: -1px;">ANGEBOT</div>
-                        </div>
-                    </div>
+                            </td>
+                            <td style="vertical-align: top; text-align: right; width: 40%;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); font-size: 36px; font-weight: 900; letter-spacing: -1px; display: inline-block;">ANGEBOT</div>
+                            </td>
+                        </tr>
+                    </table>
 
                     <!-- CUSTOMER & DETAILS -->
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
-                        <div style="flex: 1; padding-right: 30px;">
-                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
-                                <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Angebot für</div>
-                                <strong style="font-size: 17px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong>
-                                <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
-                                    ${customerAddress || 'Adresse nicht angegeben'}
+                    <table style="width: 100%; margin-bottom: 40px;">
+                        <tr>
+                            <td style="vertical-align: top; width: 55%; padding-right: 30px;">
+                                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
+                                    <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Angebot für</div>
+                                    <strong style="font-size: 17px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong>
+                                    <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
+                                        ${customerAddress || 'Adresse nicht angegeben'}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div style="flex: 0 0 280px;">
-                            <table style="width: 100%; font-size: 14px; line-height: 2;">
-                                <tr>
-                                    <td style="color: #666; padding: 8px 0;"><strong>Angebotsnummer:</strong></td>
-                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${offerNumber}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #666; padding: 8px 0;"><strong>Erstellungsdatum:</strong></td>
-                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(today)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #666; padding: 8px 0;"><strong>Veranstaltung:</strong></td>
-                                    <td style="text-align: right; color: #667eea; font-weight: 700; padding: 8px 0;">${booking.date || '-'}</td>
-                                </tr>
-                                <tr style="border-top: 2px solid #e74c3c;">
-                                    <td style="color: #666; padding: 12px 0;"><strong>Gültig bis:</strong></td>
-                                    <td style="text-align: right; color: #e74c3c; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+                            </td>
+                            <td style="vertical-align: top; width: 45%;">
+                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                    <tr>
+                                        <td style="color: #666; padding: 8px 0;"><strong>Angebotsnummer:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${offerNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding: 8px 0;"><strong>Erstellungsdatum:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(today)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding: 8px 0;"><strong>Veranstaltung:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: 700; padding: 8px 0;">${booking.date || '-'}</td>
+                                    </tr>
+                                    <tr style="border-top: 2px solid #e74c3c;">
+                                        <td style="color: #666; padding: 12px 0;"><strong>Gültig bis:</strong></td>
+                                        <td style="text-align: right; color: #e74c3c; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
 
                     <!-- INTRO TEXT -->
                     <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
