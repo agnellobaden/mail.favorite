@@ -5422,58 +5422,56 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 210mm; margin: 0 auto;">
+                <div class="invoice-preview" style="padding: 15px 40px 30px 40px; font-family: Arial, sans-serif; line-height: 1.5; width: 100%; max-width: 800px; margin: 0 auto; box-sizing: border-box;">
                     <!-- HEADER -->
-                    <table style="width: 100%; margin-bottom: 35px; padding-bottom: 18px; border-bottom: 3px solid #667eea;">
+                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-bottom: 30px; border-bottom: 3px solid #667eea; padding-bottom: 15px;">
                         <tr>
-                            <td style="vertical-align: top; width: 60%;">
-                                <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
-                                <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
-                                    <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
+                            <td style="width: 50%; vertical-align: top;">
+                                <div style="font-size: 28px; font-weight: bold; color: #667eea; margin-bottom: 10px;">🍦 EisFavorite</div>
+                                <div style="font-size: 12px; color: #555; line-height: 1.6;">
+                                    <strong style="font-size: 14px; color: #333;">Eis Agnello</strong><br>
                                     Favoritenstrasse 11<br>
                                     76456 Kuppenheim<br>
-                                    Deutschland
-                                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
-                                        <strong>Tel:</strong> 017656813172<br>
-                                        <strong>E-Mail:</strong> eisfavorit@gmail.com
-                                    </div>
+                                    Deutschland<br><br>
+                                    <strong>Tel:</strong> 017656813172<br>
+                                    <strong>E-Mail:</strong> eisfavorit@gmail.com
                                 </div>
                             </td>
-                            <td style="vertical-align: top; text-align: right; width: 40%;">
-                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); font-size: 36px; font-weight: 900; letter-spacing: -1px; display: inline-block;">ANGEBOT</div>
+                            <td style="width: 50%; vertical-align: top; text-align: right;">
+                                <div style="background: #667eea; color: white; padding: 15px 30px; font-size: 32px; font-weight: bold; display: inline-block; margin-top: 10px;">ANGEBOT</div>
                             </td>
                         </tr>
                     </table>
 
                     <!-- CUSTOMER & DETAILS -->
-                    <table style="width: 100%; margin-bottom: 40px;">
+                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-bottom: 30px;">
                         <tr>
-                            <td style="vertical-align: top; width: 55%; padding-right: 30px;">
-                                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
-                                    <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Angebot für</div>
-                                    <strong style="font-size: 17px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong>
-                                    <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
+                            <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+                                <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #667eea; font-weight: bold; margin-bottom: 10px;">ANGEBOT FÜR</div>
+                                    <strong style="font-size: 16px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong><br>
+                                    <div style="margin-top: 10px; font-size: 13px; color: #555; line-height: 1.6;">
                                         ${customerAddress || 'Adresse nicht angegeben'}
                                     </div>
                                 </div>
                             </td>
-                            <td style="vertical-align: top; width: 45%;">
-                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                            <td style="width: 50%; vertical-align: top;">
+                                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; font-size: 13px;">
                                     <tr>
-                                        <td style="color: #666; padding: 8px 0;"><strong>Angebotsnummer:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${offerNumber}</td>
+                                        <td style="color: #666; padding: 6px 0;"><strong>Angebotsnummer:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: bold; padding: 6px 0;">${offerNumber}</td>
                                     </tr>
                                     <tr>
-                                        <td style="color: #666; padding: 8px 0;"><strong>Erstellungsdatum:</strong></td>
-                                        <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(today)}</td>
+                                        <td style="color: #666; padding: 6px 0;"><strong>Erstellungsdatum:</strong></td>
+                                        <td style="text-align: right; color: #222; font-weight: bold; padding: 6px 0;">${formatDate(today)}</td>
                                     </tr>
                                     <tr>
-                                        <td style="color: #666; padding: 8px 0;"><strong>Veranstaltung:</strong></td>
-                                        <td style="text-align: right; color: #667eea; font-weight: 700; padding: 8px 0;">${booking.date || '-'}</td>
+                                        <td style="color: #666; padding: 6px 0;"><strong>Veranstaltung:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: bold; padding: 6px 0;">${booking.date || '-'}</td>
                                     </tr>
                                     <tr style="border-top: 2px solid #e74c3c;">
-                                        <td style="color: #666; padding: 12px 0;"><strong>Gültig bis:</strong></td>
-                                        <td style="text-align: right; color: #e74c3c; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                        <td style="color: #666; padding: 10px 0;"><strong>Gültig bis:</strong></td>
+                                        <td style="text-align: right; color: #e74c3c; font-weight: bold; font-size: 14px; padding: 10px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
                                     </tr>
                                 </table>
                             </td>
@@ -5481,104 +5479,104 @@
                     </table>
 
                     <!-- INTRO TEXT -->
-                    <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
-                        <p style="font-size: 15px; color: #555; margin: 0; line-height: 1.7;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                    <div style="margin: 30px 0 25px 0; padding: 15px 20px; background: #f8f9fa; border-left: 4px solid #667eea;">
+                        <p style="font-size: 14px; color: #555; margin: 0; line-height: 1.6;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
                     </div>
 
                     <!-- POSITIONS TABLE -->
-                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 13px;">
+                    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
                         <thead>
-                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                                <th style="padding: 14px; text-align: left; font-weight: 600; letter-spacing: 0.5px;">POSITION</th>
-                                <th style="padding: 14px; text-align: center; font-weight: 600; letter-spacing: 0.5px; width: 100px;">MENGE</th>
-                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 120px;">EINZELPREIS</th>
-                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 140px;">GESAMT</th>
+                            <tr style="background: #667eea; color: white;">
+                                <th style="padding: 12px; text-align: left; font-weight: bold;">POSITION</th>
+                                <th style="padding: 12px; text-align: center; font-weight: bold; width: 80px;">MENGE</th>
+                                <th style="padding: 12px; text-align: right; font-weight: bold; width: 100px;">EINZELPREIS</th>
+                                <th style="padding: 12px; text-align: right; font-weight: bold; width: 120px;">GESAMT</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 1px solid #e9ecef;">
-                                <td style="padding: 14px; color: #333;">
-                                    <strong style="font-size: 14px; color: #222;">Kugel Eis</strong><br>
-                                    <span style="font-size: 12px; color: #888;">${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</span><br>
-                                    <span style="font-size: 12px; color: #888;">inkl. 7% MwSt.</span>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 12px; color: #333;">
+                                    <strong style="font-size: 13px; color: #222;">Kugel Eis</strong><br>
+                                    <span style="font-size: 11px; color: #888;">${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</span><br>
+                                    <span style="font-size: 11px; color: #888;">inkl. 7% MwSt.</span>
                                 </td>
-                                <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">${totalKugeln}</td>
-                                <td style="padding: 14px; text-align: right; color: #555;">${kugelPrice.toFixed(2)} €</td>
-                                <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${kugelTotal.toFixed(2)} €</td>
+                                <td style="padding: 12px; text-align: center; color: #555; font-weight: bold;">${totalKugeln}</td>
+                                <td style="padding: 12px; text-align: right; color: #555;">${kugelPrice.toFixed(2)} €</td>
+                                <td style="padding: 12px; text-align: right; font-weight: bold; color: #333;">${kugelTotal.toFixed(2)} €</td>
                             </tr>
                             ${travelCost > 0 ? `
-                            <tr style="border-bottom: 1px solid #e9ecef;">
-                                <td style="padding: 14px; color: #333;">
-                                    <strong style="font-size: 14px; color: #222;">Anfahrt & Service Pauschale</strong><br>
-                                    <span style="font-size: 12px; color: #888;">Entfernung: ${distance.toFixed(0)} km</span><br>
-                                    <span style="font-size: 12px; color: #888;">zzgl. 7% MwSt.</span>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 12px; color: #333;">
+                                    <strong style="font-size: 13px; color: #222;">Anfahrt & Service Pauschale</strong><br>
+                                    <span style="font-size: 11px; color: #888;">Entfernung: ${distance.toFixed(0)} km</span><br>
+                                    <span style="font-size: 11px; color: #888;">zzgl. 7% MwSt.</span>
                                 </td>
-                                <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">1</td>
-                                <td style="padding: 14px; text-align: right; color: #555;">${travelCost.toFixed(2)} €</td>
-                                <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${travelCost.toFixed(2)} €</td>
+                                <td style="padding: 12px; text-align: center; color: #555; font-weight: bold;">1</td>
+                                <td style="padding: 12px; text-align: right; color: #555;">${travelCost.toFixed(2)} €</td>
+                                <td style="padding: 12px; text-align: right; font-weight: bold; color: #333;">${travelCost.toFixed(2)} €</td>
                             </tr>
                             ` : ''}
                         </tbody>
                     </table>
 
-                    <div style="margin-top: 35px; padding: 25px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-                        <h3 style="margin-bottom: 20px; color: #667eea; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🌟</span>
-                            <span>Zusätzliche Spezialitäten</span>
+                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border: 2px solid #667eea;">
+                        <h3 style="margin-bottom: 15px; color: #667eea; font-size: 18px;">
+                            <span style="font-size: 20px;">🌟</span>
+                            <span> Zusätzliche Spezialitäten</span>
                         </h3>
-                        <p style="margin-bottom: 20px; font-size: 15px; color: #555; line-height: 1.7;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
+                        <p style="margin-bottom: 15px; font-size: 13px; color: #555; line-height: 1.6;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
 
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                                <th style="padding: 12px; text-align: left; font-weight: 600;">Produkt</th>
-                                <th style="padding: 12px; text-align: right; font-weight: 600;">Preis</th>
+                        <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse; margin-top: 10px; background: white;">
+                            <tr style="background: #667eea; color: white;">
+                                <th style="padding: 10px; text-align: left; font-weight: bold;">Produkt</th>
+                                <th style="padding: 10px; text-align: right; font-weight: bold;">Preis</th>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>🍝 Spaghetti Eis</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>🍝 Spaghetti Eis</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>🍫 Schoko Becher</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>🍫 Schoko Becher</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>☕ Eiskaffee</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>☕ Eiskaffee</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>🥤 Milchshake</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>🥤 Milchshake</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>🥛 Sahne (Extra)</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>🥛 Sahne (Extra)</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 12px; font-size: 14px;"><strong>🎨 Streussel</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                                <td style="padding: 10px; font-size: 13px;"><strong>🎨 Streussel</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
                             </tr>
                             <tr>
-                                <td style="padding: 12px; font-size: 14px;"><strong>🍓 Toppings</strong></td>
-                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
+                                <td style="padding: 10px; font-size: 13px;"><strong>🍓 Toppings</strong></td>
+                                <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
                             </tr>
                         </table>
 
-                        <p style="margin-top: 18px; font-size: 13px; color: #888; font-style: italic;">
+                        <p style="margin-top: 12px; font-size: 11px; color: #888; font-style: italic;">
                             * Alle Preise verstehen sich inklusive 7% MwSt.
                         </p>
                     </div>
 
-                    <div style="text-align: right; margin-top: 35px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);">
-                        <div style="font-size: 17px; margin-bottom: 8px; opacity: 0.95; font-weight: 500;">Gesamtpreis (Hauptangebot):</div>
-                        <div style="font-size: 42px; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: -1px;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
-                        <div style="font-size: 15px; margin-top: 8px; opacity: 0.9; font-weight: 500;">inkl. MwSt. | Gültig 7 Tage</div>
+                    <div style="text-align: right; margin-top: 30px; padding: 25px; background: #667eea; color: white;">
+                        <div style="font-size: 15px; margin-bottom: 5px; font-weight: bold;">Gesamtpreis (Hauptangebot):</div>
+                        <div style="font-size: 36px; font-weight: bold;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
+                        <div style="font-size: 13px; margin-top: 5px; font-weight: bold;">inkl. MwSt. | Gültig 7 Tage</div>
                     </div>
 
-                    <div style="margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); border-left: 5px solid #ffc107; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-                        <p style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #856404;">📝 Wichtige Hinweise:</p>
-                        <ul style="margin-left: 20px; line-height: 2; font-size: 14px; color: #555;">
+                    <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107;">
+                        <p style="margin-bottom: 12px; font-size: 14px; font-weight: bold; color: #856404;">📝 Wichtige Hinweise:</p>
+                        <ul style="margin-left: 20px; line-height: 1.8; font-size: 12px; color: #555;">
                             <li><strong>Gültigkeit:</strong> Dieses Angebot ist 7 Tage gültig</li>
-                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: 600;">200,00 € pro Veranstaltung</span></li>
+                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: bold;">200,00 € pro Veranstaltung</span></li>
                             <li><strong>Mindestabnahme:</strong> 50 Gäste bei Veranstaltungen</li>
                             <li><strong>Flexibilität:</strong> Zusätzliche Spezialitäten können jederzeit dazugebucht werden</li>
                             <li><strong>Änderungen:</strong> Gästezahl kann bis 3 Tage vor Veranstaltung angepasst werden</li>
@@ -5586,11 +5584,11 @@
                         </ul>
                     </div>
 
-                    <div style="margin-top: 40px; text-align: center; padding: 30px; background: linear-gradient(to bottom, white, #f8f9fa); border-top: 3px solid #667eea; border-radius: 8px;">
-                        <p style="font-size: 18px; color: #667eea; font-weight: 700; margin-bottom: 12px;">
+                    <div style="margin-top: 30px; text-align: center; padding: 25px; background: #f8f9fa; border-top: 3px solid #667eea;">
+                        <p style="font-size: 16px; color: #667eea; font-weight: bold; margin-bottom: 10px;">
                             Wir freuen uns auf Ihre Veranstaltung! 🍦
                         </p>
-                        <p style="font-size: 14px; color: #666; line-height: 1.7;">
+                        <p style="font-size: 13px; color: #666; line-height: 1.6;">
                             Bei Fragen oder individuellen Wünschen stehen wir Ihnen jederzeit gerne zur Verfügung.<br>
                             <strong style="color: #667eea;">Kontaktieren Sie uns einfach!</strong>
                         </p>
