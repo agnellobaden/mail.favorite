@@ -5021,6 +5021,8 @@
                     `vielen Dank für Ihre Buchung! Es hat uns sehr gefreut, bei Ihrer Veranstaltung dabei zu sein.\n\n` +
                     `Anbei finden Sie die Rechnung ${invoiceNumber} vom ${new Date(invoiceDate).toLocaleDateString('de-DE')} als PDF-Anhang.\n\n` +
                     `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
+                    `Wir würden uns sehr über eine Google-Rezension freuen:\n` +
+                    `https://search.google.com/local/writereview?placeid=ChIJMvjvk88_l0cRCzry49wHtzk\n\n` +
                     `Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
                     `Ihr EisFavorite Team\n\n` +
@@ -5331,6 +5333,8 @@
                     `Anbei finden Sie unser individuelles Angebot für Ihre Veranstaltung als PDF-Anhang.\n\n` +
                     `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
                     `Bei Fragen oder Änderungswünschen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
+                    `Wir würden uns sehr über eine Google-Rezension freuen:\n` +
+                    `https://search.google.com/local/writereview?placeid=ChIJMvjvk88_l0cRCzry49wHtzk\n\n` +
                     `Mit freundlichen Grüßen\n` +
                     `Ihr EisFavorite Team\n\n` +
                     `---\n` +
@@ -5896,13 +5900,13 @@
                 return;
             }
 
-            // E-Mail-Client öffnen mit vorausgefüllten Daten
+            // Gmail öffnen mit vorausgefüllten Daten
             const subject = 'Eisfavorite';
             const body = message.trim();
-            const mailtoLink = `mailto:${booking.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(booking.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-            // E-Mail-Client öffnen
-            window.location.href = mailtoLink;
+            // Gmail öffnen in neuem Tab
+            window.open(gmailUrl, '_blank');
 
             // Nachricht im Chat speichern
             if (!booking.emailHistory) {
