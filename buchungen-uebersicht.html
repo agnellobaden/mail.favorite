@@ -6593,7 +6593,9 @@
                     return;
                 }
 
+                // NEUES FLAG-MANAGEMENT: Nur kurz blockieren, nicht dauerhaft
                 // Flag setzen, um Endlos-Loop zu vermeiden
+                const wasBlocked = isUpdatingFromFirebase;
                 isUpdatingFromFirebase = true;
 
                 const firebaseBookings = [];
@@ -7121,30 +7123,111 @@
             }
 
             // ==========================================
-            // PERIODISCHER SYNC-MECHANISMUS
+            // AGGRESSIVER BIDIREKTIONALER SYNC-MECHANISMUS
             // ==========================================
-            // Garantiert dass Änderungen auch wirklich synchronisiert werden
-            // Führt alle 15 Sekunden einen Check durch
+            // Garantiert dass Änderungen in BEIDE Richtungen synchronisiert werden
             if (firebaseInitialized && db) {
-                console.log('⏰ Starte periodischen Sync-Check (alle 15 Sekunden)');
+                console.log('⏰ Starte AGGRESSIVEN Bidirektionalen Sync (alle 3 Sekunden)');
 
-                setInterval(() => {
-                    // Prüfe ob lokale Daten und Firebase unterschiedlich sind
+                setInterval(async () => {
+                    if (isUpdatingFromFirebase) {
+                        console.log('⏸️ Sync läuft bereits - überspringe diesen Cycle');
+                        return;
+                    }
+
+                    console.log('🔄 Periodischer Sync: PUSH (Upload) + PULL (Download)');
+
+                    // 1. PUSH: Lokale Änderungen hochladen
                     const localData = localStorage.getItem('eisfavorite_bookings');
                     if (localData) {
                         const localBookings = JSON.parse(localData);
-
-                        // Wenn Daten vorhanden sind, force-sync
-                        if (localBookings.length > 0 && !isUpdatingFromFirebase) {
-                            console.log('⏰ Periodischer Sync-Check: Starte Force-Upload');
-                            saveToFirebase(true).then(() => {
-                                console.log('✅ Periodischer Sync erfolgreich');
-                            }).catch(err => {
-                                console.error('❌ Periodischer Sync fehlgeschlagen:', err);
+                        if (localBookings.length > 0) {
+                            console.log('📤 PUSH: Uploade lokale Daten');
+                            await saveToFirebase(true).catch(err => {
+                                console.error('❌ PUSH fehlgeschlagen:', err);
                             });
                         }
                     }
-                }, 15000); // Alle 15 Sekunden
+
+                    // 2. PULL: Firebase-Daten aktiv abholen (zusätzlich zum Listener)
+                    try {
+                        console.log('📥 PULL: Hole aktuelle Firebase-Daten');
+                        const snapshot = await db.collection('buchungen').get();
+
+                        if (snapshot.empty) {
+                            console.log('📥 Firebase ist leer');
+                            return;
+                        }
+
+                        const firebaseBookings = [];
+                        snapshot.forEach(doc => {
+                            firebaseBookings.push({ ...doc.data(), id: doc.id });
+                        });
+
+                        // Vergleiche mit lokalen Daten
+                        let needsUpdate = false;
+
+                        // Prüfe ob Firebase neuere Daten hat
+                        firebaseBookings.forEach(fbBooking => {
+                            const localBooking = allBookings.find(b => b.id === fbBooking.id);
+
+                            if (!localBooking) {
+                                console.log('🆕 Neue Buchung in Firebase gefunden:', fbBooking.id);
+                                needsUpdate = true;
+                            } else {
+                                // Timestamp-Vergleich
+                                const fbTimestamp = fbBooking.lastModifiedMs ||
+                                                   (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0);
+                                const localTimestamp = localBooking.lastModifiedMs ||
+                                                      (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0);
+
+                                if (fbTimestamp > localTimestamp) {
+                                    console.log('🔄 Firebase hat neuere Version von:', fbBooking.id);
+                                    needsUpdate = true;
+                                }
+                            }
+                        });
+
+                        if (needsUpdate) {
+                            console.log('✅ PULL: Aktualisiere lokale Daten von Firebase');
+
+                            // Merge Firebase-Daten in lokale Daten
+                            const mergedBookings = [...allBookings];
+
+                            firebaseBookings.forEach(fbBooking => {
+                                const existingIndex = mergedBookings.findIndex(b => b.id === fbBooking.id);
+
+                                if (existingIndex === -1) {
+                                    // Neue Buchung hinzufügen
+                                    mergedBookings.push(fbBooking);
+                                } else {
+                                    // Prüfe welche Version neuer ist
+                                    const fbTimestamp = fbBooking.lastModifiedMs || 0;
+                                    const localTimestamp = mergedBookings[existingIndex].lastModifiedMs || 0;
+
+                                    if (fbTimestamp > localTimestamp) {
+                                        // Firebase-Version ist neuer
+                                        mergedBookings[existingIndex] = fbBooking;
+                                    }
+                                }
+                            });
+
+                            // Aktualisiere allBookings und UI
+                            allBookings = mergedBookings;
+                            localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
+
+                            updateStats();
+                            filterAndDisplay();
+
+                            console.log('✅✅✅ UI MIT NEUEN DATEN AKTUALISIERT!');
+                            showSyncNotification('🔄 Neue Daten empfangen', 'info');
+                        } else {
+                            console.log('✅ Daten bereits synchron');
+                        }
+                    } catch (err) {
+                        console.error('❌ PULL fehlgeschlagen:', err);
+                    }
+                }, 3000); // Alle 3 Sekunden statt 15!
             }
         });
 
