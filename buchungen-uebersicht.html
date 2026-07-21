@@ -3236,46 +3236,23 @@
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, SOFORT auch dort speichern
+            // Wenn Firebase aktiviert ist, INSTANT FORCE-Upload
             if (firebaseInitialized && db) {
-                console.log('🚀🚀🚀 SOFORTIGER Firebase-Upload für ' + allBookings.length + ' Buchungen...');
+                console.log('⚡⚡⚡ INSTANT FORCE-Upload JETZT!');
 
-                // WICHTIG: Setze Flag um doppelte Uploads zu vermeiden, aber nur kurz
-                const wasUpdating = isUpdatingFromFirebase;
-
-                // Sofortiger Upload ohne Blockierung durch das Flag
-                isUpdatingFromFirebase = true;
-
-                saveToFirebase().then(() => {
-                    console.log('✅✅✅ Firebase-Upload ERFOLGREICH abgeschlossen!');
-                    // Kurze visuelle Bestätigung
-                    showSyncNotification('✅ Auf allen Geräten synchronisiert');
-
-                    // Flag zurücksetzen
-                    setTimeout(() => {
-                        isUpdatingFromFirebase = false;
-                    }, 500);
+                // FORCE-Upload: Ignoriert ALLE Flags komplett
+                saveToFirebase(true).then(() => {
+                    console.log('✅✅✅ INSTANT Upload ERFOLGREICH!');
+                    showSyncNotification('✅ Sofort synchronisiert');
                 }).catch((e) => {
-                    console.error('❌❌❌ Firebase-Upload FEHLGESCHLAGEN:', e);
-                    showSyncNotification('⚠️ Sync-Fehler - nur lokal gespeichert', 'error');
+                    console.error('❌❌❌ INSTANT Upload FEHLER:', e);
+                    showSyncNotification('⚠️ Sync-Fehler', 'error');
 
-                    // Flag zurücksetzen auch bei Fehler
-                    isUpdatingFromFirebase = false;
-
-                    // RETRY: Versuche es nach 2 Sekunden nochmal
-                    console.log('🔄 Versuche Upload in 2 Sekunden erneut...');
-                    setTimeout(() => {
-                        console.log('🔄 RETRY: Starte Firebase-Upload erneut...');
-                        saveToFirebase().then(() => {
-                            console.log('✅ RETRY erfolgreich!');
-                            showSyncNotification('✅ Synchronisiert (nach Retry)');
-                        }).catch(retryError => {
-                            console.error('❌ RETRY fehlgeschlagen:', retryError);
-                        });
-                    }, 2000);
+                    // Retry nach 1 Sekunde
+                    setTimeout(() => saveToFirebase(true), 1000);
                 });
             } else {
-                console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
+                console.log('⚠️ Firebase nicht verfügbar');
             }
 
             // App-Zustand auch speichern
@@ -7123,11 +7100,11 @@
             }
 
             // ==========================================
-            // AGGRESSIVER BIDIREKTIONALER SYNC-MECHANISMUS
+            // ULTRA-AGGRESSIVER BIDIREKTIONALER SYNC-MECHANISMUS
             // ==========================================
             // Garantiert dass Änderungen in BEIDE Richtungen synchronisiert werden
             if (firebaseInitialized && db) {
-                console.log('⏰ Starte AGGRESSIVEN Bidirektionalen Sync (alle 3 Sekunden)');
+                console.log('⏰ Starte ULTRA-AGGRESSIVEN Bidirektionalen Sync (JEDE SEKUNDE)');
 
                 setInterval(async () => {
                     if (isUpdatingFromFirebase) {
@@ -7227,7 +7204,7 @@
                     } catch (err) {
                         console.error('❌ PULL fehlgeschlagen:', err);
                     }
-                }, 3000); // Alle 3 Sekunden statt 15!
+                }, 1000); // JEDE SEKUNDE für maximale Geschwindigkeit!
             }
         });
 
