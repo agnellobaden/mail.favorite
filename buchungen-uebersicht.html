@@ -3814,7 +3814,22 @@
                         return bDateTime - aDateTime; // Neueste vergangene zuerst
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
-                    // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
+                    // Wenn gefiltert, sortiere chronologisch:
+                    // - Zukünftige Termine: Nächste zuerst (aufsteigend)
+                    // - Vergangene Termine: Neueste zuerst (absteigend)
+                    const aIsFuture = aDateTime >= now;
+                    const bIsFuture = bDateTime >= now;
+
+                    // Zukünftige Termine kommen vor vergangenen
+                    if (aIsFuture && !bIsFuture) return -1;
+                    if (!aIsFuture && bIsFuture) return 1;
+
+                    // Beide zukünftig: Nächste zuerst (aufsteigend)
+                    if (aIsFuture && bIsFuture) {
+                        return aDateTime - bDateTime;
+                    }
+
+                    // Beide vergangen: Neueste zuerst (absteigend)
                     return bDateTime - aDateTime;
                 }
 
