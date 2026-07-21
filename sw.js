@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-full-restore-20260719';
+const CACHE_NAME = 'eisfavorite-ultra-sync-20260721-v2';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
