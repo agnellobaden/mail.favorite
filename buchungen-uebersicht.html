@@ -3775,12 +3775,25 @@
             endOfWeek.setDate(now.getDate() + daysUntilSunday);
             endOfWeek.setHours(23, 59, 59, 999);
 
-            // Finde alle bevorstehenden Termine dieser Woche
+            // Start und Ende des heutigen Tages
+            const startOfToday = new Date(now);
+            startOfToday.setHours(0, 0, 0, 0);
+            const endOfToday = new Date(now);
+            endOfToday.setHours(23, 59, 59, 999);
+
+            // Finde alle aktiven Termine dieser Woche (inkl. heutige Events, auch wenn bereits vorbei)
             const upcomingThisWeek = allBookings.filter(booking => {
                 const bookingDate = parseDateTime(booking.date, booking.time);
-                const isUpcoming = bookingDate >= now && bookingDate <= endOfWeek;
-                const isActive = booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage';
-                return isUpcoming && isActive;
+                const bookingDateOnly = parseDate(booking.date);
+
+                // Event ist aktiv wenn Status NICHT "Event beendet" oder "Storniert" ist
+                const isActive = booking.status !== 'Event beendet' && booking.status !== 'Storniert';
+
+                // Zeige heute's Events (egal welche Uhrzeit) ODER zukünftige Events bis Ende der Woche
+                const isToday = bookingDateOnly >= startOfToday && bookingDateOnly <= endOfToday;
+                const isUpcomingThisWeek = bookingDate > now && bookingDate <= endOfWeek;
+
+                return isActive && (isToday || isUpcomingThisWeek);
             }).sort((a, b) => {
                 return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
             });
