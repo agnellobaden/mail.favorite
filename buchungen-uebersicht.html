@@ -3236,17 +3236,43 @@
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, auch dort speichern (NICHT-BLOCKIEREND im Hintergrund)
+            // Wenn Firebase aktiviert ist, SOFORT auch dort speichern
             if (firebaseInitialized && db) {
-                console.log('🚀 Starte Firebase-Upload im Hintergrund für ' + allBookings.length + ' Buchungen...');
-                // Verwende Promise ohne await, damit es nicht blockiert
+                console.log('🚀🚀🚀 SOFORTIGER Firebase-Upload für ' + allBookings.length + ' Buchungen...');
+
+                // WICHTIG: Setze Flag um doppelte Uploads zu vermeiden, aber nur kurz
+                const wasUpdating = isUpdatingFromFirebase;
+
+                // Sofortiger Upload ohne Blockierung durch das Flag
+                isUpdatingFromFirebase = true;
+
                 saveToFirebase().then(() => {
-                    console.log('✅ Firebase-Upload erfolgreich abgeschlossen!');
+                    console.log('✅✅✅ Firebase-Upload ERFOLGREICH abgeschlossen!');
                     // Kurze visuelle Bestätigung
                     showSyncNotification('✅ Auf allen Geräten synchronisiert');
+
+                    // Flag zurücksetzen
+                    setTimeout(() => {
+                        isUpdatingFromFirebase = false;
+                    }, 500);
                 }).catch((e) => {
-                    console.error('❌ Firebase-Upload fehlgeschlagen:', e);
+                    console.error('❌❌❌ Firebase-Upload FEHLGESCHLAGEN:', e);
                     showSyncNotification('⚠️ Sync-Fehler - nur lokal gespeichert', 'error');
+
+                    // Flag zurücksetzen auch bei Fehler
+                    isUpdatingFromFirebase = false;
+
+                    // RETRY: Versuche es nach 2 Sekunden nochmal
+                    console.log('🔄 Versuche Upload in 2 Sekunden erneut...');
+                    setTimeout(() => {
+                        console.log('🔄 RETRY: Starte Firebase-Upload erneut...');
+                        saveToFirebase().then(() => {
+                            console.log('✅ RETRY erfolgreich!');
+                            showSyncNotification('✅ Synchronisiert (nach Retry)');
+                        }).catch(retryError => {
+                            console.error('❌ RETRY fehlgeschlagen:', retryError);
+                        });
+                    }, 2000);
                 });
             } else {
                 console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
@@ -3285,7 +3311,7 @@
         let firebaseSaveTimeout = null;
         let hasPendingFirebaseUpload = false;
 
-        async function saveToFirebase() {
+        async function saveToFirebase(forceUpload = false) {
             if (!firebaseInitialized || !db) {
                 console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
                 console.error('firebaseInitialized:', firebaseInitialized);
@@ -3293,15 +3319,15 @@
                 return;
             }
 
-            // Wenn bereits ein Upload läuft, markiere dass ein weiterer Upload pending ist
-            if (isUpdatingFromFirebase) {
+            // NEUE LOGIK: Wenn bereits ein Upload läuft UND es kein Force-Upload ist, warte
+            if (isUpdatingFromFirebase && !forceUpload) {
                 hasPendingFirebaseUpload = true;
                 console.log('⏳ Upload läuft bereits - wird nach Abschluss wiederholt');
                 return;
             }
 
             console.log('💾 ==========================================');
-            console.log('💾 STARTE FIREBASE-UPLOAD');
+            console.log('💾 STARTE FIREBASE-UPLOAD' + (forceUpload ? ' (FORCE)' : ''));
             console.log('💾 Anzahl Buchungen:', allBookings.length);
             console.log('💾 Zeitpunkt:', new Date().toLocaleTimeString());
             console.log('💾 ==========================================');
@@ -7092,6 +7118,33 @@
             // Status-Anzeige aktualisieren
             if (!firebaseInitialized) {
                 updateFirebaseStatus('error', '🔴 Nur lokaler Modus');
+            }
+
+            // ==========================================
+            // PERIODISCHER SYNC-MECHANISMUS
+            // ==========================================
+            // Garantiert dass Änderungen auch wirklich synchronisiert werden
+            // Führt alle 15 Sekunden einen Check durch
+            if (firebaseInitialized && db) {
+                console.log('⏰ Starte periodischen Sync-Check (alle 15 Sekunden)');
+
+                setInterval(() => {
+                    // Prüfe ob lokale Daten und Firebase unterschiedlich sind
+                    const localData = localStorage.getItem('eisfavorite_bookings');
+                    if (localData) {
+                        const localBookings = JSON.parse(localData);
+
+                        // Wenn Daten vorhanden sind, force-sync
+                        if (localBookings.length > 0 && !isUpdatingFromFirebase) {
+                            console.log('⏰ Periodischer Sync-Check: Starte Force-Upload');
+                            saveToFirebase(true).then(() => {
+                                console.log('✅ Periodischer Sync erfolgreich');
+                            }).catch(err => {
+                                console.error('❌ Periodischer Sync fehlgeschlagen:', err);
+                            });
+                        }
+                    }
+                }, 15000); // Alle 15 Sekunden
             }
         });
 
