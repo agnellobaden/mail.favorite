@@ -4992,12 +4992,15 @@
                 }
 
                 return `
-                    <tr>
-                        <td><strong>${p.name}</strong><br>${p.priceIncludesTax ? 'inkl.' : 'zzgl.'} 7% Umsatzsteuer</td>
-                        <td style="text-align: center;">${p.quantity}</td>
-                        <td style="text-align: right;">${netto.toFixed(2)} €</td>
-                        <td style="text-align: right;">${mwst.toFixed(2)} €</td>
-                        <td style="text-align: right;"><strong>${brutto.toFixed(2)} €</strong></td>
+                    <tr style="border-bottom: 1px solid #e9ecef;">
+                        <td style="padding: 14px; color: #333;">
+                            <strong style="font-size: 14px; color: #222;">${p.name}</strong><br>
+                            <span style="font-size: 12px; color: #888;">${p.priceIncludesTax ? 'inkl.' : 'zzgl.'} 7% Umsatzsteuer</span>
+                        </td>
+                        <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">${p.quantity}</td>
+                        <td style="padding: 14px; text-align: right; color: #555;">${netto.toFixed(2)} €</td>
+                        <td style="padding: 14px; text-align: right; color: #555;">${mwst.toFixed(2)} €</td>
+                        <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${brutto.toFixed(2)} €</td>
                     </tr>
                 `;
             }).join('');
@@ -5025,12 +5028,16 @@
                 sumBrutto = MINDESTUMSATZ;
 
                 mindestumsatzRow = `
-                    <tr style="background: #fff3cd;">
-                        <td><strong>Mindestumsatz-Pauschale</strong><br>inkl. 7% Umsatzsteuer<br><small style="color: #856404;">Mindestumsatz 200,00 € wird erreicht</small></td>
-                        <td style="text-align: center;">1</td>
-                        <td style="text-align: right;">${pauschaleNetto.toFixed(2)} €</td>
-                        <td style="text-align: right;">${pauschaleMwst.toFixed(2)} €</td>
-                        <td style="text-align: right;"><strong>${fehlbetrag.toFixed(2)} €</strong></td>
+                    <tr style="background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%); border-bottom: 2px solid #ffc107;">
+                        <td style="padding: 14px; color: #333;">
+                            <strong style="font-size: 14px; color: #856404;">Mindestumsatz-Pauschale</strong><br>
+                            <span style="font-size: 12px; color: #888;">inkl. 7% Umsatzsteuer</span><br>
+                            <small style="color: #856404; font-weight: 600;">ℹ️ Mindestumsatz 200,00 € erreicht</small>
+                        </td>
+                        <td style="padding: 14px; text-align: center; color: #856404; font-weight: 600;">1</td>
+                        <td style="padding: 14px; text-align: right; color: #856404;">${pauschaleNetto.toFixed(2)} €</td>
+                        <td style="padding: 14px; text-align: right; color: #856404;">${pauschaleMwst.toFixed(2)} €</td>
+                        <td style="padding: 14px; text-align: right; font-weight: 700; color: #856404; font-size: 14px;">${fehlbetrag.toFixed(2)} €</td>
                     </tr>
                 `;
             }
@@ -5041,58 +5048,67 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview">
-                    <div class="invoice-header">
+                <div class="invoice-preview" style="padding: 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6;">
+                    <!-- HEADER -->
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid #667eea;">
                         <div>
-                            <div class="invoice-logo">🍦 EisFavorite</div>
-                            <div style="margin-top: 10px; font-size: 14px;">
-                                <strong>Eis Agnello</strong><br>
+                            <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
+                                <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
                                 Favoritenstrasse 11<br>
                                 76456 Kuppenheim<br>
                                 Deutschland
                             </div>
                         </div>
-                        <div class="invoice-title">RECHNUNG</div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 42px; font-weight: 900; color: #333; letter-spacing: -1px;">RECHNUNG</div>
+                        </div>
                     </div>
 
-                    <div class="invoice-details">
-                        <div style="flex: 1;">
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 2px solid #333;">
-                                <strong style="font-size: 16px;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong><br><br>
-                                ${customerAddress}
-                                ${invoiceReference ? `<br><br><strong>Ansprechpartner:</strong> ${invoiceReference}` : ''}
+                    <!-- CUSTOMER & DETAILS -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                        <div style="flex: 1; padding-right: 30px;">
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
+                                <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Rechnungsempfänger</div>
+                                <strong style="font-size: 17px; color: #222;">${currentInvoiceBooking.company || currentInvoiceBooking.name || 'Kunde'}</strong>
+                                <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
+                                    ${customerAddress}
+                                    ${invoiceReference ? `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;"><strong style="color: #333;">Ansprechpartner:</strong><br>${invoiceReference}</div>` : ''}
+                                </div>
                             </div>
                         </div>
-                        <div style="flex: 0 0 250px; margin-left: 30px;">
-                            <table style="width: 100%; font-size: 14px;">
+                        <div style="flex: 0 0 280px;">
+                            <table style="width: 100%; font-size: 14px; line-height: 2;">
                                 <tr>
-                                    <td><strong>Rechnungsnummer:</strong></td>
-                                    <td style="text-align: right;">${invoiceNumber}</td>
+                                    <td style="color: #666; padding: 8px 0;"><strong>Rechnungsnummer:</strong></td>
+                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${invoiceNumber}</td>
                                 </tr>
                                 <tr>
-                                    <td><strong>Ausgestellt:</strong></td>
-                                    <td style="text-align: right;">${formatDate(invoiceDate)}</td>
+                                    <td style="color: #666; padding: 8px 0;"><strong>Ausstellungsdatum:</strong></td>
+                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(invoiceDate)}</td>
                                 </tr>
-                                <tr>
-                                    <td><strong>Zahlungsziel:</strong></td>
-                                    <td style="text-align: right;">${formatDate(invoiceDueDate)}</td>
+                                <tr style="border-top: 2px solid #667eea;">
+                                    <td style="color: #666; padding: 12px 0;"><strong>Zahlungsziel:</strong></td>
+                                    <td style="text-align: right; color: #667eea; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(invoiceDueDate)}</td>
                                 </tr>
                             </table>
                         </div>
                     </div>
 
-                    <div style="margin: 30px 0;">
-                        <p>Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:</p>
+                    <!-- INTRO TEXT -->
+                    <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
+                        <p style="font-size: 15px; color: #555; margin: 0; line-height: 1.7;">Vielen Dank für Ihren Auftrag! Nachfolgend stellen wir Ihnen die <strong style="color: #667eea;">erbrachten Leistungen</strong> in Rechnung:</p>
                     </div>
 
-                    <table class="invoice-table">
+                    <!-- POSITIONS TABLE -->
+                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 13px;">
                         <thead>
-                            <tr>
-                                <th>BESCHREIBUNG</th>
-                                <th style="text-align: center;">MENGE</th>
-                                <th style="text-align: right;">PREIS (NETTO)</th>
-                                <th style="text-align: right;">MWST</th>
-                                <th style="text-align: right;">GESAMT (BRUTTO)</th>
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 14px; text-align: left; font-weight: 600; letter-spacing: 0.5px;">BESCHREIBUNG</th>
+                                <th style="padding: 14px; text-align: center; font-weight: 600; letter-spacing: 0.5px; width: 80px;">MENGE</th>
+                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 110px;">NETTO</th>
+                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 90px;">MWST</th>
+                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 120px;">BRUTTO</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -5101,52 +5117,59 @@
                         </tbody>
                     </table>
 
-                    <div class="invoice-summary">
-                        <table style="width: 100%; font-size: 14px;">
+                    <!-- SUMMARY -->
+                    <div style="margin-left: auto; width: 350px; margin-top: 30px;">
+                        <table style="width: 100%; font-size: 14px; line-height: 2;">
                             <tr>
-                                <td><strong>SUMME NETTO</strong></td>
-                                <td style="text-align: right;"><strong>${sumNetto.toFixed(2)} €</strong></td>
+                                <td style="padding: 8px 0; color: #666;"><strong>Summe Netto:</strong></td>
+                                <td style="text-align: right; padding: 8px 0; font-weight: 600; color: #333;">${sumNetto.toFixed(2)} €</td>
                             </tr>
                             ${mwst7 > 0 ? `
                             <tr>
-                                <td>zzgl. 7% MwSt</td>
-                                <td style="text-align: right;">${mwst7.toFixed(2)} €</td>
+                                <td style="padding: 8px 0; color: #666;">zzgl. 7% MwSt:</td>
+                                <td style="text-align: right; padding: 8px 0; color: #555;">${mwst7.toFixed(2)} €</td>
                             </tr>` : ''}
                             ${mwst19 > 0 ? `
                             <tr>
-                                <td>zzgl. 19% MwSt</td>
-                                <td style="text-align: right;">${mwst19.toFixed(2)} €</td>
+                                <td style="padding: 8px 0; color: #666;">zzgl. 19% MwSt:</td>
+                                <td style="text-align: right; padding: 8px 0; color: #555;">${mwst19.toFixed(2)} €</td>
                             </tr>` : ''}
-                            <tr>
-                                <td><strong>GESAMT (BRUTTO)</strong></td>
-                                <td style="text-align: right;"><strong>${sumBrutto.toFixed(2)} €</strong></td>
+                            <tr style="border-top: 2px solid #667eea; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                                <td style="padding: 15px 12px; font-size: 16px; font-weight: 700; color: #333;"><strong>GESAMT (BRUTTO):</strong></td>
+                                <td style="text-align: right; padding: 15px 12px; font-size: 18px; font-weight: 900; color: #667eea;">${sumBrutto.toFixed(2)} €</td>
                             </tr>
                         </table>
                     </div>
 
-                    <div class="invoice-total">
-                        <span>GESAMTBETRAG<br>ZU BEZAHLEN</span>
-                        <span style="font-size: 28px;">${sumBrutto.toFixed(2)} €</span>
+                    <!-- TOTAL BOX -->
+                    <div style="margin: 35px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);">
+                        <div style="font-size: 15px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
+                            Zahlbetrag<br>
+                            <span style="font-size: 12px; opacity: 0.9; font-weight: 400;">Fällig bis ${formatDate(invoiceDueDate)}</span>
+                        </div>
+                        <div style="font-size: 36px; font-weight: 900; letter-spacing: -1px;">${sumBrutto.toFixed(2)} €</div>
                     </div>
 
-                    <div class="invoice-footer">
-                        <div>
-                            <strong>INHABER</strong><br>
+                    <!-- FOOTER -->
+                    <div style="margin-top: 50px; padding-top: 25px; border-top: 2px solid #e9ecef; display: flex; justify-content: space-between; font-size: 12px; color: #666; line-height: 1.8;">
+                        <div style="flex: 1;">
+                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">INHABER</strong>
                             Eis Agnello<br>
                             Favoritenstrasse 11<br>
                             76456 Kuppenheim
                         </div>
-                        <div>
-                            <strong>KONTAKT</strong><br>
+                        <div style="flex: 1;">
+                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">KONTAKT</strong>
                             St-Nr.: 39102/26343<br>
-                            Handy: +49 176 56813172
+                            Tel: +49 176 56813172<br>
+                            eisfavorit@gmail.com
                         </div>
-                        <div>
-                            <strong>BANKVERBINDUNG</strong><br>
-                            Empfänger: Andrea Agnello<br>
-                            Bank: Sparkasse Baden Baden<br>
+                        <div style="flex: 1;">
+                            <strong style="color: #333; font-size: 13px; display: block; margin-bottom: 8px;">BANKVERBINDUNG</strong>
+                            Andrea Agnello<br>
+                            Sparkasse Baden Baden<br>
                             IBAN: DE72 6625 0030 0030 4713 20<br>
-                            BIC/SWIFT: SOLADES1BAD
+                            BIC: SOLADES1BAD
                         </div>
                     </div>
                 </div>
@@ -5382,89 +5405,96 @@
             ].filter(x => x).join('<br>');
 
             return `
-                <div class="invoice-preview" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-                    <div class="invoice-header" style="border-bottom: 3px solid #667eea; padding-bottom: 20px; margin-bottom: 30px;">
+                <div class="invoice-preview" style="padding: 30px 40px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6;">
+                    <!-- HEADER -->
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid #667eea;">
                         <div>
-                            <div class="invoice-logo" style="font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
-                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.7; color: #555;">
-                                <strong style="color: #333; font-size: 15px;">Eis Agnello</strong><br>
+                            <div style="font-size: 32px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.8; color: #555;">
+                                <strong style="font-size: 15px; color: #333;">Eis Agnello</strong><br>
                                 Favoritenstrasse 11<br>
                                 76456 Kuppenheim<br>
-                                Deutschland<br>
-                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                                Deutschland
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
                                     <strong>Tel:</strong> 017656813172<br>
                                     <strong>E-Mail:</strong> eisfavorit@gmail.com
                                 </div>
                             </div>
                         </div>
-                        <div class="invoice-title" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">ANGEBOT</div>
+                        <div style="text-align: right;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); font-size: 36px; font-weight: 900; letter-spacing: -1px;">ANGEBOT</div>
+                        </div>
                     </div>
 
-                    <div class="invoice-details" style="margin-bottom: 35px;">
-                        <div style="flex: 1;">
-                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-                                <strong style="font-size: 18px; color: #667eea; display: block; margin-bottom: 15px;">${booking.company || booking.name || 'Kunde'}</strong>
-                                <div style="color: #555; line-height: 1.7; font-size: 14px;">
+                    <!-- CUSTOMER & DETAILS -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                        <div style="flex: 1; padding-right: 30px;">
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #667eea;">
+                                <div style="font-size: 11px; text-transform: uppercase; color: #667eea; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">Angebot für</div>
+                                <strong style="font-size: 17px; color: #222;">${booking.company || booking.name || 'Kunde'}</strong>
+                                <div style="margin-top: 12px; font-size: 14px; color: #555; line-height: 1.8;">
                                     ${customerAddress || 'Adresse nicht angegeben'}
                                 </div>
                             </div>
                         </div>
-                        <div style="flex: 0 0 280px; margin-left: 30px;">
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0;">
-                                <table style="width: 100%; font-size: 14px; line-height: 2;">
-                                    <tr>
-                                        <td style="color: #666;"><strong>Angebotsnummer:</strong></td>
-                                        <td style="text-align: right; color: #333; font-weight: 600;">${offerNumber}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666;"><strong>Datum:</strong></td>
-                                        <td style="text-align: right; color: #333; font-weight: 600;">${formatDate(today)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666;"><strong>Veranstaltung:</strong></td>
-                                        <td style="text-align: right; color: #667eea; font-weight: 600;">${booking.date || '-'}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #666; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Gültig bis:</strong></td>
-                                        <td style="text-align: right; color: #e74c3c; font-weight: 600; padding-top: 10px; border-top: 1px solid #ddd;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
-                                    </tr>
-                                </table>
-                            </div>
+                        <div style="flex: 0 0 280px;">
+                            <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                <tr>
+                                    <td style="color: #666; padding: 8px 0;"><strong>Angebotsnummer:</strong></td>
+                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${offerNumber}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #666; padding: 8px 0;"><strong>Erstellungsdatum:</strong></td>
+                                    <td style="text-align: right; color: #222; font-weight: 600; padding: 8px 0;">${formatDate(today)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #666; padding: 8px 0;"><strong>Veranstaltung:</strong></td>
+                                    <td style="text-align: right; color: #667eea; font-weight: 700; padding: 8px 0;">${booking.date || '-'}</td>
+                                </tr>
+                                <tr style="border-top: 2px solid #e74c3c;">
+                                    <td style="color: #666; padding: 12px 0;"><strong>Gültig bis:</strong></td>
+                                    <td style="text-align: right; color: #e74c3c; font-weight: 700; font-size: 15px; padding: 12px 0;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                </tr>
+                            </table>
                         </div>
                     </div>
 
-                    <div style="margin: 35px 0 25px 0; padding: 15px 20px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 4px;">
-                        <p style="font-size: 15px; line-height: 1.8; color: #555; margin: 0;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                    <!-- INTRO TEXT -->
+                    <div style="margin: 35px 0 30px 0; padding: 18px 25px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 6px;">
+                        <p style="font-size: 15px; color: #555; margin: 0; line-height: 1.7;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
                     </div>
 
-                    <table class="invoice-table">
+                    <!-- POSITIONS TABLE -->
+                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 13px;">
                         <thead>
-                            <tr>
-                                <th style="text-align: left;">Position</th>
-                                <th style="text-align: center;">Menge</th>
-                                <th style="text-align: right;">Einzelpreis</th>
-                                <th style="text-align: right;">Gesamt</th>
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 14px; text-align: left; font-weight: 600; letter-spacing: 0.5px;">POSITION</th>
+                                <th style="padding: 14px; text-align: center; font-weight: 600; letter-spacing: 0.5px; width: 100px;">MENGE</th>
+                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 120px;">EINZELPREIS</th>
+                                <th style="padding: 14px; text-align: right; font-weight: 600; letter-spacing: 0.5px; width: 140px;">GESAMT</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td><strong>Kugel Eis</strong><br>
-                                    <small>${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</small><br>
-                                    <small style="color: #666;">inkl. 7% MwSt.</small>
+                            <tr style="border-bottom: 1px solid #e9ecef;">
+                                <td style="padding: 14px; color: #333;">
+                                    <strong style="font-size: 14px; color: #222;">Kugel Eis</strong><br>
+                                    <span style="font-size: 12px; color: #888;">${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</span><br>
+                                    <span style="font-size: 12px; color: #888;">inkl. 7% MwSt.</span>
                                 </td>
-                                <td style="text-align: center;">${totalKugeln}</td>
-                                <td style="text-align: right;">${kugelPrice.toFixed(2)} €</td>
-                                <td style="text-align: right;"><strong>${kugelTotal.toFixed(2)} €</strong></td>
+                                <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">${totalKugeln}</td>
+                                <td style="padding: 14px; text-align: right; color: #555;">${kugelPrice.toFixed(2)} €</td>
+                                <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${kugelTotal.toFixed(2)} €</td>
                             </tr>
                             ${travelCost > 0 ? `
-                            <tr>
-                                <td><strong>Anfahrt & Service Pauschale</strong><br>
-                                    <small>Entfernung: ${distance.toFixed(0)} km</small><br>
-                                    <small style="color: #666;">zzgl. 7% MwSt.</small>
+                            <tr style="border-bottom: 1px solid #e9ecef;">
+                                <td style="padding: 14px; color: #333;">
+                                    <strong style="font-size: 14px; color: #222;">Anfahrt & Service Pauschale</strong><br>
+                                    <span style="font-size: 12px; color: #888;">Entfernung: ${distance.toFixed(0)} km</span><br>
+                                    <span style="font-size: 12px; color: #888;">zzgl. 7% MwSt.</span>
                                 </td>
-                                <td style="text-align: center;">1</td>
-                                <td style="text-align: right;">${travelCost.toFixed(2)} €</td>
-                                <td style="text-align: right;"><strong>${travelCost.toFixed(2)} €</strong></td>
+                                <td style="padding: 14px; text-align: center; color: #555; font-weight: 600;">1</td>
+                                <td style="padding: 14px; text-align: right; color: #555;">${travelCost.toFixed(2)} €</td>
+                                <td style="padding: 14px; text-align: right; font-weight: 700; color: #333; font-size: 14px;">${travelCost.toFixed(2)} €</td>
                             </tr>
                             ` : ''}
                         </tbody>
