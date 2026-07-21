@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-v1';
+const CACHE_NAME = 'eisfavorite-v2-20260721';
 const urlsToCache = [
   './buchungen-uebersicht.html',
   './rechnung-erstellen.html',
