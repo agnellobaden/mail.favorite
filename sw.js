@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-invoice-checkmark-20260722-v2';
+const CACHE_NAME = 'eisfavorite-local-first-sync-20260722-v3';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',

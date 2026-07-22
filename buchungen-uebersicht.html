@@ -3161,18 +3161,33 @@
         // DATEN SPEICHERN (Firebase + LocalStorage Fallback)
         // ==========================================
 
+        /*
+         * SYNC-STRATEGIE: "Local-First mit Millisekunden-Timestamps"
+         *
+         * Ziel: JEDE lokale Änderung wird SOFORT überall synchronisiert
+         *       Die NEUESTE Änderung gewinnt IMMER (egal von welchem Gerät)
+         *
+         * Ablauf:
+         * 1. Benutzer macht Änderung → updateBookingTimestamp() setzt NEUEN Timestamp (lastModifiedMs)
+         * 2. saveToLocalStorage() speichert lokal
+         * 3. SOFORT Force-Upload zu Firebase (ignoriert alle Blocking-Flags)
+         * 4. Retry bei Fehler nach 1 Sekunde
+         *
+         * 5. Firebase Listener empfängt Änderungen von anderen Geräten:
+         *    - Pausiert während lokalem Upload (verhindert Race Conditions)
+         *    - Vergleicht lastModifiedMs (Millisekunden-genau!)
+         *    - Wenn Firebase neuer: Übernimmt Firebase-Daten
+         *    - Wenn lokal neuer: Ignoriert Firebase UND re-uploaded lokale Daten
+         *
+         * Vorteile:
+         * ✅ Lokale Änderungen haben IMMER Vorrang
+         * ✅ Keine verlorenen Updates
+         * ✅ Alle Geräte haben die neuesten Daten
+         * ✅ Konfliktlösung über Timestamps (automatisch)
+         */
+
         function saveToLocalStorage() {
             console.log('💾💾💾 SAVE TO LOCALSTORAGE AUFGERUFEN!');
-
-            // WICHTIG: Aktualisiere ALLE Timestamps VOR dem Speichern
-            // So wird garantiert, dass lokale Daten IMMER neueste Timestamps haben
-            const now = new Date();
-            allBookings.forEach(booking => {
-                if (!booking.lastModified || new Date(booking.lastModified).getTime() < now.getTime() - 1000) {
-                    updateBookingTimestamp(booking);
-                    console.log('⏰ Timestamp aktualisiert für:', booking.id?.substring(0, 20) || 'unbekannt');
-                }
-            });
 
             // Immer in LocalStorage als Backup speichern
             try {
@@ -3221,7 +3236,35 @@
             booking.lastModified = now.toISOString();
             booking.lastModifiedMs = now.getTime();
 
-            console.log('⏰ Timestamp aktualisiert:', booking.id, '→', booking.lastModified);
+            console.log('⏰ Timestamp aktualisiert:', booking.id?.substring(0, 30), '→', booking.lastModified);
+        }
+
+        // NEUE Hilfsfunktion: Aktualisiert eine einzelne Buchung und setzt Timestamp
+        // Garantiert dass JEDE Änderung einen neuen Timestamp bekommt
+        function updateBooking(bookingId, changes) {
+            console.log('🔄 UPDATE BOOKING:', bookingId?.substring(0, 30), 'Changes:', Object.keys(changes));
+
+            const bookingIndex = allBookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex === -1) {
+                console.error('❌ Buchung nicht gefunden:', bookingId);
+                return false;
+            }
+
+            const booking = allBookings[bookingIndex];
+
+            // Wende Änderungen an
+            Object.assign(booking, changes);
+
+            // WICHTIG: Setze NEUEN Timestamp (lokale Änderung hat Vorrang!)
+            updateBookingTimestamp(booking);
+
+            console.log('✅ Buchung aktualisiert:', bookingId?.substring(0, 30));
+            console.log('📍 Neue Timestamp:', booking.lastModifiedMs, new Date(booking.lastModifiedMs).toLocaleString('de-DE'));
+
+            // Speichern (lokal + Firebase)
+            saveToLocalStorage();
+
+            return true;
         }
 
         // Hilfsfunktion: Bereinigt IDs für Firebase (entfernt ungültige Zeichen)
@@ -4304,10 +4347,12 @@
                     booking.wunschsorten = document.getElementById('formWunschsorten').value;
                     booking.notizen = document.getElementById('formNotizen').value;
                     booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
-                    booking.aktualisiertAm = updatedDate;
 
                     // Entferne "Neu eingetroffen" Markierung wenn bearbeitet
                     booking.isNewFromEmail = false;
+
+                    // WICHTIG: Timestamp aktualisieren (lokale Änderung!)
+                    updateBookingTimestamp(booking);
 
                     alert('✓ Buchung wurde aktualisiert!');
                 }
@@ -4344,6 +4389,9 @@
                     erstelltAm: updatedDate,
                     aktualisiertAm: updatedDate
                 };
+
+                // WICHTIG: Timestamp für neue Buchung setzen
+                updateBookingTimestamp(newBooking);
 
                 allBookings.push(newBooking);
                 alert('✓ Neue Buchung wurde erstellt!');
@@ -5414,10 +5462,11 @@
             }
 
             if (confirm(`Rechnung für ${booking.name} als bezahlt markieren?`)) {
+                console.log('💰💰💰 MARKIERE ALS BEZAHLT:', bookingId);
+
                 booking.status = 'Bezahlte Rechnung';
                 booking.invoicePaid = true;
                 booking.invoicePaidDate = new Date().toISOString();
-                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
                 // Wenn kein invoiceAmount vorhanden, berechne den Betrag
                 if (!booking.invoiceAmount) {
@@ -5451,6 +5500,9 @@
                     booking.invoiceSent = true;
                     booking.invoiceSentDate = booking.invoicePaidDate;
                 }
+
+                // WICHTIG: Timestamp aktualisieren (lokale Änderung!)
+                updateBookingTimestamp(booking);
 
                 saveToLocalStorage();
                 updateStats();
@@ -6521,16 +6573,28 @@
 
                     // 1. Füge alle Firebase-Buchungen zur Map hinzu
                     firebaseBookings.forEach(fbBooking => {
+                        // WICHTIG: Nutze lastModifiedMs für präzisen Vergleich (Millisekunden-genau!)
+                        const fbTimestamp = fbBooking.lastModifiedMs ||
+                                           (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0) ||
+                                           (fbBooking.aktualisiertAm ? parseDate(fbBooking.aktualisiertAm).getTime() : 0);
+
                         bookingsMap.set(fbBooking.id, {
                             data: fbBooking,
-                            timestamp: new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime(),
+                            timestamp: fbTimestamp,
                             source: 'firebase'
                         });
+
+                        console.log('📥 Firebase:', fbBooking.id?.substring(0, 20), 'Timestamp:', fbTimestamp, new Date(fbTimestamp).toLocaleString('de-DE'));
                     });
 
                     // 2. Vergleiche mit lokalen Buchungen
                     allBookings.forEach(localBooking => {
-                        const localTimestamp = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
+                        // WICHTIG: Nutze lastModifiedMs für präzisen Vergleich!
+                        const localTimestamp = localBooking.lastModifiedMs ||
+                                              (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0) ||
+                                              (localBooking.aktualisiertAm ? parseDate(localBooking.aktualisiertAm).getTime() : 0);
+
+                        console.log('💾 Lokal:', localBooking.id?.substring(0, 20), 'Timestamp:', localTimestamp, new Date(localTimestamp).toLocaleString('de-DE'));
 
                         if (bookingsMap.has(localBooking.id)) {
                             // Buchung existiert in Firebase - vergleiche Timestamps
