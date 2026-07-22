@@ -3972,11 +3972,12 @@
 
                     <div class="card-header">
                         <div>
-                            <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}</div>
+                            <div class="card-title">${booking.name || 'Unbekannt'}${isNext ? ' 🔔' : ''}${booking.invoiceSent ? ' <span style="font-size: 1.3em; color: #28a745; filter: drop-shadow(0 2px 4px rgba(40, 167, 69, 0.3));" title="Rechnung versendet">✅</span>' : ''}</div>
                             <div class="card-company">${booking.company || '-'}</div>
                             <div>
                                 <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
+                                ${booking.invoicePaid ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);" title="Rechnung bezahlt">💰 BEZAHLT</span>' : ''}
                             </div>
                         </div>
                         <div class="card-date">

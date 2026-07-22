@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-n8n-integration-20260722-v1';
+const CACHE_NAME = 'eisfavorite-invoice-checkmark-20260722-v2';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
