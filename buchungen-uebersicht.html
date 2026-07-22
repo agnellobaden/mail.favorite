@@ -1336,13 +1336,6 @@
 
             .filter-section {
                 margin-bottom: 15px;
-                position: sticky !important;
-                top: 0 !important;
-                z-index: 1000 !important;
-                margin-left: -10px !important;
-                margin-right: -10px !important;
-                margin-top: -10px !important;
-                border-radius: 0 !important;
             }
 
             .filter-header {
@@ -1657,13 +1650,6 @@
 
             .filter-section {
                 padding: 8px;
-                position: sticky !important;
-                top: 0 !important;
-                z-index: 1000 !important;
-                margin-left: -8px !important;
-                margin-right: -8px !important;
-                margin-top: -8px !important;
-                border-radius: 0 !important;
             }
 
             .filter-section label {
@@ -3152,9 +3138,6 @@
                     aktualisiertAm: values[23]
                 };
 
-                // Setze präzisen Timestamp für Synchronisation
-                updateBookingTimestamp(booking);
-
                 allBookings.push(booking);
             }
 
@@ -3178,82 +3161,7 @@
         // DATEN SPEICHERN (Firebase + LocalStorage Fallback)
         // ==========================================
 
-        // Zeige kurze Sync-Benachrichtigung
-        function showSyncNotification(message, type = 'success') {
-            // Erstelle Notification-Element wenn nicht vorhanden
-            let notification = document.getElementById('syncNotification');
-            if (!notification) {
-                notification = document.createElement('div');
-                notification.id = 'syncNotification';
-                notification.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    padding: 15px 20px;
-                    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-                    color: white;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                    font-weight: 600;
-                    font-size: 14px;
-                    z-index: 100000;
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                    pointer-events: none;
-                `;
-                document.body.appendChild(notification);
-            }
-
-            // Farbe je nach Typ
-            if (type === 'error') {
-                notification.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
-            } else if (type === 'info') {
-                notification.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            } else {
-                notification.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
-            }
-
-            // Zeige Nachricht
-            notification.textContent = message;
-            notification.style.opacity = '1';
-
-            // Nach 3 Sekunden ausblenden
-            setTimeout(() => {
-                notification.style.opacity = '0';
-            }, 3000);
-        }
-
-        // Hilfsfunktion: Setzt präzisen Timestamp für Synchronisation
-        function updateBookingTimestamp(booking) {
-            const now = new Date();
-
-            // Deutsches Datumsformat für Anzeige
-            booking.aktualisiertAm = now.toLocaleDateString('de-DE', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-
-            // ISO-Timestamp für präzise Synchronisation (Millisekunden-genau)
-            booking.lastModified = now.toISOString();
-            booking.lastModifiedMs = now.getTime(); // Für noch schnelleren Vergleich
-
-            console.log('⏰ Timestamp aktualisiert:', booking.id, '→', booking.lastModified);
-        }
-
         function saveToLocalStorage() {
-            console.log('💾💾💾 SAVE TO LOCALSTORAGE AUFGERUFEN!');
-
-            // WICHTIG: Aktualisiere ALLE Timestamps VOR dem Speichern
-            // So wird garantiert, dass lokale Daten IMMER neueste Timestamps haben
-            const now = new Date();
-            allBookings.forEach(booking => {
-                if (!booking.lastModified || new Date(booking.lastModified).getTime() < now.getTime() - 1000) {
-                    updateBookingTimestamp(booking);
-                    console.log('⏰ Timestamp aktualisiert für:', booking.id?.substring(0, 20) || 'unbekannt');
-                }
-            });
-
             // Immer in LocalStorage als Backup speichern
             try {
                 localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
@@ -3262,26 +3170,17 @@
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, INSTANT FORCE-Upload
+            // Wenn Firebase aktiviert ist, auch dort speichern (NICHT-BLOCKIEREND im Hintergrund)
             if (firebaseInitialized && db) {
-                console.log('⚡⚡⚡ INSTANT FORCE-Upload JETZT!');
-
-                // FORCE-Upload: Ignoriert ALLE Flags komplett
-                saveToFirebase(true).then(() => {
-                    console.log('✅✅✅ INSTANT Upload ERFOLGREICH!');
-                    showSyncNotification('✅ Sofort synchronisiert');
+                console.log('🚀 Starte Firebase-Upload im Hintergrund für ' + allBookings.length + ' Buchungen...');
+                // Verwende Promise ohne await, damit es nicht blockiert
+                saveToFirebase().then(() => {
+                    console.log('✅ Firebase-Upload erfolgreich abgeschlossen!');
                 }).catch((e) => {
-                    console.error('❌❌❌ INSTANT Upload FEHLER:', e);
-                    showSyncNotification('⚠️ Sync-Fehler', 'error');
-
-                    // Retry nach 1 Sekunde
-                    setTimeout(() => {
-                        console.log('🔄 Retry Upload nach Fehler...');
-                        saveToFirebase(true);
-                    }, 1000);
+                    console.error('❌ Firebase-Upload fehlgeschlagen:', e);
                 });
             } else {
-                console.log('⚠️ Firebase nicht verfügbar');
+                console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
             }
 
             // App-Zustand auch speichern
@@ -3317,7 +3216,7 @@
         let firebaseSaveTimeout = null;
         let hasPendingFirebaseUpload = false;
 
-        async function saveToFirebase(forceUpload = false) {
+        async function saveToFirebase() {
             if (!firebaseInitialized || !db) {
                 console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
                 console.error('firebaseInitialized:', firebaseInitialized);
@@ -3325,15 +3224,15 @@
                 return;
             }
 
-            // NEUE LOGIK: Wenn bereits ein Upload läuft UND es kein Force-Upload ist, warte
-            if (isUpdatingFromFirebase && !forceUpload) {
+            // Wenn bereits ein Upload läuft, markiere dass ein weiterer Upload pending ist
+            if (isUpdatingFromFirebase) {
                 hasPendingFirebaseUpload = true;
                 console.log('⏳ Upload läuft bereits - wird nach Abschluss wiederholt');
                 return;
             }
 
             console.log('💾 ==========================================');
-            console.log('💾 STARTE FIREBASE-UPLOAD' + (forceUpload ? ' (FORCE)' : ''));
+            console.log('💾 STARTE FIREBASE-UPLOAD');
             console.log('💾 Anzahl Buchungen:', allBookings.length);
             console.log('💾 Zeitpunkt:', new Date().toLocaleTimeString());
             console.log('💾 ==========================================');
@@ -3843,22 +3742,7 @@
                         return bDateTime - aDateTime; // Neueste vergangene zuerst
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
-                    // Wenn gefiltert, sortiere chronologisch:
-                    // - Zukünftige Termine: Nächste zuerst (aufsteigend)
-                    // - Vergangene Termine: Neueste zuerst (absteigend)
-                    const aIsFuture = aDateTime >= now;
-                    const bIsFuture = bDateTime >= now;
-
-                    // Zukünftige Termine kommen vor vergangenen
-                    if (aIsFuture && !bIsFuture) return -1;
-                    if (!aIsFuture && bIsFuture) return 1;
-
-                    // Beide zukünftig: Nächste zuerst (aufsteigend)
-                    if (aIsFuture && bIsFuture) {
-                        return aDateTime - bDateTime;
-                    }
-
-                    // Beide vergangen: Neueste zuerst (absteigend)
+                    // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
                     return bDateTime - aDateTime;
                 }
 
@@ -4038,14 +3922,6 @@
                             ${booking.status === 'Rechnung versendet' ? `
                             <button class="card-menu-item paid" onclick="markAsPaid('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💰 Als bezahlt markieren
-                            </button>
-                            <button class="card-menu-item" onclick="undoInvoiceSent('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800; font-weight: 600;">
-                                🔙 Rückgängig: Rechnung versendet
-                            </button>
-                            ` : ''}
-                            ${booking.status === 'Bezahlte Rechnung' ? `
-                            <button class="card-menu-item" onclick="undoInvoicePaid('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800; font-weight: 600;">
-                                🔙 Rückgängig: Bezahlt
                             </button>
                             ` : ''}
                             <button class="card-menu-item" onclick="openTally('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #28a745;">
@@ -4392,9 +4268,6 @@
                     booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
                     booking.aktualisiertAm = updatedDate;
 
-                    // Setze präzisen Timestamp für Synchronisation
-                    updateBookingTimestamp(booking);
-
                     // Entferne "Neu eingetroffen" Markierung wenn bearbeitet
                     booking.isNewFromEmail = false;
 
@@ -4433,9 +4306,6 @@
                     erstelltAm: updatedDate,
                     aktualisiertAm: updatedDate
                 };
-
-                // Setze präzisen Timestamp für Synchronisation
-                updateBookingTimestamp(newBooking);
 
                 allBookings.push(newBooking);
                 alert('✓ Neue Buchung wurde erstellt!');
@@ -5066,7 +4936,7 @@
                 };
 
                 currentInvoiceBooking.rechnungUrl = `Rechnung ${invoiceNumber} vom ${invoiceDate}`;
-                updateBookingTimestamp(currentInvoiceBooking);
+                currentInvoiceBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
                 saveToLocalStorage();
                 updateStats();
@@ -5133,14 +5003,10 @@
             html2pdf().set(opt).from(element).save().then(() => {
                 // Status auf "Rechnung versendet" setzen
                 if (currentInvoiceBooking) {
-                    // Vorherigen Status speichern für Rückgängig-Funktion
-                    currentInvoiceBooking.previousStatus = currentInvoiceBooking.status;
                     currentInvoiceBooking.status = 'Rechnung versendet';
                     currentInvoiceBooking.rechnungUrl = `Rechnung ${invoiceNumber} vom ${invoiceDate}`;
-                    currentInvoiceBooking.invoiceSentDate = new Date().toISOString();
-                    updateBookingTimestamp(currentInvoiceBooking);
+                    currentInvoiceBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     saveToLocalStorage();
-                    saveToFirebase();
                     updateStats();
                     filterAndDisplay();
                 }
@@ -5151,21 +5017,17 @@
 
                 const subject = `Rechnung ${invoiceNumber} - EisFavorite`;
                 const body =
-                    `Hallo ${customerName},\n\n` +
-                    `vielen Dank für Ihre Buchung! Es hat uns sehr gefreut, bei Ihrer Veranstaltung dabei zu sein.\n\n` +
-                    `Anbei finden Sie die Rechnung ${invoiceNumber} vom ${new Date(invoiceDate).toLocaleDateString('de-DE')} als PDF-Anhang.\n\n` +
-                    `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
-                    `Wir würden uns sehr über eine Google-Rezension freuen:\n` +
-                    `https://search.google.com/local/writereview?placeid=ChIJMvjvk88_l0cRCzry49wHtzk\n\n` +
-                    `Bei Fragen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
+                    `Sehr geehrte/r ${customerName},\n\n` +
+                    `vielen Dank für Ihren Auftrag!\n\n` +
+                    `Anbei erhalten Sie die Rechnung ${invoiceNumber} vom ${new Date(invoiceDate).toLocaleDateString('de-DE')}.\n\n` +
+                    `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
                     `Ihr EisFavorite Team\n\n` +
                     `---\n` +
                     `Eis Agnello\n` +
                     `Favoritenstrasse 11\n` +
                     `76456 Kuppenheim\n` +
-                    `Tel: +49 176 56813172\n` +
-                    `E-Mail: eisfavorit@gmail.com`;
+                    `Tel: +49 176 56813172`;
 
                 // Gmail Compose URL mit authuser Parameter für spezifisches Gmail-Konto
                 const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(customerEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -5182,7 +5044,8 @@
                         'WICHTIG:\n' +
                         '1. Stelle sicher, dass du bei eisfavorit@gmail.com angemeldet bist\n' +
                         '2. Die heruntergeladene PDF-Datei muss manuell als Anhang hinzugefügt werden\n' +
-                        '3. Überprüfe die E-Mail und sende sie ab'
+                        '3. Empfänger: ' + (customerEmail || '[Keine E-Mail-Adresse]') + '\n' +
+                        '4. Überprüfe die E-Mail und sende sie ab'
                     );
                 }, 1000);
             });
@@ -5460,23 +5323,15 @@
             // PDF generieren und dann E-Mail öffnen
             html2pdf().set(opt).from(element).output('blob').then(function(blob) {
                 // E-Mail-Text vorbereiten
-                const subject = `Angebot für Ihre Veranstaltung - EisFavorite`;
-                const body =
-                    `Hallo ${customerName},\n\n` +
-                    `vielen Dank für Ihre Anfrage! Wir freuen uns sehr über Ihr Interesse an EisFavorite.\n\n` +
-                    `Anbei finden Sie unser individuelles Angebot für Ihre Veranstaltung als PDF-Anhang.\n\n` +
-                    `Bitte hängen Sie die heruntergeladene PDF-Datei manuell an diese E-Mail an, bevor Sie sie versenden.\n\n` +
-                    `Bei Fragen oder Änderungswünschen stehen wir Ihnen jederzeit gerne zur Verfügung.\n\n` +
-                    `Wir würden uns sehr über eine Google-Rezension freuen:\n` +
-                    `https://search.google.com/local/writereview?placeid=ChIJMvjvk88_l0cRCzry49wHtzk\n\n` +
+                const subject = encodeURIComponent(`Angebot für Ihre Veranstaltung - EisFavorite`);
+                const body = encodeURIComponent(
+                    `Sehr geehrte Damen und Herren,\n\n` +
+                    `vielen Dank für Ihre Anfrage!\n\n` +
+                    `Im Anhang finden Sie unser Angebot für Ihre Veranstaltung.\n\n` +
+                    `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
-                    `Ihr EisFavorite Team\n\n` +
-                    `---\n` +
-                    `Eis Agnello\n` +
-                    `Favoritenstrasse 11\n` +
-                    `76456 Kuppenheim\n` +
-                    `Tel: +49 176 56813172\n` +
-                    `E-Mail: eisfavorit@gmail.com`;
+                    `Ihr EisFavorite Team`
+                );
 
                 // Zuerst PDF herunterladen
                 const link = document.createElement('a');
@@ -5484,20 +5339,14 @@
                 link.download = `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`;
                 link.click();
 
-                // Gmail Compose URL
-                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-                // Gmail öffnen
+                // Dann E-Mail-Client öffnen
                 setTimeout(() => {
-                    window.open(gmailUrl, '_blank');
+                    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
 
                     alert(
                         `✓ PDF wurde heruntergeladen!\n\n` +
-                        `✓ Gmail wird in einem neuen Tab geöffnet.\n\n` +
-                        `WICHTIG:\n` +
-                        `1. Stelle sicher, dass du bei eisfavorit@gmail.com angemeldet bist\n` +
-                        `2. Die heruntergeladene PDF-Datei muss manuell als Anhang hinzugefügt werden\n` +
-                        `3. Überprüfe die E-Mail und sende sie ab`
+                        `📧 E-Mail-Programm wird geöffnet...\n\n` +
+                        `Bitte hänge das heruntergeladene PDF manuell an die E-Mail an.`
                     );
                 }, 500);
             });
@@ -5527,12 +5376,10 @@
             }
 
             if (confirm(`Rechnung für ${booking.name} als bezahlt markieren?`)) {
-                // Vorherigen Status speichern für Rückgängig-Funktion
-                booking.previousStatus = booking.status;
                 booking.status = 'Bezahlte Rechnung';
                 booking.invoicePaid = true;
                 booking.invoicePaidDate = new Date().toISOString();
-                updateBookingTimestamp(booking);
+                booking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
                 // Wenn kein invoiceAmount vorhanden, berechne den Betrag
                 if (!booking.invoiceAmount) {
@@ -5567,61 +5414,11 @@
                     booking.invoiceSentDate = booking.invoicePaidDate;
                 }
 
-                console.log('💰💰💰 MARKIERE ALS BEZAHLT:', bookingId);
                 saveToLocalStorage();
                 updateStats();
                 filterAndDisplay();
 
                 alert('✓ Rechnung wurde als bezahlt markiert!\n\nBetrag: ' + booking.invoiceAmount);
-            }
-        }
-
-        // Status "Rechnung versendet" rückgängig machen
-        function undoInvoiceSent(bookingId) {
-            const booking = allBookings.find(b => b.id === bookingId);
-            if (!booking) {
-                alert('Buchung nicht gefunden!');
-                return;
-            }
-
-            if (confirm(`Status "Rechnung versendet" für ${booking.name} rückgängig machen?`)) {
-                // Auf vorherigen Status zurücksetzen
-                booking.status = booking.previousStatus || 'Gebucht';
-                delete booking.invoiceSentDate;
-                delete booking.rechnungUrl;
-                updateBookingTimestamp(booking);
-
-                console.log('🔙🔙🔙 RÜCKGÄNGIG RECHNUNG VERSENDET:', bookingId);
-                saveToLocalStorage();
-                updateStats();
-                filterAndDisplay();
-
-                alert('✓ Status wurde zurückgesetzt auf: ' + booking.status);
-            }
-        }
-
-        // Status "Bezahlte Rechnung" rückgängig machen
-        function undoInvoicePaid(bookingId) {
-            const booking = allBookings.find(b => b.id === bookingId);
-            if (!booking) {
-                alert('Buchnung nicht gefunden!');
-                return;
-            }
-
-            if (confirm(`Status "Bezahlte Rechnung" für ${booking.name} rückgängig machen?`)) {
-                // Auf vorherigen Status zurücksetzen
-                booking.status = booking.previousStatus || 'Rechnung versendet';
-                booking.invoicePaid = false;
-                delete booking.invoicePaidDate;
-                delete booking.invoiceAmount;
-                updateBookingTimestamp(booking);
-
-                console.log('🔙🔙🔙 RÜCKGÄNGIG BEZAHLT:', bookingId);
-                saveToLocalStorage();
-                updateStats();
-                filterAndDisplay();
-
-                alert('✓ Status wurde zurückgesetzt auf: ' + booking.status);
             }
         }
 
@@ -5920,9 +5717,6 @@
                 timestamp: new Date().toISOString()
             });
 
-            // Timestamp der Buchung aktualisieren
-            updateBookingTimestamp(currentEmailChatBooking);
-
             // Felder zurücksetzen
             document.getElementById('emailSubject').value = '';
             document.getElementById('emailMessage').value = '';
@@ -6044,7 +5838,9 @@
             });
 
             // Aktualisiere Timestamp für Sync
-            updateBookingTimestamp(booking);
+            const now = new Date();
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+            booking.aktualisiertAm = updatedDate;
 
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
@@ -6087,13 +5883,13 @@
                 return;
             }
 
-            // Gmail öffnen mit vorausgefüllten Daten
+            // E-Mail-Client öffnen mit vorausgefüllten Daten
             const subject = 'Eisfavorite';
             const body = message.trim();
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(booking.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const mailtoLink = `mailto:${booking.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-            // Gmail öffnen in neuem Tab
-            window.open(gmailUrl, '_blank');
+            // E-Mail-Client öffnen
+            window.location.href = mailtoLink;
 
             // Nachricht im Chat speichern
             if (!booking.emailHistory) {
@@ -6107,7 +5903,9 @@
             });
 
             // Aktualisiere Timestamp für Sync
-            updateBookingTimestamp(booking);
+            const now = new Date();
+            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+            booking.aktualisiertAm = updatedDate;
 
             // Felder zurücksetzen
             document.getElementById('formEmailMessage').value = '';
@@ -6615,15 +6413,7 @@
                     return;
                 }
 
-                // KRITISCH: Während Upload KOMPLETT pausieren - sonst Überschreiben-Gefahr!
-                if (isUpdatingFromFirebase) {
-                    console.log('⏸️⏸️⏸️ UPLOAD LÄUFT - Listener KOMPLETT pausiert!');
-                    return;
-                }
-
-                // NEUES FLAG-MANAGEMENT: Nur kurz blockieren, nicht dauerhaft
                 // Flag setzen, um Endlos-Loop zu vermeiden
-                const wasBlocked = isUpdatingFromFirebase;
                 isUpdatingFromFirebase = true;
 
                 const firebaseBookings = [];
@@ -6680,46 +6470,31 @@
                 if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
                     console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
 
-                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt IMMER (Millisekunden-genau)
+                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt immer (egal von welchem Gerät)
                     const bookingsMap = new Map();
                     let hasUpdates = false;
                     let shouldUploadNew = false;
 
                     // 1. Füge alle Firebase-Buchungen zur Map hinzu
                     firebaseBookings.forEach(fbBooking => {
-                        // Verwende präzisen ISO-Timestamp, fallback auf alte Methode
-                        const timestamp = fbBooking.lastModifiedMs ||
-                                        (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0) ||
-                                        new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime();
-
                         bookingsMap.set(fbBooking.id, {
                             data: fbBooking,
-                            timestamp: timestamp,
+                            timestamp: new Date(fbBooking.aktualisiertAm || fbBooking.erstelltAm || 0).getTime(),
                             source: 'firebase'
                         });
-
-                        console.log('📥 Firebase:', fbBooking.id.substring(0, 20), '→ Timestamp:', timestamp, '→', new Date(timestamp).toLocaleString('de-DE'));
                     });
 
                     // 2. Vergleiche mit lokalen Buchungen
                     allBookings.forEach(localBooking => {
-                        // Verwende präzisen ISO-Timestamp, fallback auf alte Methode
-                        const localTimestamp = localBooking.lastModifiedMs ||
-                                              (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0) ||
-                                              new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
+                        const localTimestamp = new Date(localBooking.aktualisiertAm || localBooking.erstelltAm || 0).getTime();
 
                         if (bookingsMap.has(localBooking.id)) {
                             // Buchung existiert in Firebase - vergleiche Timestamps
                             const fbEntry = bookingsMap.get(localBooking.id);
 
-                            console.log('🔍 Vergleich für:', localBooking.id.substring(0, 20));
-                            console.log('   Lokal:', localTimestamp, '→', new Date(localTimestamp).toLocaleString('de-DE'));
-                            console.log('   Firebase:', fbEntry.timestamp, '→', new Date(fbEntry.timestamp).toLocaleString('de-DE'));
-
                             if (localTimestamp > fbEntry.timestamp) {
                                 // LOKALE Version ist NEUER - verwende lokale und markiere für Upload
-                                const diff = localTimestamp - fbEntry.timestamp;
-                                console.log('✅ LOKALE VERSION GEWINNT! (' + diff + 'ms neuer) → Wird hochgeladen:', localBooking.id.substring(0, 30));
+                                console.log('📤 Lokale Version ist neuer, wird hochgeladen:', localBooking.id);
                                 bookingsMap.set(localBooking.id, {
                                     data: localBooking,
                                     timestamp: localTimestamp,
@@ -6729,12 +6504,10 @@
                                 hasUpdates = true;
                             } else if (localTimestamp < fbEntry.timestamp) {
                                 // Firebase-Version ist NEUER - wurde schon zur Map hinzugefügt
-                                const diff = fbEntry.timestamp - localTimestamp;
-                                console.log('⬇️ FIREBASE VERSION GEWINNT! (' + diff + 'ms neuer) → Übernehme von Firebase:', localBooking.id.substring(0, 30));
+                                console.log('🔄 Firebase-Version ist neuer:', localBooking.id);
                                 hasUpdates = true;
-                            } else {
-                                console.log('⚖️ Identische Timestamps - behalte Firebase-Version');
                             }
+                            // Wenn Timestamps gleich sind, behalte Firebase-Version
                         } else {
                             // Buchung ist nur lokal, nicht in Firebase
                             const ageInSeconds = (Date.now() - localTimestamp) / 1000;
@@ -6938,7 +6711,13 @@
 
             // Aktualisiere den Status
             allBookings[bookingIndex].status = 'Gebucht';
-            updateBookingTimestamp(allBookings[bookingIndex]);
+            allBookings[bookingIndex].aktualisiertAm = new Date().toLocaleString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
 
             console.log('✓ Status geändert zu: Gebucht');
 
@@ -7087,15 +6866,32 @@
                 }, 1000);
             }
 
-            // WICHTIG: IMMER zuerst lokale Daten laden!
-            // Lokale Daten können neuer sein als Firebase
-            console.log('📂 Lade IMMER zuerst lokale Daten (können neuer sein!)');
-            loadFromLocalStorage();
-
-            // Firebase-Sync läuft im Hintergrund und merged automatisch
-            // Der Listener und das Polling sorgen dafür dass neueste Daten synchronisiert werden
+            // WICHTIG: Wenn Firebase aktiv ist, warte auf erste Daten von Firebase
+            // NUR wenn Firebase nicht verfügbar, lade aus LocalStorage
             if (firebaseInitialized && db) {
-                console.log('🔄 Firebase-Sync läuft im Hintergrund und merged automatisch');
+                console.log('⏳ Warte auf Firebase-Daten...');
+                // Warte max 3 Sekunden auf Firebase-Daten
+                await new Promise((resolve) => {
+                    const timeout = setTimeout(() => {
+                        console.log('⚠️ Firebase-Timeout - verwende LocalStorage als Fallback');
+                        loadFromLocalStorage();
+                        resolve();
+                    }, 3000);
+
+                    // Der Listener wird die Daten laden
+                    const checkInterval = setInterval(() => {
+                        if (allBookings.length > 0 || !firebaseInitialized) {
+                            clearTimeout(timeout);
+                            clearInterval(checkInterval);
+                            console.log('✓ Firebase-Daten geladen:', allBookings.length, 'Buchungen');
+                            resolve();
+                        }
+                    }, 100);
+                });
+            } else {
+                // Kein Firebase - lade aus LocalStorage
+                console.log('📂 Lade aus LocalStorage (Firebase nicht verfügbar)');
+                loadFromLocalStorage();
             }
 
             // App-Zustand wiederherstellen
@@ -7131,114 +6927,6 @@
             // Status-Anzeige aktualisieren
             if (!firebaseInitialized) {
                 updateFirebaseStatus('error', '🔴 Nur lokaler Modus');
-            }
-
-            // ==========================================
-            // ULTRA-AGGRESSIVER BIDIREKTIONALER SYNC-MECHANISMUS
-            // ==========================================
-            // Garantiert dass Änderungen in BEIDE Richtungen synchronisiert werden
-            if (firebaseInitialized && db) {
-                console.log('⏰ Starte ULTRA-AGGRESSIVEN Bidirektionalen Sync (JEDE SEKUNDE)');
-
-                setInterval(async () => {
-                    if (isUpdatingFromFirebase) {
-                        console.log('⏸️ Sync läuft bereits - überspringe diesen Cycle');
-                        return;
-                    }
-
-                    console.log('🔄 Periodischer Sync: PUSH (Upload) + PULL (Download)');
-
-                    // 1. PUSH: Lokale Änderungen hochladen
-                    const localData = localStorage.getItem('eisfavorite_bookings');
-                    if (localData) {
-                        const localBookings = JSON.parse(localData);
-                        if (localBookings.length > 0) {
-                            console.log('📤 PUSH: Uploade lokale Daten');
-                            await saveToFirebase(true).catch(err => {
-                                console.error('❌ PUSH fehlgeschlagen:', err);
-                            });
-                        }
-                    }
-
-                    // 2. PULL: Firebase-Daten aktiv abholen (zusätzlich zum Listener)
-                    try {
-                        console.log('📥 PULL: Hole aktuelle Firebase-Daten');
-                        const snapshot = await db.collection('buchungen').get();
-
-                        if (snapshot.empty) {
-                            console.log('📥 Firebase ist leer');
-                            return;
-                        }
-
-                        const firebaseBookings = [];
-                        snapshot.forEach(doc => {
-                            firebaseBookings.push({ ...doc.data(), id: doc.id });
-                        });
-
-                        // Vergleiche mit lokalen Daten
-                        let needsUpdate = false;
-
-                        // Prüfe ob Firebase neuere Daten hat
-                        firebaseBookings.forEach(fbBooking => {
-                            const localBooking = allBookings.find(b => b.id === fbBooking.id);
-
-                            if (!localBooking) {
-                                console.log('🆕 Neue Buchung in Firebase gefunden:', fbBooking.id);
-                                needsUpdate = true;
-                            } else {
-                                // Timestamp-Vergleich
-                                const fbTimestamp = fbBooking.lastModifiedMs ||
-                                                   (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0);
-                                const localTimestamp = localBooking.lastModifiedMs ||
-                                                      (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0);
-
-                                if (fbTimestamp > localTimestamp) {
-                                    console.log('🔄 Firebase hat neuere Version von:', fbBooking.id);
-                                    needsUpdate = true;
-                                }
-                            }
-                        });
-
-                        if (needsUpdate) {
-                            console.log('✅ PULL: Aktualisiere lokale Daten von Firebase');
-
-                            // Merge Firebase-Daten in lokale Daten
-                            const mergedBookings = [...allBookings];
-
-                            firebaseBookings.forEach(fbBooking => {
-                                const existingIndex = mergedBookings.findIndex(b => b.id === fbBooking.id);
-
-                                if (existingIndex === -1) {
-                                    // Neue Buchung hinzufügen
-                                    mergedBookings.push(fbBooking);
-                                } else {
-                                    // Prüfe welche Version neuer ist
-                                    const fbTimestamp = fbBooking.lastModifiedMs || 0;
-                                    const localTimestamp = mergedBookings[existingIndex].lastModifiedMs || 0;
-
-                                    if (fbTimestamp > localTimestamp) {
-                                        // Firebase-Version ist neuer
-                                        mergedBookings[existingIndex] = fbBooking;
-                                    }
-                                }
-                            });
-
-                            // Aktualisiere allBookings und UI
-                            allBookings = mergedBookings;
-                            localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-
-                            updateStats();
-                            filterAndDisplay();
-
-                            console.log('✅✅✅ UI MIT NEUEN DATEN AKTUALISIERT!');
-                            showSyncNotification('🔄 Neue Daten empfangen', 'info');
-                        } else {
-                            console.log('✅ Daten bereits synchron');
-                        }
-                    } catch (err) {
-                        console.error('❌ PULL fehlgeschlagen:', err);
-                    }
-                }, 1000); // JEDE SEKUNDE für maximale Geschwindigkeit!
             }
         });
 
