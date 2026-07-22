@@ -3162,6 +3162,18 @@
         // ==========================================
 
         function saveToLocalStorage() {
+            console.log('💾💾💾 SAVE TO LOCALSTORAGE AUFGERUFEN!');
+
+            // WICHTIG: Aktualisiere ALLE Timestamps VOR dem Speichern
+            // So wird garantiert, dass lokale Daten IMMER neueste Timestamps haben
+            const now = new Date();
+            allBookings.forEach(booking => {
+                if (!booking.lastModified || new Date(booking.lastModified).getTime() < now.getTime() - 1000) {
+                    updateBookingTimestamp(booking);
+                    console.log('⏰ Timestamp aktualisiert für:', booking.id?.substring(0, 20) || 'unbekannt');
+                }
+            });
+
             // Immer in LocalStorage als Backup speichern
             try {
                 localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
@@ -3170,21 +3182,46 @@
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, auch dort speichern (NICHT-BLOCKIEREND im Hintergrund)
+            // Wenn Firebase aktiviert ist, INSTANT FORCE-Upload
             if (firebaseInitialized && db) {
-                console.log('🚀 Starte Firebase-Upload im Hintergrund für ' + allBookings.length + ' Buchungen...');
-                // Verwende Promise ohne await, damit es nicht blockiert
-                saveToFirebase().then(() => {
-                    console.log('✅ Firebase-Upload erfolgreich abgeschlossen!');
+                console.log('⚡⚡⚡ INSTANT FORCE-Upload JETZT!');
+
+                // FORCE-Upload: Ignoriert ALLE Flags komplett
+                saveToFirebase(true).then(() => {
+                    console.log('✅✅✅ INSTANT Upload ERFOLGREICH!');
                 }).catch((e) => {
-                    console.error('❌ Firebase-Upload fehlgeschlagen:', e);
+                    console.error('❌❌❌ INSTANT Upload FEHLER:', e);
+
+                    // Retry nach 1 Sekunde
+                    setTimeout(() => {
+                        console.log('🔄 Retry Upload nach Fehler...');
+                        saveToFirebase(true);
+                    }, 1000);
                 });
             } else {
-                console.log('⚠️ Firebase nicht verfügbar - nur LocalStorage gespeichert');
+                console.log('⚠️ Firebase nicht verfügbar');
             }
 
             // App-Zustand auch speichern
             saveAppState();
+        }
+
+        // Timestamp-Update-Funktion
+        function updateBookingTimestamp(booking) {
+            const now = new Date();
+
+            // Deutsches Datumsformat für Anzeige
+            booking.aktualisiertAm = now.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+
+            // ISO-Timestamp für präzise Synchronisation (Millisekunden-genau)
+            booking.lastModified = now.toISOString();
+            booking.lastModifiedMs = now.getTime();
+
+            console.log('⏰ Timestamp aktualisiert:', booking.id, '→', booking.lastModified);
         }
 
         // Hilfsfunktion: Bereinigt IDs für Firebase (entfernt ungültige Zeichen)
@@ -3216,7 +3253,7 @@
         let firebaseSaveTimeout = null;
         let hasPendingFirebaseUpload = false;
 
-        async function saveToFirebase() {
+        async function saveToFirebase(forceUpload = false) {
             if (!firebaseInitialized || !db) {
                 console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
                 console.error('firebaseInitialized:', firebaseInitialized);
@@ -3224,8 +3261,8 @@
                 return;
             }
 
-            // Wenn bereits ein Upload läuft, markiere dass ein weiterer Upload pending ist
-            if (isUpdatingFromFirebase) {
+            // NEUE LOGIK: Wenn bereits ein Upload läuft UND es kein Force-Upload ist, warte
+            if (isUpdatingFromFirebase && !forceUpload) {
                 hasPendingFirebaseUpload = true;
                 console.log('⏳ Upload läuft bereits - wird nach Abschluss wiederholt');
                 return;
@@ -6410,6 +6447,12 @@
                 if (isDeletingBooking) {
                     console.log('⏸️ Löschvorgang läuft - Listener übersprungen');
                     updateFirebaseStatus('connected', '🟢 Live verbunden');
+                    return;
+                }
+
+                // KRITISCH: Während Upload KOMPLETT pausieren - sonst Überschreiben-Gefahr!
+                if (isUpdatingFromFirebase) {
+                    console.log('⏸️⏸️⏸️ UPLOAD LÄUFT - Listener KOMPLETT pausiert!');
                     return;
                 }
 
