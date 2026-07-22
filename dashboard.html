@@ -330,7 +330,7 @@
         <!-- Überfällige Rechnungen -->
         <div class="section" id="overdueSection">
             <h2 class="section-title" onclick="toggleSection('overdueContent', 'overdueToggle')" style="cursor: pointer; user-select: none;">
-                ⚠️ Überfällige Rechnungen <span id="overdueToggle" style="float: right; font-size: 0.8em;">▲ Einklappen</span>
+                ⚠️ Überfällige Rechnungen <span id="overdueToggle" style="float: right; font-size: 1.2em;">▲</span>
             </h2>
             <div id="overdueContent">
             <table id="overdueTable">
@@ -351,7 +351,7 @@
         <!-- Offene Rechnungen -->
         <div class="section" id="openSection">
             <h2 class="section-title" onclick="toggleSection('openContent', 'openToggle')" style="cursor: pointer; user-select: none;">
-                📋 Offene Rechnungen (noch nicht fällig) <span id="openToggle" style="float: right; font-size: 0.8em;">▲ Einklappen</span>
+                📋 Offene Rechnungen (noch nicht fällig) <span id="openToggle" style="float: right; font-size: 1.2em;">▲</span>
             </h2>
             <div id="openContent">
             <table id="openTable">
@@ -371,7 +371,7 @@
         <!-- Events beendet (Rechnung fehlt) -->
         <div class="section" id="completedEventsSection">
             <h2 class="section-title" onclick="toggleSection('completedEventsContent', 'completedEventsToggle')" style="cursor: pointer; user-select: none;">
-                📝 Events beendet - Rechnung erstellen <span id="completedEventsToggle" style="float: right; font-size: 0.8em;">▲ Einklappen</span>
+                📝 Events beendet - Rechnung erstellen <span id="completedEventsToggle" style="float: right; font-size: 1.2em;">▲</span>
             </h2>
             <div id="completedEventsContent">
             <table id="completedEventsTable">
@@ -393,7 +393,7 @@
         <!-- Monatsumsatz -->
         <div class="section">
             <h2 class="section-title" onclick="toggleMonthlyRevenue()" style="cursor: pointer; user-select: none;">
-                📊 Monatsumsatz 2026 <span id="monthlyRevenueToggle" style="float: right; font-size: 0.8em;">▲ Einklappen</span>
+                📊 Monatsumsatz 2026 <span id="monthlyRevenueToggle" style="float: right; font-size: 1.2em;">▲</span>
             </h2>
             <div id="monthlyRevenueChart"></div>
         </div>
@@ -401,7 +401,7 @@
         <!-- Top-Kunden -->
         <div class="section" id="topCustomersSection">
             <h2 class="section-title" onclick="toggleSection('topCustomersContent', 'topCustomersToggle')" style="cursor: pointer; user-select: none;">
-                🏆 Top 5 Kunden (nach Umsatz) <span id="topCustomersToggle" style="float: right; font-size: 0.8em;">▲ Einklappen</span>
+                🏆 Top 5 Kunden (nach Umsatz) <span id="topCustomersToggle" style="float: right; font-size: 1.2em;">▲</span>
             </h2>
             <div id="topCustomersContent">
             <table id="topCustomersTable">
@@ -872,10 +872,10 @@
 
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                toggle.textContent = '▲ Einklappen';
+                toggle.textContent = '▲';
             } else {
                 content.style.display = 'none';
-                toggle.textContent = '▼ Ausklappen';
+                toggle.textContent = '▼';
             }
         }
 
