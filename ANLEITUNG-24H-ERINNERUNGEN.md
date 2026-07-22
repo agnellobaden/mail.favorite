@@ -5,12 +5,13 @@
 ### 1. **Dashboard-Karte** (Lila Karte)
 - Zeigt Anzahl der Events, die in 20-32 Stunden stattfinden
 - Status muss "Gebucht" sein
-- E-Mail muss vorhanden sein
-- Noch keine Erinnerung versendet
+- E-Mail ODER Telefon muss vorhanden sein
+- Noch keine Erinnerung versendet (weder E-Mail noch SMS)
 - **Klickbar**: Leitet zur gefilterten Buchungsübersicht
 
 ### 2. **Badge in Buchungskarten**
-- Zeigt "🔔 ERINNERUNG" wenn Erinnerung versendet wurde
+- Zeigt "📧 ERINNERUNG" wenn E-Mail versendet wurde
+- Zeigt "📱 ERINNERUNG" wenn SMS versendet wurde
 - Lila Hintergrund mit Gradient
 - Sichtbar in Kartenansicht
 
@@ -19,10 +20,11 @@
 - Zeigt alle Events mit fälligen Erinnerungen
 - Visueller Hinweis im Filter-Header (Gold)
 
-### 4. **n8n-Workflow**
-- Sendet automatisch E-Mails 24h vor dem Event
-- Markiert `emailReminderSent: true` in Firebase
-- BCC-Kopie an eisfavorit@gmail.com
+### 4. **n8n-Workflow mit E-Mail & SMS**
+- Sendet automatisch E-Mails 24h vor dem Event (wenn E-Mail vorhanden)
+- Sendet automatisch SMS 24h vor dem Event (wenn nur Telefon vorhanden)
+- Markiert `emailReminderSent: true` oder `smsReminderSent: true` in Firebase
+- BCC-Kopie an eisfavorit@gmail.com (bei E-Mails)
 
 ---
 
@@ -176,17 +178,20 @@
 2. **Firebase**: Alle Buchungen werden geladen
 3. **Filter**: Events werden geprüft:
    - Status = "Gebucht" ✅
-   - E-Mail vorhanden ✅
+   - E-Mail ODER Telefon vorhanden ✅
    - Noch keine Erinnerung gesendet ✅
    - Event findet in 20-28 Stunden statt ✅
 
 4. **Für jedes gefundene Event:**
-   - E-Mail wird an Kunden gesendet 📧
-   - BCC-Kopie an eisfavorit@gmail.com
-   - Firebase wird aktualisiert: `emailReminderSent: true`
+   - **Mit E-Mail**: E-Mail wird versendet 📧
+     - BCC-Kopie an eisfavorit@gmail.com
+     - Firebase: `emailReminderSent: true`
+   - **Nur mit Telefon**: SMS wird versendet 📱
+     - Firebase: `smsReminderSent: true`
 
 5. **Auf der Karte** erscheint:
-   - Badge "🔔 ERINNERUNG" (lila)
+   - Badge "📧 ERINNERUNG" (bei E-Mail)
+   - Badge "📱 ERINNERUNG" (bei SMS)
 
 ### Beispiel-E-Mail:
 
@@ -220,13 +225,87 @@ eisfavorit@gmail.com
 
 ### Dashboard
 - **Lila Karte**: "24h-Erinnerungen fällig"
-- Zeigt Anzahl der Events morgen
+- Zeigt Anzahl der Events morgen (mit E-Mail oder Telefon)
 - **Klickbar**: Springt zur gefilterten Ansicht
 
 ### Buchungsübersicht
-- **Badge "🔔 ERINNERUNG"**: Erscheint wenn E-Mail versendet wurde
+- **Badge "📧 ERINNERUNG"**: Erscheint wenn E-Mail versendet wurde
+- **Badge "📱 ERINNERUNG"**: Erscheint wenn SMS versendet wurde
 - **Filter**: `?filter=reminders` zeigt alle fälligen Erinnerungen
 - **Goldener Hinweis**: Im Filter-Header sichtbar
+
+---
+
+## 📱 SMS-Erinnerungen mit Twilio einrichten (Optional)
+
+Falls Kunden keine E-Mail-Adresse haben, kann das System automatisch eine SMS senden.
+
+### **Schritt 1: Twilio-Account erstellen**
+
+1. Gehe zu: **https://www.twilio.com/**
+2. Klicke **"Sign up"** (kostenloser Test-Account)
+3. Verifiziere deine E-Mail und Telefonnummer
+4. Du erhältst **Test-Credits** (ca. 15 €) kostenlos!
+
+### **Schritt 2: Twilio-Telefonnummer besorgen**
+
+1. Im Twilio Dashboard → **Phone Numbers**
+2. Klicke **"Get a Number"**
+3. Wähle ein Land (z.B. Deutschland: +49)
+4. Wähle eine Nummer mit **SMS-Capability**
+5. Klicke **"Choose this Number"**
+
+**Kosten:**
+- Nummer: ca. 1 € / Monat
+- SMS: ca. 0,06 € pro SMS
+
+### **Schritt 3: API-Credentials kopieren**
+
+1. Im Twilio Dashboard → **Account Info**
+2. Kopiere:
+   - **Account SID**: `ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+   - **Auth Token**: `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+3. Kopiere deine **Phone Number**: `+49xxxxxxxxxx`
+
+### **Schritt 4: Twilio in n8n einrichten**
+
+1. Öffne n8n Workflow
+2. Klicke auf Node **"SMS senden (Twilio)"**
+3. Bei **"Credential to connect with"** → Klicke **"Create New"**
+4. Name: **"Twilio EisFavorite"**
+5. **Account SID**: [Aus Schritt 3 einfügen]
+6. **Auth Token**: [Aus Schritt 3 einfügen]
+7. Klicke **"Save"**
+
+8. **Wichtig**: Trage deine Twilio-Nummer ein:
+   - Im Node **"SMS senden (Twilio)"**
+   - Feld **"From Number"**: `+49xxxxxxxxxx`
+
+### **Schritt 5: SMS-Nachricht anpassen (Optional)**
+
+Der SMS-Text ist kürzer als die E-Mail (SMS-Limit: 160 Zeichen):
+
+```
+Hallo {{ $json.name }}, Erinnerung an Ihren EisFavorite Termin morgen:
+📅 {{ $json.date }} um {{ $json.time }} Uhr
+📍 {{ $json.street }}, {{ $json.plz }} {{ $json.city }}
+Alles ok? Bei Fragen: eisfavorit@gmail.com
+Ihr EisFavorite Team 🍦
+```
+
+Du kannst den Text im Node **"SMS senden (Twilio)"** → Feld **"Message"** anpassen.
+
+### **Wichtig: Test-Modus vs. Live-Modus**
+
+**Test-Modus** (mit Test-Credits):
+- SMS werden NUR an **verifizierte Nummern** gesendet
+- Du musst Kunden-Nummern erst in Twilio verifizieren
+- Gut für Tests!
+
+**Live-Modus** (nach Upgrade):
+- SMS werden an ALLE Nummern gesendet
+- Keine Verifizierung nötig
+- Upgrade: **Account Settings** → **Upgrade Account**
 
 ---
 
@@ -316,14 +395,17 @@ eisfavorit@gmail.com
 
 **Was du jetzt hast:**
 ✅ Automatische 24h-Erinnerungs-E-Mails
+✅ Automatische 24h-Erinnerungs-SMS (optional, falls keine E-Mail)
 ✅ Täglich um 9:00 Uhr
 ✅ Nur für Events mit Status "Gebucht"
-✅ BCC-Kopie an eisfavorit@gmail.com
-✅ Automatische Markierung in Firebase
+✅ BCC-Kopie an eisfavorit@gmail.com (bei E-Mails)
+✅ Automatische Markierung in Firebase (`emailReminderSent` / `smsReminderSent`)
 ✅ Sichtbar im Dashboard & Buchungsübersicht
 ✅ Vollautomatisch - keine manuelle Arbeit mehr!
 
-**Kosten:** 0€ (2.500 Executions/Monat kostenlos)
+**Kosten:**
+- n8n: 0€ (2.500 Executions/Monat kostenlos)
+- Twilio SMS (optional): ca. 1€/Monat + 0,06€ pro SMS
 
 ---
 

@@ -38,13 +38,23 @@
     },
     {
       "parameters": {
-        "functionCode": "// Filtere Buchungen die in 20-28h stattfinden\nconst now = new Date();\nconst bookings = $input.all().map(item => item.json);\n\nconst toRemind = bookings.filter(booking => {\n  // Nur \"Gebucht\" Status\n  if (booking.status !== 'Gebucht') return false;\n\n  // Nur wenn E-Mail vorhanden\n  if (!booking.email) return false;\n\n  // Nur wenn noch keine Erinnerung gesendet\n  if (booking.emailReminderSent === true) return false;\n\n  // Berechne Stunden bis Event\n  if (!booking.date) return false;\n  const [day, month, year] = booking.date.split('.');\n  const eventDate = new Date(year, month - 1, day);\n\n  if (booking.time) {\n    const [hours, minutes] = booking.time.split(':');\n    eventDate.setHours(hours, minutes);\n  } else {\n    eventDate.setHours(14, 0); // Standard: 14:00 Uhr\n  }\n\n  const hoursUntil = (eventDate - now) / (1000 * 60 * 60);\n\n  // 20-28 Stunden Fenster (täglich laufen lassen!)\n  return hoursUntil >= 20 && hoursUntil <= 28;\n});\n\nconsole.log(`🔍 Gefunden: ${toRemind.length} Erinnerungen zu senden`);\n\nreturn toRemind.map(b => ({ json: b }));"
+        "functionCode": "// Filtere Buchungen die in 20-28h stattfinden\nconst now = new Date();\nconst bookings = $input.all().map(item => item.json);\n\nconst toRemind = bookings.filter(booking => {\n  // Nur \"Gebucht\" Status\n  if (booking.status !== 'Gebucht') return false;\n\n  // Muss E-Mail ODER Telefon haben\n  if (!booking.email && !booking.phone) return false;\n\n  // Nur wenn noch keine Erinnerung gesendet\n  if (booking.emailReminderSent === true || booking.smsReminderSent === true) return false;\n\n  // Berechne Stunden bis Event\n  if (!booking.date) return false;\n  const [day, month, year] = booking.date.split('.');\n  const eventDate = new Date(year, month - 1, day);\n\n  if (booking.time) {\n    const [hours, minutes] = booking.time.split(':');\n    eventDate.setHours(hours, minutes);\n  } else {\n    eventDate.setHours(14, 0); // Standard: 14:00 Uhr\n  }\n\n  const hoursUntil = (eventDate - now) / (1000 * 60 * 60);\n\n  // 20-28 Stunden Fenster (täglich laufen lassen!)\n  return hoursUntil >= 20 && hoursUntil <= 28;\n});\n\nconsole.log(`🔍 Gefunden: ${toRemind.length} Erinnerungen zu senden`);\n\nreturn toRemind.map(b => ({ json: b }));"
       },
       "id": "filter-reminders",
       "name": "Filtere: 24h vor Event",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Teile in E-Mail und SMS\nconst items = $input.all();\nconst withEmail = [];\nconst smsOnly = [];\n\nitems.forEach(item => {\n  const booking = item.json;\n  if (booking.email) {\n    withEmail.push({ json: booking });\n  } else if (booking.phone) {\n    smsOnly.push({ json: booking });\n  }\n});\n\nconsole.log(`📧 E-Mail: ${withEmail.length}, 📱 SMS: ${smsOnly.length}`);\n\nreturn [\n  withEmail,   // Output 0: Mit E-Mail\n  smsOnly      // Output 1: Nur SMS\n];"
+      },
+      "id": "split-email-sms",
+      "name": "Teile: E-Mail vs SMS",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
     },
     {
       "parameters": {
@@ -59,7 +69,7 @@
       "name": "E-Mail senden",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [850, 300],
+      "position": [1050, 200],
       "credentials": {
         "gmailOAuth2": {
           "id": "DEINE_GMAIL_CREDENTIALS",
@@ -94,11 +104,68 @@
           ]
         }
       },
-      "id": "firebase-update",
-      "name": "Status aktualisieren",
+      "id": "firebase-update-email",
+      "name": "E-Mail-Status aktualisieren",
       "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
       "typeVersion": 1,
-      "position": [1050, 300],
+      "position": [1250, 200],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromNumber": "+49xxxxxxxxxx",
+        "toNumber": "={{ $json.phone }}",
+        "message": "=Hallo {{ $json.name }}, Erinnerung an Ihren EisFavorite Termin morgen:\n📅 {{ $json.date }} um {{ $json.time }} Uhr\n📍 {{ $json.street }}, {{ $json.plz }} {{ $json.city }}\nAlles ok? Bei Fragen: eisfavorit@gmail.com\nIhr EisFavorite Team 🍦"
+      },
+      "id": "sms-send",
+      "name": "SMS senden (Twilio)",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "twilioApi": {
+          "id": "DEINE_TWILIO_CREDENTIALS",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "bookings",
+        "documentId": "={{ $json.id }}",
+        "updateFields": {
+          "fields": [
+            {
+              "name": "smsReminderSent",
+              "value": true
+            },
+            {
+              "name": "lastModified",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "lastModifiedMs",
+              "value": "={{ Date.now() }}"
+            },
+            {
+              "name": "aktualisiertAm",
+              "value": "={{ new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}"
+            }
+          ]
+        }
+      },
+      "id": "firebase-update-sms",
+      "name": "SMS-Status aktualisieren",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [1250, 400],
       "credentials": {
         "googleFirebaseCloudFirestoreOAuth2Api": {
           "id": "DEINE_FIREBASE_CREDENTIALS",
@@ -134,7 +201,25 @@
       "main": [
         [
           {
+            "node": "Teile: E-Mail vs SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teile: E-Mail vs SMS": {
+      "main": [
+        [
+          {
             "node": "E-Mail senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SMS senden (Twilio)",
             "type": "main",
             "index": 0
           }
@@ -145,7 +230,18 @@
       "main": [
         [
           {
-            "node": "Status aktualisieren",
+            "node": "E-Mail-Status aktualisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS senden (Twilio)": {
+      "main": [
+        [
+          {
+            "node": "SMS-Status aktualisieren",
             "type": "main",
             "index": 0
           }

@@ -708,11 +708,11 @@
             // Nur Status "Gebucht"
             if (b.status !== 'Gebucht') return false;
 
-            // Muss E-Mail haben
-            if (!b.email) return false;
+            // Muss E-Mail ODER Telefon haben
+            if (!b.email && !b.phone) return false;
 
-            // Noch keine Erinnerung gesendet
-            if (b.emailReminderSent === true) return false;
+            // Noch keine Erinnerung gesendet (weder E-Mail noch SMS)
+            if (b.emailReminderSent === true || b.smsReminderSent === true) return false;
 
             // Berechne Stunden bis Event
             if (!b.date) return false;

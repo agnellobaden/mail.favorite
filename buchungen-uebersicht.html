@@ -4142,7 +4142,7 @@
                                 <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
                                 ${booking.invoicePaid ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);" title="Rechnung bezahlt">💰 BEZAHLT</span>' : ''}
-                                ${booking.emailReminderSent ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet">🔔 ERINNERUNG</span>' : ''}
+                                ${booking.emailReminderSent || booking.smsReminderSent ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet via ${booking.emailReminderSent ? 'E-Mail' : 'SMS'}">${booking.emailReminderSent ? '📧' : '📱'} ERINNERUNG</span>` : ''}
                             </div>
                         </div>
                         <div class="card-date">
