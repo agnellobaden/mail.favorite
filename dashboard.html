@@ -82,10 +82,12 @@
             padding: 25px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             transition: transform 0.3s;
+            cursor: pointer;
         }
 
         .stat-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
         }
 
         .stat-card.warning {
@@ -283,21 +285,21 @@
 
         <!-- Statistik-Karten -->
         <div class="stats-grid">
-            <div class="stat-card danger">
+            <div class="stat-card danger" onclick="window.location.href='buchungen-uebersicht.html?filter=overdue'" title="Klicken um überfällige Rechnungen anzuzeigen">
                 <div class="stat-icon">⚠️</div>
                 <div class="stat-label">Überfällige Rechnungen</div>
                 <div class="stat-value" id="overdueCount">0</div>
                 <div class="stat-label" id="overdueAmount">0,00 €</div>
             </div>
 
-            <div class="stat-card warning">
+            <div class="stat-card warning" onclick="window.location.href='buchungen-uebersicht.html?filter=open'" title="Klicken um offene Rechnungen anzuzeigen">
                 <div class="stat-icon">📋</div>
                 <div class="stat-label">Offene Rechnungen</div>
                 <div class="stat-value" id="openCount">0</div>
                 <div class="stat-label" id="openAmount">0,00 €</div>
             </div>
 
-            <div class="stat-card" style="background: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);" onclick="window.location.href='buchungen-uebersicht.html?status=Event beendet'" title="Klicken um beendete Events anzuzeigen">
                 <div class="stat-icon">📝</div>
                 <div class="stat-label">Events beendet (Rechnung fehlt)</div>
                 <div class="stat-value" id="completedEventsCount">0</div>

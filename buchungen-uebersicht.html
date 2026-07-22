@@ -3617,6 +3617,78 @@
             }
         }
 
+        // Spezielle Filter anwenden (für Dashboard-Links)
+        function applySpecialFilter(filterType) {
+            console.log('🔍 Spezieller Filter:', filterType);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let filtered = allBookings;
+            let filterLabel = '';
+
+            if (filterType === 'overdue') {
+                // Überfällige Rechnungen: Rechnung versendet, nicht bezahlt, Zahlungsziel überschritten
+                filtered = filtered.filter(b => {
+                    if (!b.invoiceSent || b.invoicePaid) return false;
+
+                    // Zahlungsziel berechnen (14 Tage nach Versand)
+                    const sentDate = parseAnyDate(b.invoiceSentDate);
+                    if (!sentDate || isNaN(sentDate.getTime())) return false;
+
+                    const dueDate = new Date(sentDate);
+                    dueDate.setDate(dueDate.getDate() + 14);
+                    dueDate.setHours(0, 0, 0, 0);
+
+                    return dueDate < today;
+                });
+
+                filterLabel = '⚠️ Überfällige Rechnungen';
+                console.log('⚠️ Überfällige Rechnungen gefiltert:', filtered.length);
+
+            } else if (filterType === 'open') {
+                // Offene Rechnungen: Rechnung versendet, nicht bezahlt, noch nicht fällig
+                filtered = filtered.filter(b => {
+                    if (!b.invoiceSent || b.invoicePaid) return false;
+
+                    // Zahlungsziel berechnen (14 Tage nach Versand)
+                    const sentDate = parseAnyDate(b.invoiceSentDate);
+                    if (!sentDate || isNaN(sentDate.getTime())) return false;
+
+                    const dueDate = new Date(sentDate);
+                    dueDate.setDate(dueDate.getDate() + 14);
+                    dueDate.setHours(0, 0, 0, 0);
+
+                    return dueDate >= today;
+                });
+
+                filterLabel = '📋 Offene Rechnungen';
+                console.log('📋 Offene Rechnungen gefiltert:', filtered.length);
+            }
+
+            // Visuellen Hinweis für aktiven Filter anzeigen
+            const filterHeader = document.querySelector('.filter-header h3');
+            if (filterHeader && filterLabel) {
+                filterHeader.innerHTML = '🔍 Filter: <span style="color: #ffd700; font-weight: bold;">' + filterLabel + '</span>';
+            }
+
+            // Sortieren
+            sortBookings(filtered, true);
+
+            // Bevorstehende Termine diese Woche anzeigen
+            displayUpcomingWeek();
+
+            // Richtige Ansicht anzeigen
+            if (currentView === 'cards') {
+                displayCards(filtered);
+            } else {
+                displayBookings(filtered);
+            }
+
+            // App-Zustand speichern
+            saveAppState();
+        }
+
         // Bevorstehende Termine diese Woche anzeigen
         function displayUpcomingWeek() {
             const now = new Date();
@@ -3892,6 +3964,18 @@
             const parts = dateStr.split('.');
             if (parts.length !== 3) return new Date(0);
             return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+
+        // Datum aus "DD.MM.YYYY" oder ISO parsen (kompatibel mit verschiedenen Formaten)
+        function parseAnyDate(dateStr) {
+            if (!dateStr) return new Date(NaN);
+            if (typeof dateStr === 'string' && dateStr.includes('.')) {
+                const parts = dateStr.split(' ')[0].split('.');
+                if (parts.length === 3) {
+                    return new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            }
+            return new Date(dateStr);
         }
 
         // Datum und Zeit kombinieren für vollständige Sortierung
@@ -7014,20 +7098,28 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const statusParam = urlParams.get('status');
                 const dateFromParam = urlParams.get('dateFrom');
+                const filterParam = urlParams.get('filter');
 
-                if (statusParam) {
-                    document.getElementById('statusFilter').value = statusParam;
-                    console.log('🔍 Status-Filter aus URL gesetzt:', statusParam);
-                }
+                // Spezielle Filter (overdue, open) haben Vorrang
+                if (filterParam === 'overdue' || filterParam === 'open') {
+                    console.log('🔍 Spezieller Filter aus URL:', filterParam);
+                    applySpecialFilter(filterParam);
+                } else {
+                    // Standard-Filter
+                    if (statusParam) {
+                        document.getElementById('statusFilter').value = statusParam;
+                        console.log('🔍 Status-Filter aus URL gesetzt:', statusParam);
+                    }
 
-                if (dateFromParam) {
-                    document.getElementById('dateFromFilter').value = dateFromParam;
-                    console.log('📅 Datums-Filter aus URL gesetzt:', dateFromParam);
-                }
+                    if (dateFromParam) {
+                        document.getElementById('dateFromFilter').value = dateFromParam;
+                        console.log('📅 Datums-Filter aus URL gesetzt:', dateFromParam);
+                    }
 
-                // Filter anwenden, wenn URL-Parameter gesetzt wurden
-                if (statusParam || dateFromParam) {
-                    filterAndDisplay();
+                    // Filter anwenden, wenn URL-Parameter gesetzt wurden
+                    if (statusParam || dateFromParam) {
+                        filterAndDisplay();
+                    }
                 }
             }, 100);
 
