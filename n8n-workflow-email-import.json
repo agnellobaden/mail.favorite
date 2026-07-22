@@ -1,0 +1,128 @@
+{
+  "name": "EisFavorite: Gmail → Firebase Auto-Import",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "UNREAD"
+          ]
+        }
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DEINE_GMAIL_CREDENTIALS",
+          "name": "eisfavorit@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// E-Mail Daten extrahieren\nconst emailBody = $input.item.json.snippet || '';\nconst subject = $input.item.json.payload?.headers?.find(h => h.name === 'Subject')?.value || '';\nconst from = $input.item.json.payload?.headers?.find(h => h.name === 'From')?.value || '';\nconst fullText = subject + '\\n' + emailBody;\n\n// Regex-Extraktion\nfunction extract(text, patterns) {\n  for (const pattern of patterns) {\n    const match = text.match(new RegExp(pattern, 'i'));\n    if (match) return match[1]?.trim();\n  }\n  return '';\n}\n\n// Extrahiere alle Felder\nconst booking = {\n  id: 'booking_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),\n  status: 'Neu',\n  \n  name: extract(fullText, [\n    'Name:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s]+(?:\\\\s+[A-ZÄÖÜa-zäöüß]+)+)',\n    'Von:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s]+(?:\\\\s+[A-ZÄÖÜa-zäöüß]+)+)'\n  ]) || extract(from, ['([A-ZÄÖÜa-zäöüß\\\\s]+)']),\n\n  email: extract(fullText, [\n    'E-?Mail:?\\\\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,})',\n    '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,})'\n  ]),\n\n  phone: extract(fullText, [\n    'Tel(?:efon)?:?\\\\s*(\\\\+?[0-9\\\\s\\\\-\\\\(\\\\)\\\\/]+)',\n    'Mobil:?\\\\s*(\\\\+?[0-9\\\\s\\\\-\\\\(\\\\)\\\\/]+)'\n  ]),\n\n  company: extract(fullText, [\n    'Firma:?\\\\s*([A-ZÄÖÜa-zäöüß0-9\\\\s&\\\\.\\\\-]+)'\n  ]),\n\n  date: extract(fullText, [\n    'Datum:?\\\\s*(\\\\d{1,2}\\\\.\\\\d{1,2}\\\\.\\\\d{4})',\n    'Termin:?\\\\s*(\\\\d{1,2}\\\\.\\\\d{1,2}\\\\.\\\\d{4})',\n    'am\\\\s+(\\\\d{1,2}\\\\.\\\\d{1,2}\\\\.\\\\d{4})'\n  ]),\n\n  time: extract(fullText, [\n    'Uhrzeit:?\\\\s*(\\\\d{1,2}:\\\\d{2})',\n    'um\\\\s+(\\\\d{1,2}:\\\\d{2})',\n    '(\\\\d{1,2}:\\\\d{2})\\\\s*Uhr'\n  ]),\n\n  timeEnd: '',\n\n  guests: extract(fullText, [\n    'Gäste:?\\\\s*(\\\\d+)',\n    'Personen:?\\\\s*(\\\\d+)',\n    '(\\\\d+)\\\\s+Gäste'\n  ]),\n\n  kugelPerGuest: '',\n  location: '',\n\n  street: extract(fullText, [\n    'Straße:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s]+\\\\d+[a-z]?)',\n    'Adresse:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s]+\\\\d+[a-z]?)'\n  ]),\n\n  plz: extract(fullText, [\n    'PLZ:?\\\\s*(\\\\d{5})',\n    '(\\\\d{5})\\\\s+[A-ZÄÖÜa-zäöüß]'\n  ]),\n\n  city: extract(fullText, [\n    'Stadt:?\\\\s*([A-ZÄÖÜa-zäöüß][a-zäöüß]+)',\n    '\\\\d{5}\\\\s+([A-ZÄÖÜa-zäöüß][a-zäöüß]+)'\n  ]),\n\n  distance: '',\n  wunschsorten: extract(fullText, [\n    'Sorten?:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s,\\\\-]+)',\n    'Geschmack:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s,\\\\-]+)',\n    'Wunsch:?\\\\s*([A-ZÄÖÜa-zäöüß\\\\s,\\\\-]+)'\n  ]),\n\n  notizen: emailBody.substring(0, 500),\n  eigeneNotizen: 'Automatisch importiert via n8n am ' + new Date().toLocaleString('de-DE'),\n\n  angebotUrl: '',\n  angebotVorlage: '',\n  rechnungUrl: '',\n  invoiceNumber: '',\n  invoiceAmount: '',\n  invoicePaid: false,\n  invoiceSent: false,\n  emailReminderSent: false,\n\n  erstelltAm: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),\n  aktualisiertAm: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),\n  lastModified: new Date().toISOString(),\n  lastModifiedMs: Date.now(),\n\n  _email_subject: subject,\n  _email_from: from,\n  _email_messageId: $input.item.json.id\n};\n\nreturn { json: booking };"
+      },
+      "id": "extract-data",
+      "name": "Daten extrahieren",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "bookings",
+        "documentId": "={{ $json.id }}",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "firebase-save",
+      "name": "Firebase speichern",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_Verarbeitet"
+        ]
+      },
+      "id": "gmail-mark",
+      "name": "Als verarbeitet markieren",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DEINE_GMAIL_CREDENTIALS",
+          "name": "eisfavorit@gmail.com"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Daten extrahieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daten extrahieren": {
+      "main": [
+        [
+          {
+            "node": "Firebase speichern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Firebase speichern": {
+      "main": [
+        [
+          {
+            "node": "Als verarbeitet markieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "eisfavorite-gmail-import",
+  "meta": {
+    "instanceId": "n8n-eisfavorite"
+  },
+  "tags": []
+}

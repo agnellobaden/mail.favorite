@@ -1,0 +1,166 @@
+{
+  "name": "EisFavorite: 24h-Erinnerungs-E-Mails",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "cronExpression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Täglich um 9:00 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "bookings",
+        "returnAll": true
+      },
+      "id": "firebase-get",
+      "name": "Alle Buchungen laden",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Filtere Buchungen die in 20-28h stattfinden\nconst now = new Date();\nconst bookings = $input.all().map(item => item.json);\n\nconst toRemind = bookings.filter(booking => {\n  // Nur \"Gebucht\" Status\n  if (booking.status !== 'Gebucht') return false;\n\n  // Nur wenn E-Mail vorhanden\n  if (!booking.email) return false;\n\n  // Nur wenn noch keine Erinnerung gesendet\n  if (booking.emailReminderSent === true) return false;\n\n  // Berechne Stunden bis Event\n  if (!booking.date) return false;\n  const [day, month, year] = booking.date.split('.');\n  const eventDate = new Date(year, month - 1, day);\n\n  if (booking.time) {\n    const [hours, minutes] = booking.time.split(':');\n    eventDate.setHours(hours, minutes);\n  } else {\n    eventDate.setHours(14, 0); // Standard: 14:00 Uhr\n  }\n\n  const hoursUntil = (eventDate - now) / (1000 * 60 * 60);\n\n  // 20-28 Stunden Fenster (täglich laufen lassen!)\n  return hoursUntil >= 20 && hoursUntil <= 28;\n});\n\nconsole.log(`🔍 Gefunden: ${toRemind.length} Erinnerungen zu senden`);\n\nreturn toRemind.map(b => ({ json: b }));"
+      },
+      "id": "filter-reminders",
+      "name": "Filtere: 24h vor Event",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "Erinnerung: Ihr EisFavorite Termin morgen",
+        "message": "=Hallo {{ $json.name }},\\n\\ndies ist eine freundliche Erinnerung an Ihren EisFavorite Termin:\\n\\n📅 Datum: {{ $json.date }}\\n🕐 Uhrzeit: {{ $json.time }} Uhr\\n{{ $json.Bei ? '🏢 Bei: ' + $json.Bei + '\\n' : '' }}📍 Adresse: {{ $json.street }}, {{ $json.plz }} {{ $json.city }}\\n{{ $json.guests ? '👥 Gäste: ' + $json.guests + '\\n' : '' }}\\nWir freuen uns auf Sie!\\n\\nViele Grüße,\\nIhr EisFavorite Team 🍦",
+        "options": {
+          "bccList": "eisfavorit@gmail.com"
+        }
+      },
+      "id": "gmail-send",
+      "name": "E-Mail senden",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DEINE_GMAIL_CREDENTIALS",
+          "name": "eisfavorit@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "bookings",
+        "documentId": "={{ $json.id }}",
+        "updateFields": {
+          "fields": [
+            {
+              "name": "emailReminderSent",
+              "value": true
+            },
+            {
+              "name": "lastModified",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "lastModifiedMs",
+              "value": "={{ Date.now() }}"
+            },
+            {
+              "name": "aktualisiertAm",
+              "value": "={{ new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}"
+            }
+          ]
+        }
+      },
+      "id": "firebase-update",
+      "name": "Status aktualisieren",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Täglich um 9:00 Uhr": {
+      "main": [
+        [
+          {
+            "node": "Alle Buchungen laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alle Buchungen laden": {
+      "main": [
+        [
+          {
+            "node": "Filtere: 24h vor Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtere: 24h vor Event": {
+      "main": [
+        [
+          {
+            "node": "E-Mail senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E-Mail senden": {
+      "main": [
+        [
+          {
+            "node": "Status aktualisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "eisfavorite-24h-reminder",
+  "meta": {
+    "instanceId": "n8n-eisfavorite"
+  },
+  "tags": []
+}
