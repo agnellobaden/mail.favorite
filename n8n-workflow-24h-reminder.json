@@ -50,7 +50,7 @@
       "parameters": {
         "sendTo": "={{ $json.email }}",
         "subject": "Erinnerung: Ihr EisFavorite Termin morgen",
-        "message": "=Hallo {{ $json.name }},\\n\\ndies ist eine freundliche Erinnerung an Ihren EisFavorite Termin:\\n\\n📅 Datum: {{ $json.date }}\\n🕐 Uhrzeit: {{ $json.time }} Uhr\\n{{ $json.Bei ? '🏢 Bei: ' + $json.Bei + '\\n' : '' }}📍 Adresse: {{ $json.street }}, {{ $json.plz }} {{ $json.city }}\\n{{ $json.guests ? '👥 Gäste: ' + $json.guests + '\\n' : '' }}\\nWir freuen uns auf Sie!\\n\\nViele Grüße,\\nIhr EisFavorite Team 🍦",
+        "message": "=Hallo {{ $json.name }},\\n\\ndies ist eine freundliche Erinnerung an Ihren EisFavorite Termin morgen:\\n\\n📅 Datum: {{ $json.date }}\\n🕐 Uhrzeit: {{ $json.time }} Uhr\\n{{ $json.company ? '🏢 Firma: ' + $json.company + '\\n' : '' }}📍 Adresse: {{ $json.street }}, {{ $json.plz }} {{ $json.city }}\\n{{ $json.gaeste ? '👥 Gäste: ' + $json.gaeste + '\\n' : '' }}{{ $json.kugeln ? '🍦 Kugeln pro Gast: ' + $json.kugeln + '\\n' : '' }}\\nWir freuen uns auf Sie! Ist noch alles in Ordnung mit dem Termin?\\n\\nBei Fragen oder Änderungen melden Sie sich gerne.\\n\\nViele Grüße,\\nIhr EisFavorite Team 🍦\\n\\neisfavorit@gmail.com",
         "options": {
           "bccList": "eisfavorit@gmail.com"
         }

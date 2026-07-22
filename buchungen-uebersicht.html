@@ -3664,6 +3664,41 @@
 
                 filterLabel = '📋 Offene Rechnungen';
                 console.log('📋 Offene Rechnungen gefiltert:', filtered.length);
+
+            } else if (filterType === 'reminders') {
+                // 24h-Erinnerungen fällig: Status "Gebucht", E-Mail vorhanden, noch keine Erinnerung
+                const now = new Date();
+                filtered = filtered.filter(b => {
+                    // Nur Status "Gebucht"
+                    if (b.status !== 'Gebucht') return false;
+
+                    // Muss E-Mail haben
+                    if (!b.email) return false;
+
+                    // Noch keine Erinnerung gesendet
+                    if (b.emailReminderSent === true) return false;
+
+                    // Berechne Stunden bis Event
+                    if (!b.date) return false;
+                    const eventDate = parseAnyDate(b.date);
+                    if (isNaN(eventDate.getTime())) return false;
+
+                    // Wenn Zeit vorhanden, verwenden
+                    if (b.time) {
+                        const timeParts = b.time.split(':');
+                        eventDate.setHours(parseInt(timeParts[0]) || 14, parseInt(timeParts[1]) || 0);
+                    } else {
+                        eventDate.setHours(14, 0); // Standard: 14:00 Uhr
+                    }
+
+                    const hoursUntil = (eventDate - now) / (1000 * 60 * 60);
+
+                    // 20-32 Stunden Fenster
+                    return hoursUntil >= 20 && hoursUntil <= 32;
+                });
+
+                filterLabel = '🔔 24h-Erinnerungen fällig';
+                console.log('🔔 24h-Erinnerungen gefiltert:', filtered.length);
             }
 
             // Visuellen Hinweis für aktiven Filter anzeigen
@@ -4107,6 +4142,7 @@
                                 <span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span>
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
                                 ${booking.invoicePaid ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);" title="Rechnung bezahlt">💰 BEZAHLT</span>' : ''}
+                                ${booking.emailReminderSent ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet">🔔 ERINNERUNG</span>' : ''}
                             </div>
                         </div>
                         <div class="card-date">
@@ -7100,8 +7136,8 @@
                 const dateFromParam = urlParams.get('dateFrom');
                 const filterParam = urlParams.get('filter');
 
-                // Spezielle Filter (overdue, open) haben Vorrang
-                if (filterParam === 'overdue' || filterParam === 'open') {
+                // Spezielle Filter (overdue, open, reminders) haben Vorrang
+                if (filterParam === 'overdue' || filterParam === 'open' || filterParam === 'reminders') {
                     console.log('🔍 Spezieller Filter aus URL:', filterParam);
                     applySpecialFilter(filterParam);
                 } else {

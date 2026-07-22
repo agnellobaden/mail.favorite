@@ -306,6 +306,13 @@
                 <div class="stat-label" id="completedEventsAmount">0,00 €</div>
             </div>
 
+            <div class="stat-card" style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white;" onclick="window.location.href='buchungen-uebersicht.html?filter=reminders'" title="Klicken um Events mit fälligen Erinnerungen anzuzeigen">
+                <div class="stat-icon">🔔</div>
+                <div class="stat-label" style="color: rgba(255,255,255,0.9);">24h-Erinnerungen fällig</div>
+                <div class="stat-value" id="remindersDueCount" style="color: white;">0</div>
+                <div class="stat-label" id="remindersDueInfo" style="color: rgba(255,255,255,0.9);">Events morgen</div>
+            </div>
+
             <div class="stat-card success">
                 <div class="stat-icon">✅</div>
                 <div class="stat-label">Bezahlte Rechnungen (diesen Monat)</div>
@@ -680,6 +687,42 @@
                 `;
             });
         }
+
+        // 2b. 24H-ERINNERUNGEN FÄLLIG (Events morgen mit Status "Gebucht")
+        const now = new Date();
+        const remindersDue = bookings.filter(b => {
+            // Nur Status "Gebucht"
+            if (b.status !== 'Gebucht') return false;
+
+            // Muss E-Mail haben
+            if (!b.email) return false;
+
+            // Noch keine Erinnerung gesendet
+            if (b.emailReminderSent === true) return false;
+
+            // Berechne Stunden bis Event
+            if (!b.date) return false;
+            const eventDate = parseAnyDate(b.date);
+            if (isNaN(eventDate)) return false;
+
+            // Wenn Zeit vorhanden, verwenden
+            if (b.time) {
+                const timeParts = b.time.split(':');
+                eventDate.setHours(parseInt(timeParts[0]) || 14, parseInt(timeParts[1]) || 0);
+            } else {
+                eventDate.setHours(14, 0); // Standard: 14:00 Uhr
+            }
+
+            const hoursUntil = (eventDate - now) / (1000 * 60 * 60);
+
+            // 20-32 Stunden Fenster (breiter für UI-Anzeige)
+            return hoursUntil >= 20 && hoursUntil <= 32;
+        });
+
+        console.log('🔔 24h-Erinnerungen fällig:', remindersDue.length);
+
+        document.getElementById('remindersDueCount').textContent = remindersDue.length;
+        document.getElementById('remindersDueInfo').textContent = remindersDue.length === 1 ? 'Event morgen' : 'Events morgen';
 
         // 3. BEZAHLTE RECHNUNGEN (diesen Monat)
         const thisMonth = today.getMonth();
