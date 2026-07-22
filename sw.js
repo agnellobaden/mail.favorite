@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eisfavorite-local-first-sync-20260722-v3';
+const CACHE_NAME = 'eisfavorite-listener-fix-20260722-v4';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',

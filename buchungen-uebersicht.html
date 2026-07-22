@@ -3439,17 +3439,19 @@
 
                 updateFirebaseStatus('error', errorMsg);
             } finally {
-                // Flag IMMER zurücksetzen, egal ob Erfolg oder Fehler
+                // Flag SOFORT zurücksetzen, egal ob Erfolg oder Fehler
+                // KRITISCH: Kurze Verzögerung (100ms) damit Upload abgeschlossen ist, aber Listener nicht zu lange blockiert
                 setTimeout(() => {
-                    isUpdatingFromFirebase = wasUpdating;
-                    console.log('🔓 Upload-Flag zurückgesetzt');
+                    isUpdatingFromFirebase = false; // WICHTIG: Immer auf false, nicht auf wasUpdating!
+                    console.log('🔓 Upload-Flag zurückgesetzt → Listener wieder aktiv');
 
                     // Wenn während des Uploads neue Änderungen kamen, erneut uploaden
                     if (hasPendingFirebaseUpload) {
                         console.log('🔄 Starte nächsten Upload (pending changes)...');
-                        saveToFirebase();
+                        hasPendingFirebaseUpload = false;
+                        saveToFirebase(true); // Force-Upload für pendende Änderungen
                     }
-                }, 500);
+                }, 100); // Nur 100ms statt 500ms - Listener wird schneller wieder aktiv!
             }
         }
 
@@ -6655,12 +6657,13 @@
 
                         // Wenn lokale Daten neuer sind, zu Firebase hochladen
                         if (shouldUploadNew) {
+                            // KRITISCH: Nur kurz warten (100ms) damit Listener nicht blockiert
                             setTimeout(() => {
                                 if (!isUpdatingFromFirebase) {
                                     console.log('📤 Neue lokale Änderungen zu Firebase hochladen');
-                                    saveToFirebase();
+                                    saveToFirebase(true); // Force-Upload
                                 }
-                            }, 1000);
+                            }, 100); // Nur 100ms statt 1000ms!
                         }
                     } else {
                         console.log('✓ Daten bereits aktuell');
