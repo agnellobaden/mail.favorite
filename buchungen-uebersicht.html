@@ -7160,6 +7160,43 @@
                 card.style.display = 'none';
             }
         }
+
+        // ==========================================
+        // URL-PARAMETER VERARBEITEN (von Dashboard)
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // 1. Direkter Sprung zu einer Buchung
+            const bookingId = urlParams.get('booking');
+            if (bookingId) {
+                console.log('📍 Springe zu Buchung:', bookingId);
+                setTimeout(() => {
+                    // Finde die Buchung
+                    const booking = allBookings.find(b => b.id === bookingId);
+                    if (booking) {
+                        // Öffne Bearbeitungsmodal
+                        editBooking(bookingId);
+                    } else {
+                        alert('Buchung nicht gefunden: ' + bookingId);
+                    }
+                }, 500);
+            }
+
+            // 2. Suche nach Name/Firma
+            const searchTerm = urlParams.get('search');
+            if (searchTerm) {
+                console.log('🔍 Suche nach:', searchTerm);
+                setTimeout(() => {
+                    const nameFilter = document.getElementById('nameFilter');
+                    if (nameFilter) {
+                        nameFilter.value = searchTerm;
+                        // Trigger Filter
+                        filterAndDisplay();
+                    }
+                }, 300);
+            }
+        });
     </script>
 </body>
 </html>

@@ -560,7 +560,7 @@
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${inv.invoiceNumber || 'N/A'}</td>
-                    <td>${inv.company || inv.name || 'N/A'}</td>
+                    <td><a href="buchungen-uebersicht.html?booking=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;">${inv.company || inv.name || 'N/A'}</a></td>
                     <td><strong>${inv.invoiceAmount || '0,00 €'}</strong></td>
                     <td>${dueDate.toLocaleDateString('de-DE')}</td>
                     <td><span class="status-badge status-overdue">${daysOverdue} Tage</span></td>
@@ -613,7 +613,7 @@
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${inv.invoiceNumber || 'N/A'}</td>
-                    <td>${inv.company || inv.name || 'N/A'}</td>
+                    <td><a href="buchungen-uebersicht.html?booking=${encodeURIComponent(inv.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;">${inv.company || inv.name || 'N/A'}</a></td>
                     <td><strong>${inv.invoiceAmount || '0,00 €'}</strong></td>
                     <td>${dueDate.toLocaleDateString('de-DE')}</td>
                     <td>${sentDate.toLocaleDateString('de-DE')}</td>
@@ -668,7 +668,7 @@
 
                 const row = tbody.insertRow();
                 row.innerHTML = `
-                    <td><strong>${event.company || event.name || 'N/A'}</strong></td>
+                    <td><a href="buchungen-uebersicht.html?booking=${encodeURIComponent(event.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;"><strong>${event.company || event.name || 'N/A'}</strong></a></td>
                     <td>${eventDate}</td>
                     <td>${event.gaeste || '-'}</td>
                     <td>${event.kugeln || '-'}</td>
@@ -795,7 +795,7 @@
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td><span class="customer-rank">${medals[index]}</span></td>
-                    <td><strong>${customer.name}</strong></td>
+                    <td><a href="buchungen-uebersicht.html?search=${encodeURIComponent(customer.name)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;"><strong>${customer.name}</strong></a></td>
                     <td>${customer.bookings}</td>
                     <td><strong>${customer.revenue.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</strong></td>
                 `;
