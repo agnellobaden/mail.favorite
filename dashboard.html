@@ -383,8 +383,10 @@
 
         <!-- Monatsumsatz -->
         <div class="section">
-            <h2 class="section-title">Monatsumsatz (letzten 12 Monate)</h2>
-            <div id="monthlyRevenueChart"></div>
+            <h2 class="section-title" onclick="toggleMonthlyRevenue()" style="cursor: pointer; user-select: none;">
+                📊 Monatsumsatz 2026 <span id="monthlyRevenueToggle" style="float: right; font-size: 0.8em;">▼ Ausklappen</span>
+            </h2>
+            <div id="monthlyRevenueChart" style="display: none;"></div>
         </div>
 
         <!-- Top-Kunden -->
@@ -762,19 +764,23 @@
 
         document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
 
-        // 5. MONATSUMSATZ (letzten 12 Monate)
+        // 5. MONATSUMSATZ (nur ab 2026)
         const monthlyRevenue = {};
         const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
-        // Initialisiere letzten 12 Monate
-        for (let i = 11; i >= 0; i--) {
-            const date = new Date(thisYear, thisMonth - i, 1);
-            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+        // Initialisiere Monate ab Januar 2026 bis heute
+        const startDate = new Date(2026, 0, 1); // Januar 2026
+        const endDate = new Date(thisYear, thisMonth, 1); // Aktueller Monat
+
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const key = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const label = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
             monthlyRevenue[key] = { label, amount: 0 };
+            currentDate.setMonth(currentDate.getMonth() + 1);
         }
 
-        console.log('📅 Monatsumsatz-Zeitraum:', Object.values(monthlyRevenue).map(m => m.label));
+        console.log('📅 Monatsumsatz-Zeitraum (ab 2026):', Object.values(monthlyRevenue).map(m => m.label));
 
         // Berechne Umsatz pro Monat
         bookings.forEach(b => {
@@ -845,6 +851,20 @@
                     <td><strong>${customer.revenue.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</strong></td>
                 `;
             });
+        }
+
+        // Toggle-Funktion für Monatsumsatz
+        function toggleMonthlyRevenue() {
+            const chart = document.getElementById('monthlyRevenueChart');
+            const toggle = document.getElementById('monthlyRevenueToggle');
+
+            if (chart.style.display === 'none') {
+                chart.style.display = 'block';
+                toggle.textContent = '▲ Einklappen';
+            } else {
+                chart.style.display = 'none';
+                toggle.textContent = '▼ Ausklappen';
+            }
         }
     </script>
 </body>
