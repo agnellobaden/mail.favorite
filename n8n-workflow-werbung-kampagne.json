@@ -1,0 +1,124 @@
+{
+  "name": "EisFavorite: Werbe-Kampagne für Firmen (alle 4 Wochen)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 4,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Alle 4 Wochen, 9:00 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "marketingLeads",
+        "returnAll": true
+      },
+      "id": "firebase-get",
+      "name": "Alle Leads laden",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [420, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rotierende Slogans - bei jedem Versand kommt der jeweils nächste dran\nconst slogans = [\n  'Eine süße Überraschung für Ihr Team – EisFavorite kommt zu Ihnen!',\n  'Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.',\n  'Sommer im Büro: Der Eiswagen direkt vor Ihrer Tür.',\n  'Zeigen Sie Ihrem Team Wertschätzung – mit einer Portion Eis.',\n  'Kleine Geste, große Wirkung: Eis für alle Mitarbeiter.',\n  'Der Eiswagen für Firmenfeiern, Jubiläen & Dankeschön-Aktionen.',\n  'Lassen Sie Ihr Team schlecken statt schwitzen – EisFavorite ist da!',\n  'Frisches Eis, glückliche Gesichter: Die perfekte Pause für Ihr Team.'\n];\n\nconst now = Date.now();\nconst fourWeeksMs = 28 * 24 * 60 * 60 * 1000;\n\nconst toContact = $input.all()\n  .map(item => item.json)\n  .filter(lead => {\n    // Nur Leads mit E-Mail\n    if (!lead.email) return false;\n\n    // Gebuchte oder abgelehnte Firmen nicht mehr anschreiben\n    if (lead.status === 'gebucht' || lead.status === 'abgelehnt') return false;\n\n    // Noch nie kontaktiert -> sofort dran\n    if (!lead.lastContactedAt) return true;\n\n    // Sonst: nur wenn letzter Kontakt >= 4 Wochen her\n    const lastMs = new Date(lead.lastContactedAt).getTime();\n    return (now - lastMs) >= fourWeeksMs;\n  })\n  .map(lead => {\n    const sloganIndex = lead.sloganIndex || 0;\n    const slogan = slogans[sloganIndex % slogans.length];\n    return {\n      json: {\n        ...lead,\n        slogan,\n        nextSloganIndex: sloganIndex + 1\n      }\n    };\n  });\n\nconsole.log(`📢 ${toContact.length} Firmen werden heute kontaktiert`);\nreturn toContact;"
+      },
+      "id": "filter-and-slogan",
+      "name": "Fällige Leads filtern & Slogan wählen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "🍦 {{ $json.slogan }}",
+        "message": "=Hallo {{ $json.name }} Team,\\n\\n{{ $json.slogan }}\\n\\nOb als spontane Belohnung, zum Sommerfest, Firmenjubiläum oder einfach als Dankeschön für den Einsatz Ihres Teams – EisFavorite kommt mit dem Eiswagen direkt zu Ihnen und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis vor Ort.\\n\\n🚚 Wir kommen zu Ihnen\\n🍨 Frisches Eis direkt vor Ort\\n😊 Freude fürs ganze Team\\n📅 Flexible Terminwahl\\n\\nJetzt unverbindlich anfragen: https://eisfavorite.de\\n\\nWir freuen uns auf Sie!\\n\\nViele Grüße,\\nIhr EisFavorite Team 🍦\\nEis Agnello · Favoritenstrasse 11 · 76456 Kuppenheim\\nTel: +49 176 56813172 · eisfavorit@gmail.com\\n\\n---\\nFalls Sie keine weiteren E-Mails dieser Art wünschen, antworten Sie einfach mit \\\"Kein Interesse\\\".",
+        "options": {
+          "bccList": "eisfavorit@gmail.com"
+        }
+      },
+      "id": "gmail-send",
+      "name": "Werbe-E-Mail senden",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [860, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DEINE_GMAIL_CREDENTIALS",
+          "name": "eisfavorit@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "marketingLeads",
+        "documentId": "={{ $json.id }}",
+        "updateFields": {
+          "fields": [
+            { "name": "status", "value": "kontaktiert" },
+            { "name": "lastContactedAt", "value": "={{ new Date().toISOString() }}" },
+            { "name": "sloganIndex", "value": "={{ $json.nextSloganIndex }}" },
+            { "name": "lastModifiedMs", "value": "={{ Date.now() }}" }
+          ]
+        }
+      },
+      "id": "firebase-update",
+      "name": "Lead-Status aktualisieren",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [1080, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Alle 4 Wochen, 9:00 Uhr": {
+      "main": [[{ "node": "Alle Leads laden", "type": "main", "index": 0 }]]
+    },
+    "Alle Leads laden": {
+      "main": [[{ "node": "Fällige Leads filtern & Slogan wählen", "type": "main", "index": 0 }]]
+    },
+    "Fällige Leads filtern & Slogan wählen": {
+      "main": [[{ "node": "Werbe-E-Mail senden", "type": "main", "index": 0 }]]
+    },
+    "Werbe-E-Mail senden": {
+      "main": [[{ "node": "Lead-Status aktualisieren", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "eisfavorite-werbung-kampagne",
+  "meta": {
+    "instanceId": "n8n-eisfavorite"
+  },
+  "tags": []
+}

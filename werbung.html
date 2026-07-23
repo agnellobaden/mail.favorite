@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werbung / Firmen-Akquise - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .stats {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        flex: 1;
+        min-width: 130px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+    .stat-card .num { font-size: 1.8em; font-weight: 700; }
+    .stat-card .label { font-size: 0.8em; opacity: 0.9; }
+    .stat-card.neu { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stat-card.kontaktiert { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); }
+    .stat-card.gebucht { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .stat-card.abgelehnt { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
+
+    .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95em;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-flyer { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; }
+
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .filter-row select, .filter-row input {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
+    tr:hover { background: #f8f9fa; }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 700;
+        color: white;
+        display: inline-block;
+    }
+    .status-neu { background: #667eea; }
+    .status-kontaktiert { background: #f57c00; }
+    .status-gebucht { background: #28a745; }
+    .status-abgelehnt { background: #6c757d; }
+
+    .status-select {
+        padding: 5px 8px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        font-size: 0.85em;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #888;
+    }
+    .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+
+    .table-wrap { overflow-x: auto; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>📢 Werbung / Firmen-Akquise</h1>
+        <p class="subtitle">Firmen im 50km-Umkreis von Rastatt für EisFavorite-Buchungen gewinnen</p>
+
+        <div class="stats">
+            <div class="stat-card neu"><div class="num" id="statNeu">0</div><div class="label">Neu</div></div>
+            <div class="stat-card kontaktiert"><div class="num" id="statKontaktiert">0</div><div class="label">Kontaktiert</div></div>
+            <div class="stat-card gebucht"><div class="num" id="statGebucht">0</div><div class="label">Gebucht</div></div>
+            <div class="stat-card abgelehnt"><div class="num" id="statAbgelehnt">0</div><div class="label">Abgelehnt</div></div>
+            <div class="stat-card" style="background:#333;"><div class="num" id="statGesamt">0</div><div class="label">Gesamt</div></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="startFirmensuche()">🔍 Firmensuche starten (n8n)</button>
+            <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
+            <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
+        </div>
+
+        <div class="filter-row">
+            <select id="statusFilter" onchange="renderLeads()">
+                <option value="alle">Alle Status</option>
+                <option value="neu">Neu</option>
+                <option value="kontaktiert">Kontaktiert</option>
+                <option value="gebucht">Gebucht</option>
+                <option value="abgelehnt">Abgelehnt</option>
+            </select>
+            <input type="text" id="searchFilter" placeholder="Firma, Ort suchen..." oninput="renderLeads()">
+        </div>
+
+        <div class="table-wrap">
+            <table id="leadsTable">
+                <thead>
+                    <tr>
+                        <th>Firma</th>
+                        <th>Adresse</th>
+                        <th>Telefon</th>
+                        <th>E-Mail</th>
+                        <th>Status</th>
+                        <th>Zuletzt kontaktiert</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">📭</div>
+                <p>Noch keine Firmen gefunden. Starte die Firmensuche über den Button oben.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allLeads = [];
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+            authDomain: "mailfavorite-e8f49.firebaseapp.com",
+            projectId: "mailfavorite-e8f49",
+            storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+            messagingSenderId: "73719715044",
+            appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+            measurementId: "G-WGRT5L3NCX"
+        };
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            startRealtimeSync();
+        }
+
+        function startRealtimeSync() {
+            db.collection('marketingLeads').onSnapshot(snapshot => {
+                allLeads = [];
+                snapshot.forEach(doc => {
+                    allLeads.push({ ...doc.data(), id: doc.id });
+                });
+                updateStats();
+                renderLeads();
+            }, error => {
+                console.error('Firestore-Fehler:', error);
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('statNeu').textContent = allLeads.filter(l => (l.status || 'neu') === 'neu').length;
+            document.getElementById('statKontaktiert').textContent = allLeads.filter(l => l.status === 'kontaktiert').length;
+            document.getElementById('statGebucht').textContent = allLeads.filter(l => l.status === 'gebucht').length;
+            document.getElementById('statAbgelehnt').textContent = allLeads.filter(l => l.status === 'abgelehnt').length;
+            document.getElementById('statGesamt').textContent = allLeads.length;
+        }
+
+        function renderLeads() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase().trim();
+
+            let filtered = allLeads;
+            if (statusFilter !== 'alle') {
+                filtered = filtered.filter(l => (l.status || 'neu') === statusFilter);
+            }
+            if (searchFilter) {
+                filtered = filtered.filter(l =>
+                    (l.name || '').toLowerCase().includes(searchFilter) ||
+                    (l.address || '').toLowerCase().includes(searchFilter)
+                );
+            }
+
+            const tbody = document.getElementById('leadsBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = filtered.map(lead => {
+                const status = lead.status || 'neu';
+                const lastContacted = lead.lastContactedAt
+                    ? new Date(lead.lastContactedAt).toLocaleDateString('de-DE')
+                    : '-';
+                return `
+                    <tr>
+                        <td><strong>${lead.name || 'Unbekannt'}</strong></td>
+                        <td>${lead.address || '-'}</td>
+                        <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
+                        <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
+                        <td>
+                            <select class="status-select" onchange="updateLeadStatus('${lead.id}', this.value)">
+                                <option value="neu" ${status === 'neu' ? 'selected' : ''}>Neu</option>
+                                <option value="kontaktiert" ${status === 'kontaktiert' ? 'selected' : ''}>Kontaktiert</option>
+                                <option value="gebucht" ${status === 'gebucht' ? 'selected' : ''}>Gebucht</option>
+                                <option value="abgelehnt" ${status === 'abgelehnt' ? 'selected' : ''}>Abgelehnt</option>
+                            </select>
+                        </td>
+                        <td>${lastContacted}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateLeadStatus(leadId, newStatus) {
+            db.collection('marketingLeads').doc(leadId).set({
+                status: newStatus,
+                lastModifiedMs: Date.now()
+            }, { merge: true }).catch(err => {
+                console.error('Fehler beim Status-Update:', err);
+                alert('Status konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function configureWebhook() {
+            const current = localStorage.getItem('n8nWerbungWebhookUrl') || '';
+            const url = prompt(
+                'n8n-Webhook-URL für die Firmensuche eingeben\n(aus dem n8n-Workflow "EisFavorite: Firmensuche" → Webhook-Node → Production URL):',
+                current
+            );
+            if (url !== null) {
+                localStorage.setItem('n8nWerbungWebhookUrl', url.trim());
+                alert(url.trim() ? '✓ Webhook-URL gespeichert.' : 'Webhook-URL entfernt.');
+            }
+        }
+
+        function startFirmensuche() {
+            const url = localStorage.getItem('n8nWerbungWebhookUrl');
+            if (!url) {
+                alert('Bitte zuerst die n8n-Webhook-URL einrichten (Button "⚙️ n8n-Webhook einrichten").');
+                configureWebhook();
+                return;
+            }
+
+            if (!confirm('Firmensuche im 50km-Umkreis von Rastatt jetzt über n8n starten?')) return;
+
+            fetch(url, { method: 'POST' })
+                .then(res => {
+                    if (res.ok) {
+                        alert('✓ Firmensuche gestartet! Neue Firmen erscheinen automatisch in der Liste, sobald n8n sie gefunden hat.');
+                    } else {
+                        alert('⚠️ n8n hat mit Status ' + res.status + ' geantwortet. Prüfe den Workflow.');
+                    }
+                })
+                .catch(err => {
+                    alert('❌ Firmensuche konnte nicht gestartet werden: ' + err.message + '\n\nPrüfe, ob die Webhook-URL korrekt ist und n8n erreichbar ist.');
+                });
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>

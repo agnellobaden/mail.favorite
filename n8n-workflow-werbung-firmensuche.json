@@ -1,0 +1,238 @@
+{
+  "name": "EisFavorite: Firmensuche (50km um Rastatt)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "werbung-firmensuche",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook: Firmensuche starten",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Zentrum: Rastatt. Radius 50km = Maximum der Google Places Nearby Search API.\n// Eine Kategorie pro Places-\"type\" - deckt typische B2B-Zielgruppen ab.\n// Liste bei Bedarf im n8n-Editor erweitern/anpassen.\nconst center = { lat: 48.8592, lng: 8.2043 };\nconst radius = 50000;\n\nconst categories = [\n  'general_contractor',\n  'real_estate_agency',\n  'insurance_agency',\n  'lawyer',\n  'accounting',\n  'car_dealer',\n  'store',\n  'supermarket',\n  'bank',\n  'local_government_office',\n  'moving_company',\n  'electrician',\n  'plumber',\n  'roofing_contractor',\n  'painter',\n  'car_repair',\n  'furniture_store',\n  'warehouse'\n];\n\nreturn categories.map(type => ({\n  json: { lat: center.lat, lng: center.lng, radius, type }\n}));"
+      },
+      "id": "categories",
+      "name": "Suchkategorien erzeugen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "location", "value": "={{ $json.lat }},{{ $json.lng }}" },
+            { "name": "radius", "value": "={{ $json.radius }}" },
+            { "name": "type", "value": "={{ $json.type }}" },
+            { "name": "language", "value": "de" },
+            { "name": "key", "value": "={{ $env.GOOGLE_PLACES_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "places-nearby",
+      "name": "Google Places: Nearby Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Places-Ergebnisse pro Kategorie in einzelne Items auflösen und nach place_id deduplizieren\nconst seen = new Set();\nconst out = [];\n\nfor (const item of $input.all()) {\n  const results = item.json.results || [];\n  for (const place of results) {\n    if (seen.has(place.place_id)) continue;\n    seen.add(place.place_id);\n    out.push({\n      json: {\n        placeId: place.place_id,\n        name: place.name,\n        address: place.vicinity || ''\n      }\n    });\n  }\n}\n\nconsole.log(`🔍 ${out.length} eindeutige Firmen gefunden`);\nreturn out;"
+      },
+      "id": "extract-results",
+      "name": "Ergebnisse extrahieren & deduplizieren",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://maps.googleapis.com/maps/api/place/details/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "place_id", "value": "={{ $json.placeId }}" },
+            { "name": "fields", "value": "name,formatted_address,formatted_phone_number,international_phone_number,website" },
+            { "name": "language", "value": "de" },
+            { "name": "key", "value": "={{ $env.GOOGLE_PLACES_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "place-details",
+      "name": "Google Places: Details abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Place Details mit ursprünglicher placeId zusammenführen\nconst items = $input.all();\nreturn items.map((item, i) => {\n  const result = item.json.result || {};\n  const original = $('Ergebnisse extrahieren & deduplizieren').all()[i]?.json || {};\n  return {\n    json: {\n      placeId: original.placeId,\n      name: result.name || original.name,\n      address: result.formatted_address || original.address,\n      phone: result.international_phone_number || result.formatted_phone_number || '',\n      website: result.website || ''\n    }\n  };\n});"
+      },
+      "id": "merge-details",
+      "name": "Details zusammenführen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-website",
+      "name": "Hat Webseite?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1520, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "options": {
+          "timeout": 8000,
+          "response": { "response": { "responseFormat": "text" } }
+        }
+      },
+      "id": "fetch-website",
+      "name": "Webseite abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 200],
+      "onError": "continueRegularOutput",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// E-Mail-Adresse per Regex aus dem HTML der Firmen-Webseite extrahieren\nconst items = $input.all();\nreturn items.map((item, i) => {\n  const original = $('Details zusammenführen').all()[i]?.json || {};\n  const html = (item.json.data || item.json.body || '') + '';\n\n  const matches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [];\n  const blocked = ['sentry.io', 'wixpress.com', 'example.com', '.png', '.jpg', '.gif', '.svg', 'schema.org'];\n  const email = matches.find(m => !blocked.some(b => m.toLowerCase().includes(b))) || '';\n\n  return { json: { ...original, email } };\n});"
+      },
+      "id": "extract-email",
+      "name": "E-Mail extrahieren",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1960, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Kein Website vorhanden -> ohne E-Mail weiterreichen\nreturn $input.all().map(item => ({ json: { ...item.json, email: '' } }));"
+      },
+      "id": "no-website",
+      "name": "Ohne E-Mail weiterreichen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1740, 420]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Firestore-Dokument-ID aus der Google place_id ableiten (nur erlaubte Zeichen)\nreturn $input.all().map(item => {\n  const d = item.json;\n  const docId = (d.placeId || 'lead-' + Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '-');\n  return {\n    json: {\n      id: docId,\n      name: d.name || 'Unbekannt',\n      address: d.address || '',\n      phone: d.phone || '',\n      email: d.email || '',\n      website: d.website || '',\n      placeId: d.placeId || '',\n      lastModifiedMs: Date.now()\n    }\n  };\n});"
+      },
+      "id": "build-lead",
+      "name": "Lead-Objekt finalisieren",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2180, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "projectId": "mailfavorite-e8f49",
+        "collection": "marketingLeads",
+        "documentId": "={{ $json.id }}",
+        "updateFields": {
+          "fields": [
+            { "name": "name", "value": "={{ $json.name }}" },
+            { "name": "address", "value": "={{ $json.address }}" },
+            { "name": "phone", "value": "={{ $json.phone }}" },
+            { "name": "email", "value": "={{ $json.email }}" },
+            { "name": "website", "value": "={{ $json.website }}" },
+            { "name": "placeId", "value": "={{ $json.placeId }}" },
+            { "name": "lastModifiedMs", "value": "={{ $json.lastModifiedMs }}" }
+          ]
+        }
+      },
+      "id": "save-lead",
+      "name": "Lead in Firebase speichern (merge)",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1,
+      "position": [2400, 300],
+      "credentials": {
+        "googleFirebaseCloudFirestoreOAuth2Api": {
+          "id": "DEINE_FIREBASE_CREDENTIALS",
+          "name": "Firebase Service Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Firmensuche starten": {
+      "main": [[{ "node": "Suchkategorien erzeugen", "type": "main", "index": 0 }]]
+    },
+    "Suchkategorien erzeugen": {
+      "main": [[{ "node": "Google Places: Nearby Search", "type": "main", "index": 0 }]]
+    },
+    "Google Places: Nearby Search": {
+      "main": [[{ "node": "Ergebnisse extrahieren & deduplizieren", "type": "main", "index": 0 }]]
+    },
+    "Ergebnisse extrahieren & deduplizieren": {
+      "main": [[{ "node": "Google Places: Details abrufen", "type": "main", "index": 0 }]]
+    },
+    "Google Places: Details abrufen": {
+      "main": [[{ "node": "Details zusammenführen", "type": "main", "index": 0 }]]
+    },
+    "Details zusammenführen": {
+      "main": [[{ "node": "Hat Webseite?", "type": "main", "index": 0 }]]
+    },
+    "Hat Webseite?": {
+      "main": [
+        [{ "node": "Webseite abrufen", "type": "main", "index": 0 }],
+        [{ "node": "Ohne E-Mail weiterreichen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Webseite abrufen": {
+      "main": [[{ "node": "E-Mail extrahieren", "type": "main", "index": 0 }]]
+    },
+    "E-Mail extrahieren": {
+      "main": [[{ "node": "Lead-Objekt finalisieren", "type": "main", "index": 0 }]]
+    },
+    "Ohne E-Mail weiterreichen": {
+      "main": [[{ "node": "Lead-Objekt finalisieren", "type": "main", "index": 0 }]]
+    },
+    "Lead-Objekt finalisieren": {
+      "main": [[{ "node": "Lead in Firebase speichern (merge)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "eisfavorite-werbung-firmensuche",
+  "meta": {
+    "instanceId": "n8n-eisfavorite"
+  },
+  "tags": []
+}

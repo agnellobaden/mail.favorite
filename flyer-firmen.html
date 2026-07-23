@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EisFavorite für Firmen - Eine süße Überraschung für Ihr Team</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+    .container {
+        max-width: 700px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        padding: 40px 25px 50px;
+    }
+    .hero img { width: 110px; height: 110px; margin-bottom: 10px; }
+    .hero h1 {
+        font-size: 1.8em;
+        margin-bottom: 10px;
+        line-height: 1.3;
+    }
+    .hero p.slogan {
+        font-size: 1.15em;
+        opacity: 0.95;
+        font-weight: 500;
+    }
+    .content {
+        padding: 35px 30px;
+    }
+    .content h2 {
+        color: #333;
+        font-size: 1.3em;
+        margin-bottom: 15px;
+    }
+    .content p {
+        color: #555;
+        line-height: 1.7;
+        margin-bottom: 15px;
+        font-size: 1.05em;
+    }
+    .benefits {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin: 25px 0;
+    }
+    .benefit {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 18px;
+        text-align: center;
+        border: 2px solid #f0f0f0;
+    }
+    .benefit .icon { font-size: 2.2em; margin-bottom: 8px; }
+    .benefit .text { font-weight: 600; color: #333; font-size: 0.95em; }
+    .cta-section {
+        text-align: center;
+        padding: 10px 0 20px;
+    }
+    .cta-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        color: white;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 1.2em;
+        padding: 18px 45px;
+        border-radius: 50px;
+        box-shadow: 0 8px 25px rgba(245, 124, 0, 0.4);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px rgba(245, 124, 0, 0.5);
+    }
+    .cta-hint {
+        margin-top: 12px;
+        color: #888;
+        font-size: 0.9em;
+    }
+    .footer {
+        background: #f8f9fa;
+        padding: 25px 30px;
+        text-align: center;
+        color: #666;
+        font-size: 0.9em;
+        line-height: 1.8;
+        border-top: 1px solid #eee;
+    }
+    .footer strong { color: #333; }
+    @media (max-width: 480px) {
+        .hero h1 { font-size: 1.4em; }
+        .content { padding: 25px 18px; }
+        .cta-button { font-size: 1.05em; padding: 16px 30px; }
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <img src="logo.svg" alt="EisFavorite Logo">
+            <h1>🍦 Eine süße Überraschung für Ihr Team</h1>
+            <p class="slogan" id="sloganText">Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.</p>
+        </div>
+        <div class="content">
+            <h2>Der Eiswagen direkt vor Ihrer Tür</h2>
+            <p>
+                Ob als spontane Belohnung, zum Sommerfest, Firmenjubiläum oder einfach als Dankeschön
+                für den Einsatz Ihres Teams – <strong>EisFavorite</strong> kommt mit dem Eiswagen zu Ihnen
+                und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.
+            </p>
+            <div class="benefits">
+                <div class="benefit">
+                    <div class="icon">🚚</div>
+                    <div class="text">Wir kommen zu Ihnen</div>
+                </div>
+                <div class="benefit">
+                    <div class="icon">🍨</div>
+                    <div class="text">Frisches Eis vor Ort</div>
+                </div>
+                <div class="benefit">
+                    <div class="icon">😊</div>
+                    <div class="text">Freude fürs ganze Team</div>
+                </div>
+                <div class="benefit">
+                    <div class="icon">📅</div>
+                    <div class="text">Flexible Terminwahl</div>
+                </div>
+            </div>
+            <p>
+                Machen Sie Ihrem Team eine Freude, die im Gedächtnis bleibt – unkompliziert, schnell
+                angefragt und passend für jede Unternehmensgröße.
+            </p>
+            <div class="cta-section">
+                <a href="https://eisfavorite.de" target="_blank" rel="noopener" class="cta-button">
+                    🍦 Jetzt Anfrage senden
+                </a>
+                <p class="cta-hint">Klicken Sie hier, um direkt bei EisFavorite anzufragen</p>
+            </div>
+        </div>
+        <div class="footer">
+            <strong>Eis Agnello · EisFavorite</strong><br>
+            Favoritenstrasse 11 · 76456 Kuppenheim<br>
+            Tel: +49 176 56813172 · eisfavorit@gmail.com
+        </div>
+    </div>
+
+    <script>
+        // Optional: Slogan aus URL-Parameter übernehmen (?slogan=...), damit E-Mail und
+        // Landingpage denselben Text zeigen.
+        const params = new URLSearchParams(window.location.search);
+        const slogan = params.get('slogan');
+        if (slogan) {
+            document.getElementById('sloganText').textContent = decodeURIComponent(slogan);
+        }
+    </script>
+</body>
+</html>
