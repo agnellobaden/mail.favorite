@@ -5922,6 +5922,7 @@
 
             if (isOpening) {
                 positionCardMenu(menu, event.currentTarget);
+                menu.dataset.openedAt = Date.now();
             }
         }
 
@@ -5983,6 +5984,11 @@
         window.addEventListener('scroll', (e) => {
             if (e.target.closest && e.target.closest('.card-menu-dropdown')) return;
             document.querySelectorAll('.card-menu-dropdown.active').forEach(menu => {
+                // Kurze Karenzzeit nach dem Öffnen: ein durch den Klick selbst
+                // ausgelöstes Fokus-Scrollen (z.B. am PC) soll das Menü nicht sofort
+                // wieder zuklappen, bevor der Nutzer es überhaupt gesehen hat.
+                const openedAt = parseInt(menu.dataset.openedAt || '0', 10);
+                if (Date.now() - openedAt < 400) return;
                 menu.classList.remove('active');
             });
         }, { passive: true, capture: true });
