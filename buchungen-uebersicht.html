@@ -3887,8 +3887,18 @@
                         return bDateTime - aDateTime; // Neueste vergangene zuerst
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
-                    // Wenn gefiltert, zeigen wir bei Standard-Sortierung die neuesten (aktuellsten) Daten ganz oben
-                    return bDateTime - aDateTime;
+                    // Auch im gefilterten Zustand (z.B. Filter "Gebucht"): der nächste anstehende Termin ganz oben
+                    const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
+                    const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
+
+                    if (aIsUpcoming && !bIsUpcoming) return -1;
+                    if (!aIsUpcoming && bIsUpcoming) return 1;
+
+                    if (aIsUpcoming && bIsUpcoming) {
+                        return aDateTime - bDateTime; // nächster Termin zuerst
+                    }
+
+                    return bDateTime - aDateTime; // vergangene Termine: neueste zuerst
                 }
 
                 // Wenn beide in dieser Woche oder beide nicht, nach der gewählten Spalte sortieren
