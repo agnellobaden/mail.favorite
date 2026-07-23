@@ -395,16 +395,14 @@
             background: #f8f9fa;
         }
 
-        /* transform nur für "echte" Hover-Geräte (Maus) - auf Touch-Geräten bleibt der
-           :hover-Zustand nach dem Antippen oft hängen, und ein transform auf der Karte
-           würde dann das (position: fixed) Kartenmenü falsch relativ zur Karte statt
-           zum Bildschirm positionieren. */
-        @media (hover: hover) {
-            .booking-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-                border-color: #5568d3;
-            }
+        /* Kein transform hier (bewusst!): transform auf der Karte erzeugt einen neuen
+           Positionierungs-Kontext für position: fixed-Nachfahren - das Kartenmenü würde
+           sich dann relativ zur Karte statt zum Bildschirm positionieren. Betrifft nicht
+           nur Touch-Geräte (hängender :hover), sondern auch Laptop/Desktop mit Maus,
+           da man zum Klicken auf die drei Punkte zwangsläufig über der Karte hovert. */
+        .booking-card:hover {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            border-color: #5568d3;
         }
 
         .booking-card.next-booking {
