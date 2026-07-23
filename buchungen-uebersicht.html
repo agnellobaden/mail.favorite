@@ -3520,11 +3520,6 @@
 
             let filtered = allBookings;
 
-            // "Event beendet" immer ausblenden (außer wenn explizit gefiltert)
-            if (statusFilter !== 'Event beendet') {
-                filtered = filtered.filter(b => b.status !== 'Event beendet');
-            }
-
             // Namen-Filter (sucht in Name, Firma, E-Mail)
             if (nameFilter) {
                 filtered = filtered.filter(b => {
