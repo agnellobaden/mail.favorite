@@ -5979,6 +5979,16 @@
             });
         });
 
+        // Beim Scrollen offene Kartenmenüs schließen (sonst "schwebt" das fixe Menü
+        // an der falschen Stelle über dem Inhalt). Scrollen INNERHALB eines langen
+        // Menüs (eigenes overflow-y: auto) soll es dabei nicht schließen.
+        window.addEventListener('scroll', (e) => {
+            if (e.target.closest && e.target.closest('.card-menu-dropdown')) return;
+            document.querySelectorAll('.card-menu-dropdown.active').forEach(menu => {
+                menu.classList.remove('active');
+            });
+        }, { passive: true, capture: true });
+
         // Menü schließen
         function closeCardMenu(bookingId) {
             const menu = document.getElementById(`menu-${bookingId}`);
