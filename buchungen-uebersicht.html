@@ -4076,6 +4076,12 @@
                             <button class="card-menu-item email" onclick="openEmailChat('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💬 E-Mail Verlauf
                             </button>
+                            <button class="card-menu-item" onclick="send24hReminderEmail('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800;">
+                                📧 24h Erinnerung (E-Mail)
+                            </button>
+                            <button class="card-menu-item" onclick="send24hReminderSMS('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800;">
+                                📱 24h Erinnerung (SMS)
+                            </button>
                             ${booking.status === 'Rechnung versendet' ? `
                             <button class="card-menu-item paid" onclick="markAsPaid('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💰 Als bezahlt markieren
@@ -5532,6 +5538,57 @@
         });
 
         // Rechnung als bezahlt markieren
+        // --- 24h Erinnerungen manuell senden ---
+        function send24hReminderEmail(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) return;
+            if (!booking.email) {
+                alert('Keine E-Mail-Adresse für diese Buchung hinterlegt.');
+                return;
+            }
+
+            const subject = 'Ihre Eiswagen-Buchung für morgen!';
+            const body = `Hallo ${booking.name || ''},\n\nwir freuen uns sehr auf Ihr Event morgen am ${booking.date || ''} um ${booking.time || ''} Uhr!\n\nDas EisFavorite Team wird pünktlich vor Ort sein.\n\nViele Grüße,\nIhr EisFavorite Team`;
+
+            // Log im E-Mail Verlauf
+            if (!booking.emailHistory) booking.emailHistory = [];
+            booking.emailHistory.push({
+                timestamp: new Date().toISOString(),
+                direction: 'sent',
+                subject: subject,
+                message: body
+            });
+
+            booking.emailReminderSent = true;
+            updateBookingTimestamp(booking);
+            saveToLocalStorage();
+            updateStats();
+            filterAndDisplay();
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(booking.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(gmailUrl, '_blank');
+        }
+
+        function send24hReminderSMS(bookingId) {
+            const booking = allBookings.find(b => b.id === bookingId);
+            if (!booking) return;
+            if (!booking.phone) {
+                alert('Keine Telefonnummer für diese Buchung hinterlegt.');
+                return;
+            }
+
+            const message = `Hallo ${booking.name || ''}, wir freuen uns auf Ihr Event morgen am ${booking.date || ''} um ${booking.time || ''} Uhr! Ihr EisFavorite Team`;
+            const phoneClean = booking.phone.replace(/\s/g, '');
+
+            booking.smsReminderSent = true;
+            updateBookingTimestamp(booking);
+            saveToLocalStorage();
+            updateStats();
+            filterAndDisplay();
+
+            window.open(`sms:${phoneClean}?body=${encodeURIComponent(message)}`, '_blank');
+        }
+
         function markAsPaid(bookingId) {
             const booking = allBookings.find(b => b.id === bookingId);
             if (!booking) {
