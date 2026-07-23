@@ -531,21 +531,14 @@
 
         .card-menu-dropdown {
             display: none;
-            position: absolute;
-            top: 45px;
-            right: 0;
+            position: fixed;
             background: white;
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             min-width: 220px;
-            max-height: 70vh;
+            max-width: calc(100vw - 16px);
             overflow-y: auto;
-            z-index: 100;
-        }
-
-        .card-menu-dropdown.open-upward {
-            top: auto;
-            bottom: 45px;
+            z-index: 1000;
         }
 
         .card-menu-dropdown.active {
@@ -5917,21 +5910,65 @@
 
             // Aktuelles Menü togglen
             const menu = document.getElementById(`menu-${bookingId}`);
+            const isOpening = !menu.classList.contains('active');
             menu.classList.toggle('active');
-            menu.classList.remove('open-upward');
 
-            if (menu.classList.contains('active')) {
-                // Sicherstellen, dass das komplette Menü sichtbar ist (auch am Handy):
-                // ggf. nach oben statt nach unten öffnen, dann ins Bild scrollen
-                requestAnimationFrame(() => {
-                    const rect = menu.getBoundingClientRect();
-                    if (rect.bottom > window.innerHeight) {
-                        menu.classList.add('open-upward');
-                    }
-                    menu.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                });
+            if (isOpening) {
+                positionCardMenu(menu, event.currentTarget);
             }
         }
+
+        // Positioniert das Kartenmenü fest (position: fixed) so, dass es IMMER
+        // komplett im sichtbaren Bereich liegt - egal wo die Karte auf dem
+        // Bildschirm steht. Reicht der Platz nicht, scrollt das Menü in sich selbst.
+        function positionCardMenu(menu, button) {
+            const margin = 8;
+            const btnRect = button.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Höhe begrenzen, damit das Menü nie größer als der Bildschirm ist
+            menu.style.maxHeight = (viewportHeight - margin * 2) + 'px';
+
+            // Erstmal unsichtbar an Standardposition messen, um die natürliche Höhe zu bekommen
+            menu.style.visibility = 'hidden';
+            menu.style.left = margin + 'px';
+            menu.style.top = margin + 'px';
+
+            const menuRect = menu.getBoundingClientRect();
+            const menuWidth = menuRect.width;
+            const menuHeight = menuRect.height;
+
+            // Horizontal: rechtsbündig zum Button, aber innerhalb des Bildschirms
+            let left = btnRect.right - menuWidth;
+            left = Math.max(margin, Math.min(left, viewportWidth - menuWidth - margin));
+
+            // Vertikal: bevorzugt unter dem Button öffnen, sonst darüber, sonst platzsparend einpassen
+            let top;
+            const spaceBelow = viewportHeight - btnRect.bottom - margin;
+            const spaceAbove = btnRect.top - margin;
+
+            if (menuHeight <= spaceBelow) {
+                top = btnRect.bottom + 5;
+            } else if (menuHeight <= spaceAbove) {
+                top = btnRect.top - menuHeight - 5;
+            } else {
+                // Passt weder oben noch unten komplett -> mittig einpassen und ggf. selbst scrollen
+                top = Math.max(margin, Math.min(btnRect.bottom + 5, viewportHeight - menuHeight - margin));
+            }
+
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.visibility = 'visible';
+        }
+
+        // Bei Größenänderung (z.B. Rotation) offene Menüs neu positionieren
+        window.addEventListener('resize', () => {
+            document.querySelectorAll('.card-menu-dropdown.active').forEach(menu => {
+                const button = menu.closest('.card-menu')?.querySelector('.card-menu-button');
+                if (button) positionCardMenu(menu, button);
+            });
+        });
 
         // Menü schließen
         function closeCardMenu(bookingId) {
