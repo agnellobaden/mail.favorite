@@ -1250,14 +1250,17 @@
 
             body {
                 padding: 5px;
-                overflow-x: hidden;
+                /* overflow-x: hidden würde hier die sticky Filter-Leiste kaputt machen
+                   (erzeugt einen eigenen Scroll-Container) - overflow-x: clip verhindert
+                   horizontales Überlaufen ohne diesen Nebeneffekt */
+                overflow-x: clip;
             }
 
             .container {
                 padding: 10px;
                 border-radius: 8px;
                 max-width: 100%;
-                overflow-x: hidden;
+                overflow-x: clip;
             }
 
             h1 {
