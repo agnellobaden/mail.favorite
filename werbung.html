@@ -176,6 +176,7 @@
                 <thead>
                     <tr>
                         <th>Firma</th>
+                        <th>Ansprechpartner</th>
                         <th>Adresse</th>
                         <th>Telefon</th>
                         <th>E-Mail</th>
@@ -246,7 +247,8 @@
             if (searchFilter) {
                 filtered = filtered.filter(l =>
                     (l.name || '').toLowerCase().includes(searchFilter) ||
-                    (l.address || '').toLowerCase().includes(searchFilter)
+                    (l.address || '').toLowerCase().includes(searchFilter) ||
+                    (l.contactPerson || '').toLowerCase().includes(searchFilter)
                 );
             }
 
@@ -268,6 +270,7 @@
                 return `
                     <tr>
                         <td><strong>${lead.name || 'Unbekannt'}</strong></td>
+                        <td>${lead.contactPerson || '-'}</td>
                         <td>${lead.address || '-'}</td>
                         <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
                         <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
