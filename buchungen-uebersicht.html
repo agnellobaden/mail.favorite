@@ -2713,8 +2713,11 @@
 
         let db = null;
         let firebaseInitialized = false;
-        let isUpdatingFromFirebase = false;
-        let isDeletingBooking = false; // Flag um zu verhindern, dass Listener gelöschte Buchungen wieder hochlädt
+        let unsubscribeListener = null;
+
+        // IDs, die gerade lokal gelöscht wurden, aber deren Firebase-Löschung noch nicht bestätigt ist.
+        // Verhindert, dass der Realtime-Listener eine gerade gelöschte Buchung wieder "auferstehen" lässt.
+        const pendingDeletions = new Map();
 
         // Firebase Status Anzeige
         function updateFirebaseStatus(status, message) {
@@ -3187,34 +3190,20 @@
          */
 
         function saveToLocalStorage() {
-            console.log('💾💾💾 SAVE TO LOCALSTORAGE AUFGERUFEN!');
-
-            // Immer in LocalStorage als Backup speichern
+            // Immer sofort lokal speichern (synchron, blockiert nie)
             try {
                 localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-                console.log('💾 Daten in LocalStorage gespeichert (' + allBookings.length + ' Buchungen)');
             } catch (e) {
                 console.error('✗ Fehler beim LocalStorage-Speichern:', e);
             }
 
-            // Wenn Firebase aktiviert ist, INSTANT FORCE-Upload
+            // Non-blocking Upload zu Firebase. Der Listener läuft parallel weiter (keine Flags/Pausen),
+            // Timestamps (lastModifiedMs) entscheiden bei Konflikten, welche Version gewinnt.
             if (firebaseInitialized && db) {
-                console.log('⚡⚡⚡ INSTANT FORCE-Upload JETZT!');
-
-                // FORCE-Upload: Ignoriert ALLE Flags komplett
-                saveToFirebase(true).then(() => {
-                    console.log('✅✅✅ INSTANT Upload ERFOLGREICH!');
-                }).catch((e) => {
-                    console.error('❌❌❌ INSTANT Upload FEHLER:', e);
-
-                    // Retry nach 1 Sekunde
-                    setTimeout(() => {
-                        console.log('🔄 Retry Upload nach Fehler...');
-                        saveToFirebase(true);
-                    }, 1000);
+                saveToFirebase().catch((e) => {
+                    console.error('❌ Firebase-Upload fehlgeschlagen, Retry in 2s:', e);
+                    setTimeout(() => saveToFirebase(), 2000);
                 });
-            } else {
-                console.log('⚠️ Firebase nicht verfügbar');
             }
 
             // App-Zustand auch speichern
@@ -3292,35 +3281,13 @@
             return cleanId;
         }
 
-        // Debounce Timer für Firebase-Uploads
-        let firebaseSaveTimeout = null;
-        let hasPendingFirebaseUpload = false;
-
-        async function saveToFirebase(forceUpload = false) {
+        async function saveToFirebase() {
             if (!firebaseInitialized || !db) {
-                console.error('❌ FIREBASE NICHT VERFÜGBAR - Upload abgebrochen!');
-                console.error('firebaseInitialized:', firebaseInitialized);
-                console.error('db:', db);
+                console.log('⚠️ Firebase nicht verfügbar - nur lokal gespeichert');
                 return;
             }
 
-            // NEUE LOGIK: Wenn bereits ein Upload läuft UND es kein Force-Upload ist, warte
-            if (isUpdatingFromFirebase && !forceUpload) {
-                hasPendingFirebaseUpload = true;
-                console.log('⏳ Upload läuft bereits - wird nach Abschluss wiederholt');
-                return;
-            }
-
-            console.log('💾 ==========================================');
-            console.log('💾 STARTE FIREBASE-UPLOAD');
-            console.log('💾 Anzahl Buchungen:', allBookings.length);
-            console.log('💾 Zeitpunkt:', new Date().toLocaleTimeString());
-            console.log('💾 ==========================================');
-
-            // Flag setzen um zu verhindern, dass Listener währenddessen stört
-            const wasUpdating = isUpdatingFromFirebase;
-            isUpdatingFromFirebase = true;
-            hasPendingFirebaseUpload = false;
+            console.log('💾 Starte Firebase-Upload:', allBookings.length, 'Buchungen,', new Date().toLocaleTimeString());
 
             updateFirebaseStatus('syncing', '🔄 Speichere...');
 
@@ -3438,20 +3405,9 @@
                 }
 
                 updateFirebaseStatus('error', errorMsg);
-            } finally {
-                // Flag SOFORT zurücksetzen, egal ob Erfolg oder Fehler
-                // KRITISCH: Kurze Verzögerung (100ms) damit Upload abgeschlossen ist, aber Listener nicht zu lange blockiert
-                setTimeout(() => {
-                    isUpdatingFromFirebase = false; // WICHTIG: Immer auf false, nicht auf wasUpdating!
-                    console.log('🔓 Upload-Flag zurückgesetzt → Listener wieder aktiv');
 
-                    // Wenn während des Uploads neue Änderungen kamen, erneut uploaden
-                    if (hasPendingFirebaseUpload) {
-                        console.log('🔄 Starte nächsten Upload (pending changes)...');
-                        hasPendingFirebaseUpload = false;
-                        saveToFirebase(true); // Force-Upload für pendende Änderungen
-                    }
-                }, 100); // Nur 100ms statt 500ms - Listener wird schneller wieder aktiv!
+                // Automatischer Retry nach 2 Sekunden
+                setTimeout(() => saveToFirebase(), 2000);
             }
         }
 
@@ -5737,6 +5693,11 @@
             allBookings.splice(index, 1);
             console.log('✅ Aus Array gelöscht. Verbleibend:', allBookings.length);
 
+            // Merke die Löschung, damit der Realtime-Listener die Buchung nicht wieder herstellt,
+            // solange Firebase den alten Stand noch meldet (Zeitfenster mit Auto-Cleanup)
+            pendingDeletions.set(bookingIdToDelete, Date.now());
+            setTimeout(() => pendingDeletions.delete(bookingIdToDelete), 30000);
+
             // ZWEITE: LocalStorage speichern
             saveToLocalStorage();
             console.log('💾 LocalStorage gespeichert');
@@ -5762,6 +5723,7 @@
                 db.collection('buchungen').doc(cleanId).delete()
                     .then(() => {
                         console.log('✅ Erfolgreich aus Firebase gelöscht');
+                        pendingDeletions.delete(bookingIdToDelete);
                     })
                     .catch(error => {
                         console.error('❌ Firebase-Fehler:', error);
@@ -6605,200 +6567,93 @@
         // FIREBASE ECHTZEIT-SYNCHRONISATION
         // ==========================================
 
+        // Ermittelt einen vergleichbaren Zeitstempel für eine Buchung
+        function getBookingTimestamp(booking) {
+            return booking.lastModifiedMs ||
+                (booking.lastModified ? new Date(booking.lastModified).getTime() : 0) ||
+                (booking.aktualisiertAm ? parseDate(booking.aktualisiertAm).getTime() : 0);
+        }
+
+        // Merged lokale und Firebase-Buchungen: die NEUESTE Version (per Timestamp) gewinnt immer.
+        // Lokale Buchungen ohne Firebase-Eintrag werden nur behalten, wenn sie frisch sind (< 30s) -
+        // sonst wurden sie auf einem anderen Gerät gelöscht.
+        function mergeBookings(local, firebase) {
+            const bookingsMap = new Map();
+            let hasLocalNewer = false;
+
+            firebase.forEach(fb => {
+                // Gerade lokal gelöscht, Firebase hat den Löschvorgang noch nicht bestätigt -> ignorieren
+                if (pendingDeletions.has(fb.id)) return;
+                bookingsMap.set(fb.id, { data: fb, timestamp: getBookingTimestamp(fb) });
+            });
+
+            local.forEach(loc => {
+                const localTimestamp = getBookingTimestamp(loc);
+                const fbEntry = bookingsMap.get(loc.id);
+
+                if (!fbEntry) {
+                    if (pendingDeletions.has(loc.id)) return; // gerade gelöscht, nicht wieder aufnehmen
+
+                    const ageInSeconds = (Date.now() - localTimestamp) / 1000;
+                    if (ageInSeconds < 30) {
+                        bookingsMap.set(loc.id, { data: loc, timestamp: localTimestamp });
+                        hasLocalNewer = true;
+                    }
+                    // sonst: alt und nicht in Firebase -> auf anderem Gerät gelöscht, verwerfen
+                } else if (localTimestamp > fbEntry.timestamp) {
+                    bookingsMap.set(loc.id, { data: loc, timestamp: localTimestamp });
+                    hasLocalNewer = true;
+                }
+                // sonst: Firebase-Version ist aktuell oder gleich alt -> behalten
+            });
+
+            return { bookings: Array.from(bookingsMap.values()).map(e => e.data), hasLocalNewer };
+        }
+
         function startRealtimeSync() {
             if (!firebaseInitialized || !db) {
                 console.error('❌ Firebase nicht bereit - Listener kann nicht gestartet werden');
                 return;
             }
 
+            // Alten Listener stoppen, falls vorhanden (z.B. bei erneuter Initialisierung)
+            if (unsubscribeListener) {
+                unsubscribeListener();
+            }
+
             console.log('🔄 Starte Echtzeit-Synchronisation...');
 
-            // Echtzeit-Listener für Buchungen
-            db.collection('buchungen').onSnapshot((snapshot) => {
-                console.log('📡 FIREBASE SNAPSHOT ERHALTEN:', snapshot.size, 'Dokumente');
-                console.log('📡 Zeitpunkt:', new Date().toLocaleTimeString());
-
-                // WICHTIG: Während einer Löschung nichts tun, sonst lädt der Listener die Buchung wieder hoch
-                if (isDeletingBooking) {
-                    console.log('⏸️ Löschvorgang läuft - Listener übersprungen');
-                    updateFirebaseStatus('connected', '🟢 Live verbunden');
-                    return;
-                }
-
-                // KRITISCH: Während Upload KOMPLETT pausieren - sonst Überschreiben-Gefahr!
-                if (isUpdatingFromFirebase) {
-                    console.log('⏸️⏸️⏸️ UPLOAD LÄUFT - Listener KOMPLETT pausiert!');
-                    return;
-                }
-
-                // Flag setzen, um Endlos-Loop zu vermeiden
-                isUpdatingFromFirebase = true;
+            // Echtzeit-Listener für Buchungen - läuft IMMER, keine Blocking-Flags,
+            // damit Änderungen von anderen Geräten sofort ankommen (echtes Live-Update).
+            unsubscribeListener = db.collection('buchungen').onSnapshot((snapshot) => {
+                console.log('📡 Firebase-Snapshot erhalten:', snapshot.size, 'Dokumente,', new Date().toLocaleTimeString());
 
                 const firebaseBookings = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    // Entferne Firebase-spezifische Felder für besseren Vergleich
                     delete data.updatedAt;
-
-                    const booking = {
-                        ...data,
-                        id: doc.id
-                    };
-
-                    // Logging für Strichlisten-Daten
-                    if (booking.tally) {
-                        console.log('📥 Buchung mit Strichliste von Firebase:', doc.id, 'Tally:', booking.tally);
-                    }
-
-                    // Logging für Chat-Verlauf
-                    if (booking.emailHistory && booking.emailHistory.length > 0) {
-                        console.log('📥 Buchung mit Chat-Verlauf von Firebase:', doc.id, 'Nachrichten:', booking.emailHistory.length);
-                    }
-
-                    firebaseBookings.push(booking);
+                    firebaseBookings.push({ ...data, id: doc.id });
                 });
 
-                console.log('🔍 Vergleiche Daten - Lokal:', allBookings.length, 'Firebase:', firebaseBookings.length);
+                const { bookings: merged, hasLocalNewer } = mergeBookings(allBookings, firebaseBookings);
 
-                // WICHTIG: Wenn lokal KEINE Daten vorhanden sind, übernimm IMMER Firebase-Daten
-                if (allBookings.length === 0 && firebaseBookings.length > 0) {
-                    console.log('📥 Erste Synchronisation: Übernehme alle Daten von Firebase');
-                    allBookings = firebaseBookings;
+                if (JSON.stringify(merged) !== JSON.stringify(allBookings)) {
+                    allBookings = merged;
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
                     updateStats();
                     filterAndDisplay();
-                    isUpdatingFromFirebase = false;
-                    updateFirebaseStatus('connected', '🟢 Live verbunden');
-                    return;
+                    console.log('✅ UI mit Firebase-Daten aktualisiert (' + allBookings.length + ' Buchungen)');
                 }
 
-                // Sortiere beide Arrays für besseren Vergleich
-                const sortedLocal = [...allBookings].sort((a, b) => a.id.localeCompare(b.id));
-                const sortedFirebase = [...firebaseBookings].sort((a, b) => a.id.localeCompare(b.id));
-
-                // Wenn Firebase leer ist aber lokale Daten vorhanden sind, dann lokale Daten hochladen
-                if (firebaseBookings.length === 0 && allBookings.length > 0) {
-                    console.log('📤 Firebase ist leer, lokale Daten werden hochgeladen...');
-                    isUpdatingFromFirebase = false;
+                // Lokale Änderungen, die Firebase noch nicht kennt, erneut hochladen
+                if (hasLocalNewer) {
                     saveToFirebase();
-                    return;
                 }
 
-                // Aktualisiere nur, wenn sich wirklich etwas geändert hat
-                if (JSON.stringify(sortedLocal) !== JSON.stringify(sortedFirebase)) {
-                    console.log('🔄 Unterschiede gefunden zwischen lokal und Firebase');
-
-                    // WICHTIG: Merge-Strategie - NEUESTE Version gewinnt immer (egal von welchem Gerät)
-                    const bookingsMap = new Map();
-                    let hasUpdates = false;
-                    let shouldUploadNew = false;
-
-                    // 1. Füge alle Firebase-Buchungen zur Map hinzu
-                    firebaseBookings.forEach(fbBooking => {
-                        // WICHTIG: Nutze lastModifiedMs für präzisen Vergleich (Millisekunden-genau!)
-                        const fbTimestamp = fbBooking.lastModifiedMs ||
-                                           (fbBooking.lastModified ? new Date(fbBooking.lastModified).getTime() : 0) ||
-                                           (fbBooking.aktualisiertAm ? parseDate(fbBooking.aktualisiertAm).getTime() : 0);
-
-                        bookingsMap.set(fbBooking.id, {
-                            data: fbBooking,
-                            timestamp: fbTimestamp,
-                            source: 'firebase'
-                        });
-
-                        console.log('📥 Firebase:', fbBooking.id?.substring(0, 20), 'Timestamp:', fbTimestamp, new Date(fbTimestamp).toLocaleString('de-DE'));
-                    });
-
-                    // 2. Vergleiche mit lokalen Buchungen
-                    allBookings.forEach(localBooking => {
-                        // WICHTIG: Nutze lastModifiedMs für präzisen Vergleich!
-                        const localTimestamp = localBooking.lastModifiedMs ||
-                                              (localBooking.lastModified ? new Date(localBooking.lastModified).getTime() : 0) ||
-                                              (localBooking.aktualisiertAm ? parseDate(localBooking.aktualisiertAm).getTime() : 0);
-
-                        console.log('💾 Lokal:', localBooking.id?.substring(0, 20), 'Timestamp:', localTimestamp, new Date(localTimestamp).toLocaleString('de-DE'));
-
-                        if (bookingsMap.has(localBooking.id)) {
-                            // Buchung existiert in Firebase - vergleiche Timestamps
-                            const fbEntry = bookingsMap.get(localBooking.id);
-
-                            if (localTimestamp > fbEntry.timestamp) {
-                                // LOKALE Version ist NEUER - verwende lokale und markiere für Upload
-                                console.log('📤 Lokale Version ist neuer, wird hochgeladen:', localBooking.id);
-                                bookingsMap.set(localBooking.id, {
-                                    data: localBooking,
-                                    timestamp: localTimestamp,
-                                    source: 'local-newer'
-                                });
-                                shouldUploadNew = true;
-                                hasUpdates = true;
-                            } else if (localTimestamp < fbEntry.timestamp) {
-                                // Firebase-Version ist NEUER - wurde schon zur Map hinzugefügt
-                                console.log('🔄 Firebase-Version ist neuer:', localBooking.id);
-                                hasUpdates = true;
-                            }
-                            // Wenn Timestamps gleich sind, behalte Firebase-Version
-                        } else {
-                            // Buchung ist nur lokal, nicht in Firebase
-                            const ageInSeconds = (Date.now() - localTimestamp) / 1000;
-
-                            if (ageInSeconds < 30) {
-                                // Neu (< 30 Sekunden) - zu Firebase hochladen
-                                console.log('📤 Neue lokale Buchung wird hochgeladen:', localBooking.id);
-                                bookingsMap.set(localBooking.id, {
-                                    data: localBooking,
-                                    timestamp: localTimestamp,
-                                    source: 'local-new'
-                                });
-                                shouldUploadNew = true;
-                                hasUpdates = true;
-                            } else {
-                                // Alt und nicht in Firebase - wurde gelöscht
-                                console.log('🗑️ Alte lokale Buchung (nicht in Firebase), verwerfen:', localBooking.id);
-                                hasUpdates = true;
-                            }
-                        }
-                    });
-
-                    // 3. Konvertiere Map zurück zu Array
-                    const mergedBookings = Array.from(bookingsMap.values()).map(entry => entry.data);
-
-                    if (hasUpdates) {
-                        allBookings = mergedBookings;
-
-                        // LocalStorage als Backup aktualisieren
-                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(allBookings));
-
-                        // UI aktualisieren
-                        updateStats();
-                        filterAndDisplay();
-
-                        console.log('✓ Daten gemerged:', allBookings.length, 'Buchungen');
-
-                        // Wenn lokale Daten neuer sind, zu Firebase hochladen
-                        if (shouldUploadNew) {
-                            // KRITISCH: Nur kurz warten (100ms) damit Listener nicht blockiert
-                            setTimeout(() => {
-                                if (!isUpdatingFromFirebase) {
-                                    console.log('📤 Neue lokale Änderungen zu Firebase hochladen');
-                                    saveToFirebase(true); // Force-Upload
-                                }
-                            }, 100); // Nur 100ms statt 1000ms!
-                        }
-                    } else {
-                        console.log('✓ Daten bereits aktuell');
-                    }
-                } else {
-                    console.log('✓ Daten identisch - keine Updates nötig');
-                }
-
-                // Flag zurücksetzen und Status auf "Live verbunden" setzen
-                isUpdatingFromFirebase = false;
                 updateFirebaseStatus('connected', '🟢 Live verbunden');
             }, (error) => {
                 console.error('✗ Synchronisations-Fehler:', error);
                 updateFirebaseStatus('error', '🔴 Sync-Fehler: ' + error.message);
-                isUpdatingFromFirebase = false;
             });
         }
 
