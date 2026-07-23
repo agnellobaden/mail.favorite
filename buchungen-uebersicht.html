@@ -5675,8 +5675,21 @@
             updateStats();
             filterAndDisplay();
 
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(booking.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.open(gmailUrl, '_blank');
+            openEmailCompose(booking.email, subject, body);
+        }
+
+        // Öffnet ein E-Mail-Compose-Fenster mit vorausgefülltem Betreff/Text.
+        // Am Handy per mailto: (öffnet direkt die native Mail-/Gmail-App, sofort sendebereit),
+        // am PC/Laptop über die Gmail-Weboberfläche mit dem festen Geschäfts-Account.
+        function openEmailCompose(to, subject, body) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } else {
+                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.open(gmailUrl, '_blank');
+            }
         }
 
         function send24hReminderSMS(bookingId) {
