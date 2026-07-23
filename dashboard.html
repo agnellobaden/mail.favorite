@@ -390,26 +390,6 @@
             </table>
         </div>
 
-        <!-- Versendete Erinnerungen -->
-        <div class="section" id="sentRemindersSection" style="display: none;">
-            <h2 class="section-title" onclick="toggleSection('sentRemindersContent', 'sentRemindersToggle')" style="cursor: pointer; user-select: none;">
-                🔔 Versendete Erinnerungen <span id="sentRemindersToggle" style="float: right; font-size: 1.2em;">▲</span>
-            </h2>
-            <div id="sentRemindersContent">
-            <table id="sentRemindersTable">
-                <thead>
-                    <tr>
-                        <th>Kunde</th>
-                        <th>Event-Datum</th>
-                        <th>Uhrzeit</th>
-                        <th>Typ</th>
-                        <th>Versendet am</th>
-                    </tr>
-                </thead>
-                <tbody id="sentRemindersTableBody"></tbody>
-            </table>
-        </div>
-
         <!-- Monatsumsatz -->
         <div class="section">
             <h2 class="section-title" onclick="toggleMonthlyRevenue()" style="cursor: pointer; user-select: none;">
@@ -757,39 +737,6 @@
 
         document.getElementById('remindersDueCount').textContent = remindersDue.length;
         document.getElementById('remindersDueInfo').textContent = remindersDue.length === 1 ? 'Event morgen' : 'Events morgen';
-
-        // 2c. VERSENDETE ERINNERUNGEN (alle mit emailReminderSent oder smsReminderSent)
-        const sentReminders = bookings.filter(b => {
-            return b.emailReminderSent === true || b.smsReminderSent === true;
-        }).sort((a, b) => {
-            // Sortiere nach aktualisiertAm (neueste zuerst)
-            const dateA = parseAnyDate(a.aktualisiertAm || a.lastModified);
-            const dateB = parseAnyDate(b.aktualisiertAm || b.lastModified);
-            return dateB - dateA;
-        });
-
-        console.log('📧 Versendete Erinnerungen:', sentReminders.length);
-
-        if (sentReminders.length > 0) {
-            const section = document.getElementById('sentRemindersSection');
-            const tbody = document.getElementById('sentRemindersTableBody');
-            section.style.display = 'block';
-
-            sentReminders.forEach(reminder => {
-                const row = tbody.insertRow();
-                const reminderType = reminder.emailReminderSent ?
-                    '<span style="display: inline-block; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600;">📧 E-Mail</span>' :
-                    '<span style="display: inline-block; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600;">📱 SMS</span>';
-
-                row.innerHTML = `
-                    <td><a href="buchungen-uebersicht.html?booking=${encodeURIComponent(reminder.id)}" style="color: #667eea; text-decoration: none; font-weight: 600; cursor: pointer;"><strong>${reminder.name || 'Unbekannt'}</strong></a></td>
-                    <td>${reminder.date || '-'}</td>
-                    <td>${reminder.time || '-'}</td>
-                    <td>${reminderType}</td>
-                    <td>${reminder.aktualisiertAm || '-'}</td>
-                `;
-            });
-        }
 
         // 3. BEZAHLTE RECHNUNGEN (diesen Monat)
         const thisMonth = today.getMonth();
