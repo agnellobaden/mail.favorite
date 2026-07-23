@@ -538,8 +538,14 @@
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             min-width: 220px;
-            overflow: hidden;
+            max-height: 70vh;
+            overflow-y: auto;
             z-index: 100;
+        }
+
+        .card-menu-dropdown.open-upward {
+            top: auto;
+            bottom: 45px;
         }
 
         .card-menu-dropdown.active {
@@ -5912,6 +5918,19 @@
             // Aktuelles Menü togglen
             const menu = document.getElementById(`menu-${bookingId}`);
             menu.classList.toggle('active');
+            menu.classList.remove('open-upward');
+
+            if (menu.classList.contains('active')) {
+                // Sicherstellen, dass das komplette Menü sichtbar ist (auch am Handy):
+                // ggf. nach oben statt nach unten öffnen, dann ins Bild scrollen
+                requestAnimationFrame(() => {
+                    const rect = menu.getBoundingClientRect();
+                    if (rect.bottom > window.innerHeight) {
+                        menu.classList.add('open-upward');
+                    }
+                    menu.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+            }
         }
 
         // Menü schließen
@@ -5919,6 +5938,7 @@
             const menu = document.getElementById(`menu-${bookingId}`);
             if (menu) {
                 menu.classList.remove('active');
+                menu.classList.remove('open-upward');
             }
         }
 
