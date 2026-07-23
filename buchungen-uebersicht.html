@@ -1980,6 +1980,18 @@
         </div>
     </div>
 
+    <!-- 24h-Erinnerung Popup -->
+    <div id="reminderPopupModal" class="form-modal" style="display: none;">
+        <div class="form-container" style="max-width: 500px;">
+            <h2 style="margin-bottom: 10px;">🔔 24h-Erinnerung fällig</h2>
+            <p style="margin-bottom: 20px; color: #666;">Für diese Buchung(en) steht das Event in Kürze an - jetzt Erinnerung senden?</p>
+            <div id="reminderPopupList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="btn btn-secondary" onclick="closeReminderPopup()" style="margin: 0;">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Calendar Modal -->
     <div id="calendarModal" class="form-modal" style="display: none;">
         <div class="form-container" style="max-width: 900px;">
@@ -5548,6 +5560,93 @@
         });
 
         // Rechnung als bezahlt markieren
+        // --- 24h-Erinnerung: automatisches Popup, wenn ein Event in Kürze ansteht ---
+        function getReminderCandidates() {
+            const now = new Date();
+            return allBookings.filter(b => {
+                if (b.status !== 'Gebucht') return false;
+                if (!b.email && !b.phone) return false;
+                if (b.emailReminderSent || b.smsReminderSent) return false;
+                if (!b.date) return false;
+
+                const eventDate = parseAnyDate(b.date);
+                if (isNaN(eventDate.getTime())) return false;
+
+                if (b.time) {
+                    const timeParts = b.time.split(':');
+                    eventDate.setHours(parseInt(timeParts[0]) || 14, parseInt(timeParts[1]) || 0);
+                } else {
+                    eventDate.setHours(14, 0);
+                }
+
+                const hoursUntil = (eventDate - now) / (1000 * 60 * 60);
+                return hoursUntil >= 0 && hoursUntil <= 24;
+            });
+        }
+
+        function checkDueReminders() {
+            const due = getReminderCandidates();
+            if (due.length === 0) return;
+
+            let shown = {};
+            try { shown = JSON.parse(localStorage.getItem('reminderPopupShown') || '{}'); } catch (e) {}
+
+            const todayStr = new Date().toDateString();
+            const toShow = due.filter(b => shown[b.id] !== todayStr);
+            if (toShow.length === 0) return;
+
+            toShow.forEach(b => { shown[b.id] = todayStr; });
+            localStorage.setItem('reminderPopupShown', JSON.stringify(shown));
+
+            renderReminderPopup(toShow.map(b => b.id));
+        }
+
+        function renderReminderPopup(bookingIds) {
+            const list = document.getElementById('reminderPopupList');
+            const modal = document.getElementById('reminderPopupModal');
+            if (!list || !modal) return;
+
+            const bookings = bookingIds.map(id => allBookings.find(b => b.id === id)).filter(Boolean);
+            if (bookings.length === 0) {
+                modal.style.display = 'none';
+                return;
+            }
+
+            list.innerHTML = bookings.map(b => `
+                <div id="reminderPopupItem-${b.id}" style="border: 1px solid #eee; border-radius: 8px; padding: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">${b.name || 'Unbekannt'}</div>
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">${b.date || '-'} ${b.time || ''}</div>
+                    <div style="display: flex; gap: 8px;">
+                        ${b.email ? `<button class="btn btn-primary" style="margin: 0; flex: 1; padding: 8px;" onclick="sendReminderFromPopup('email', '${b.id}')">📧 E-Mail senden</button>` : ''}
+                        ${b.phone ? `<button class="btn btn-primary" style="margin: 0; flex: 1; padding: 8px; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);" onclick="sendReminderFromPopup('sms', '${b.id}')">📱 SMS senden</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            modal.style.display = 'block';
+        }
+
+        function sendReminderFromPopup(type, bookingId) {
+            if (type === 'email') {
+                send24hReminderEmail(bookingId);
+            } else {
+                send24hReminderSMS(bookingId);
+            }
+
+            const item = document.getElementById(`reminderPopupItem-${bookingId}`);
+            if (item) item.remove();
+
+            const list = document.getElementById('reminderPopupList');
+            if (list && list.children.length === 0) {
+                closeReminderPopup();
+            }
+        }
+
+        function closeReminderPopup() {
+            const modal = document.getElementById('reminderPopupModal');
+            if (modal) modal.style.display = 'none';
+        }
+
         // --- 24h Erinnerungen manuell senden ---
         function send24hReminderEmail(bookingId) {
             const booking = allBookings.find(b => b.id === bookingId);
@@ -7089,6 +7188,10 @@
             if (!firebaseInitialized) {
                 updateFirebaseStatus('error', '🔴 Nur lokaler Modus');
             }
+
+            // Prüfe, ob eine 24h-Erinnerung fällig ist und zeige ggf. das Popup
+            setTimeout(checkDueReminders, 1500);
+            setInterval(checkDueReminders, 15 * 60 * 1000); // alle 15 Minuten erneut prüfen
         });
 
         // Scroll-Position speichern bei Änderungen
