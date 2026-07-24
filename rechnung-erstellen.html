@@ -1306,6 +1306,12 @@
                         bookings[bookingIndex].invoiceNumber = invoiceNumber;
                         bookings[bookingIndex].invoiceAmount = totalBrutto;
                         bookings[bookingIndex].status = 'Rechnung versendet';
+
+                        // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                        bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        bookings[bookingIndex].lastModified = new Date().toISOString();
+                        bookings[bookingIndex].lastModifiedMs = Date.now();
+
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
                     }
                 }
@@ -1388,14 +1394,24 @@ Tel: +49 176 56813172`;
                 const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
                 if (bookingIndex !== -1) {
+                    // WICHTIG: Alle Felder setzen + Timestamps aktualisieren
                     bookings[bookingIndex].invoiceSent = true;
                     bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
                     bookings[bookingIndex].invoiceNumber = invoiceNumber;
                     bookings[bookingIndex].invoiceAmount = totalBrutto;
                     bookings[bookingIndex].status = 'Rechnung versendet';
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde von "Event beendet" auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto);
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
+
+                    // Seite neu laden, um Status-Banner anzuzeigen
+                    location.reload();
                 } else {
                     alert('❌ Fehler: Buchung nicht gefunden.');
                 }
@@ -1421,14 +1437,27 @@ Tel: +49 176 56813172`;
                 const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
                 if (bookingIndex !== -1) {
+                    // WICHTIG: Alle Felder setzen + Timestamps aktualisieren
                     bookings[bookingIndex].invoicePaid = true;
                     bookings[bookingIndex].invoicePaidDate = new Date().toISOString();
                     bookings[bookingIndex].invoiceNumber = invoiceNumber;
                     bookings[bookingIndex].invoiceAmount = totalBrutto;
                     bookings[bookingIndex].status = 'Bezahlte Rechnung';
+
+                    // Wenn noch nicht als "versendet" markiert, jetzt setzen
+                    if (!bookings[bookingIndex].invoiceSent) {
+                        bookings[bookingIndex].invoiceSent = true;
+                        bookings[bookingIndex].invoiceSentDate = bookings[bookingIndex].invoicePaidDate;
+                    }
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
-                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
+                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE') + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
 
                     // Seite neu laden, um Status-Banner anzuzeigen
                     location.reload();
@@ -1497,6 +1526,12 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].paymentReminderSent = true;
                     bookings[bookingIndex].paymentReminderDate = new Date().toISOString();
                     bookings[bookingIndex].paymentReminderCount = reminderCount;
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
                 }
 

@@ -163,7 +163,8 @@ def parse_email(msg):
         'time': extract_info(full_text, 'time') or '',
         'timeEnd': '',
         'guests': extract_info(full_text, 'guests') or '',
-        'kugelPerGuest': '',
+        'kugeln': '',  # Wird später berechnet
+        'kugelPerGuest': '2',  # Standard: 2 Kugeln pro Gast
         'location': '',
         'street': extract_info(full_text, 'street') or '',
         'plz': extract_info(full_text, 'plz') or '',
@@ -171,12 +172,14 @@ def parse_email(msg):
         'distance': '',
         'wunschsorten': extract_info(full_text, 'sorten') or '',
         'notizen': body[:500] if body else '',  # Erste 500 Zeichen als Notizen
-        'eigeneNotizen': f'Importiert aus E-Mail vom {date_received}',
+        'eigeneNotizen': f'📧 Importiert aus E-Mail vom {date_received}',
+        'emailHistory': [],  # Wird in buchungen-uebersicht.html gefüllt
         'angebotUrl': '',
         'angebotVorlage': '',
         'rechnungUrl': '',
         'erstelltAm': datetime.now().strftime('%d.%m.%Y'),
         'aktualisiertAm': datetime.now().strftime('%d.%m.%Y'),
+        'isNewFromEmail': True,  # Markierung für automatisch importierte E-Mails
         '_email_subject': subject,
         '_email_from': from_email,
         '_email_date': date_received,

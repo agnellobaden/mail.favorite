@@ -4679,7 +4679,17 @@
                     document.getElementById('totalEntries').textContent = allBookings.length;
                     document.getElementById('csvLines').textContent = allBookings.length;
 
+                    // Neue Anfragen UI aktualisieren
+                    if (typeof updateNewRequestsUI === 'function') {
+                        updateNewRequestsUI();
+                    }
+
                     alert(`✓ ${jsonData.length} neue Anfragen aus E-Mails importiert!\n\nGesamte Einträge: ${allBookings.length}`);
+
+                    // Automatisch zur "Neue Anfragen" Tabelle springen
+                    setTimeout(() => {
+                        handleNewRequestsClick();
+                    }, 500);
                 } catch (error) {
                     alert('Fehler beim Parsen der JSON-Datei: ' + error.message);
                 }
@@ -7278,6 +7288,16 @@
                 updateFirebaseStatus('error', '🔴 Nur lokaler Modus');
             }
 
+            // Neue Anfragen UI beim Start aktualisieren
+            setTimeout(() => {
+                if (typeof updateNewRequestsUI === 'function') {
+                    updateNewRequestsUI();
+                }
+                if (typeof updateNextAppointmentUI === 'function') {
+                    updateNextAppointmentUI();
+                }
+            }, 500);
+
             // Prüfe, ob eine 24h-Erinnerung fällig ist und zeige ggf. das Popup
             setTimeout(checkDueReminders, 1500);
             setInterval(checkDueReminders, 15 * 60 * 1000); // alle 15 Minuten erneut prüfen
@@ -7302,24 +7322,32 @@
         // ==========================================
 
         function handleNewRequestsClick() {
-            // Zur Kartenansicht wechseln
-            currentView = 'cards';
-            document.getElementById('viewCards').classList.add('active');
-            document.getElementById('viewTable').classList.remove('active');
+            console.log('🔔 Klick auf Neue Anfragen Karte');
 
-            // Filter auf Status "Neu" setzen
-            document.getElementById('statusFilter').value = 'Neu';
+            // Tabelle mit neuen Anfragen einblenden
+            const section = document.getElementById('newRequestsSection');
+            if (!section) {
+                console.log('⚠️ newRequestsSection nicht gefunden!');
+                return;
+            }
 
-            // Filter anwenden
-            filterAndDisplay();
+            // Sicherstellen dass die Tabelle sichtbar ist
+            section.style.display = 'block';
+            console.log('✓ Tabelle eingeblendet');
 
-            // Zu den Karten scrollen
+            // Etwas längere Verzögerung für sanftes Scrollen
             setTimeout(() => {
-                const cardsContainer = document.getElementById('cardsContainer');
-                if (cardsContainer) {
-                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
+                // Scrolle zur Tabelle mit offset für bessere Sichtbarkeit
+                const yOffset = -20; // 20px über der Tabelle
+                const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+                window.scrollTo({
+                    top: y,
+                    behavior: 'smooth'
+                });
+
+                console.log('✓ Scroll zu Tabelle ausgeführt');
+            }, 300);
         }
 
         // Filter nach Status
@@ -7383,21 +7411,26 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Anfragen = Status "Neu" ODER "Anfrage", die HEUTE oder später erstellt wurden.
-            // Bugfix: Vorher wurde das falsche Feld "createdAt" gelesen (existiert auf
-            // Buchungen nicht) - das richtige Feld heißt "erstelltAm".
+            // Anfragen = Status "Neu" ODER "Anfrage", unabhängig vom Erstellungsdatum
+            // Zeige ALLE Anfragen mit Status "Neu" oder "Anfrage" an
             const newRequests = allBookings.filter(b => {
-                if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
-                if (!b.erstelltAm) return true; // kein Erstellungsdatum bekannt -> sicherheitshalber anzeigen
-                const created = parseDate(b.erstelltAm);
-                return created.getTime() >= today.getTime();
+                return b.status === 'Neu' || b.status === 'Anfrage';
             });
+
+            console.log('🔔 Neue Anfragen gefunden:', newRequests.length);
+            if (newRequests.length > 0) {
+                console.log('   Anfragen:', newRequests.map(r => ({name: r.name, status: r.status, erstellt: r.erstelltAm})));
+            }
+
             const card = document.getElementById('newRequestsCard');
             const countEl = document.getElementById('newRequestsCount');
             const tbody = document.getElementById('newRequestsTableBody');
             const section = document.getElementById('newRequestsSection');
 
-            if (!card || !countEl || !tbody || !section) return;
+            if (!card || !countEl || !tbody || !section) {
+                console.log('⚠️ Neue Anfragen UI-Elemente nicht gefunden!');
+                return;
+            }
 
             if (newRequests.length > 0) {
                 card.style.display = 'block';
@@ -7415,20 +7448,22 @@
 
                 sortedRequests.forEach(request => {
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
 
                     const isNewEmail = request.isNewFromEmail ? '<span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; vertical-align: middle;">NEU</span>' : '';
 
                     row.innerHTML = `
-                        <td><strong>${request.name || '-'}</strong>${isNewEmail}</td>
-                        <td><a href="mailto:${request.email}">${request.email || '-'}</a></td>
-                        <td>${request.phone ? '<a href="tel:'+request.phone+'">'+request.phone+'</a>' : '-'}</td>
-                        <td><strong>${request.date || '-'}</strong> ${request.time ? '(' + request.time + ')' : ''}</td>
-                        <td>${request.guests || '-'}</td>
-                        <td>${request.erstelltAm || '-'}</td>
-                        <td>
+                        <td onclick="editBooking('${request.id}')"><strong>${request.name || '-'}</strong>${isNewEmail}</td>
+                        <td onclick="event.stopPropagation()"><a href="mailto:${request.email}">${request.email || '-'}</a></td>
+                        <td onclick="event.stopPropagation()">${request.phone ? '<a href="tel:'+request.phone+'">'+request.phone+'</a>' : '-'}</td>
+                        <td onclick="editBooking('${request.id}')"><strong>${request.date || '-'}</strong> ${request.time ? '(' + request.time + ')' : ''}</td>
+                        <td onclick="editBooking('${request.id}')">${request.guests || '-'}</td>
+                        <td onclick="editBooking('${request.id}')">${request.erstelltAm || '-'}</td>
+                        <td onclick="event.stopPropagation()">
                             <button onclick="editBooking('${request.id}')" class="btn btn-primary btn-sm" style="padding: 6px 12px; font-size: 0.9em; border-radius: 6px;">Bearbeiten</button>
                         </td>
                     `;
+
                     tbody.appendChild(row);
                 });
             } else {
