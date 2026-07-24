@@ -7380,40 +7380,51 @@
         }
 
         function updateNewRequestsUI() {
-            const newRequests = allBookings.filter(b => b.status === 'Neu');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Anfragen = Status "Neu" ODER "Anfrage", die HEUTE oder später erstellt wurden.
+            // Bugfix: Vorher wurde das falsche Feld "createdAt" gelesen (existiert auf
+            // Buchungen nicht) - das richtige Feld heißt "erstelltAm".
+            const newRequests = allBookings.filter(b => {
+                if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
+                if (!b.erstelltAm) return true; // kein Erstellungsdatum bekannt -> sicherheitshalber anzeigen
+                const created = parseDate(b.erstelltAm);
+                return created.getTime() >= today.getTime();
+            });
             const card = document.getElementById('newRequestsCard');
             const countEl = document.getElementById('newRequestsCount');
             const tbody = document.getElementById('newRequestsTableBody');
             const section = document.getElementById('newRequestsSection');
-            
+
             if (!card || !countEl || !tbody || !section) return;
 
             if (newRequests.length > 0) {
                 card.style.display = 'block';
                 countEl.textContent = newRequests.length;
-                
+
                 // Tabelle leeren und neu befüllen
                 tbody.innerHTML = '';
-                
+
                 // Neueste Anfragen zuerst anzeigen
                 const sortedRequests = [...newRequests].sort((a, b) => {
-                    const dateA = a.createdAt ? parseDate(a.createdAt).getTime() : 0;
-                    const dateB = b.createdAt ? parseDate(b.createdAt).getTime() : 0;
+                    const dateA = a.erstelltAm ? parseDate(a.erstelltAm).getTime() : 0;
+                    const dateB = b.erstelltAm ? parseDate(b.erstelltAm).getTime() : 0;
                     return dateB - dateA;
                 });
-                
+
                 sortedRequests.forEach(request => {
                     const row = document.createElement('tr');
-                    
+
                     const isNewEmail = request.isNewFromEmail ? '<span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; vertical-align: middle;">NEU</span>' : '';
-                    
+
                     row.innerHTML = `
                         <td><strong>${request.name || '-'}</strong>${isNewEmail}</td>
                         <td><a href="mailto:${request.email}">${request.email || '-'}</a></td>
                         <td>${request.phone ? '<a href="tel:'+request.phone+'">'+request.phone+'</a>' : '-'}</td>
                         <td><strong>${request.date || '-'}</strong> ${request.time ? '(' + request.time + ')' : ''}</td>
                         <td>${request.guests || '-'}</td>
-                        <td>${request.createdAt || '-'}</td>
+                        <td>${request.erstelltAm || '-'}</td>
                         <td>
                             <button onclick="editBooking('${request.id}')" class="btn btn-primary btn-sm" style="padding: 6px 12px; font-size: 0.9em; border-radius: 6px;">Bearbeiten</button>
                         </td>
