@@ -1,10 +1,11 @@
-const CACHE_NAME = 'eisfavorite-listener-fix-20260722-v4';
+const CACHE_NAME = 'eisfavorite-installable-20260726-v5';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
+  '/login.html',
   '/logo.svg',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/icon-192.png',
+  '/icon-512.png',
   '/manifest.json'
 ];
 
