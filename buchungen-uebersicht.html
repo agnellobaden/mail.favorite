@@ -2187,7 +2187,7 @@
                         <h3>NEU</h3>
                         <div class="number" id="stat-neu">0</div>
                     </div>
-                    <div class="stat-card email" onclick="document.getElementById('jsonImportInput').click()" title="Klicken um E-Mails zu prüfen">
+                    <div class="stat-card email" onclick="openGmailInbox()" title="Klicken um die E-Mails in Gmail zu öffnen">
                         <h3>📧 E-MAILS</h3>
                         <div class="number" id="stat-email">0</div>
                     </div>
@@ -3546,6 +3546,11 @@
             document.getElementById('stat-neu').textContent = neu;
             document.getElementById('stat-email').textContent = neuEingetroffen;
             document.getElementById('stat-gesamt').textContent = allBookings.length;
+        }
+
+        // Öffnet das Gmail-Postfach (eisfavorit@gmail.com), in dem die Anfragen landen
+        function openGmailInbox() {
+            window.open('https://mail.google.com/mail/?authuser=eisfavorit@gmail.com#inbox', '_blank');
         }
 
         // Filtern und anzeigen
