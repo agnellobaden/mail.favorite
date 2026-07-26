@@ -2939,6 +2939,7 @@
         let allBookings = [];
         let currentSort = { column: 'date', direction: 'asc' };
         let currentView = 'cards'; // 'cards' oder 'table'
+        let activeSpecialFilter = null; // 'overdue' | 'open' | 'reminders' | 'newRequests' | null
         let currentEmailChatBooking = null;
 
         // ==========================================
@@ -3555,6 +3556,15 @@
 
         // Filtern und anzeigen
         function filterAndDisplay() {
+            // Ein aktiver Spezialfilter (z.B. vom Dashboard aus: "Offene Rechnungen") darf
+            // nicht verloren gehen, wenn zwischendurch neue Daten von Firebase eintreffen
+            // und dadurch ein Re-Render ausgelöst wird (z.B. mit Verzögerung bei
+            // Kontingent-/Netzwerkproblemen).
+            if (activeSpecialFilter) {
+                applySpecialFilter(activeSpecialFilter);
+                return;
+            }
+
             const nameFilter = document.getElementById('nameFilter').value.toLowerCase().trim();
             const statusFilter = document.getElementById('statusFilter').value;
             const dateFrom = document.getElementById('dateFromFilter').value;
@@ -3625,6 +3635,7 @@
         // Spezielle Filter anwenden (für Dashboard-Links)
         function applySpecialFilter(filterType) {
             console.log('🔍 Spezieller Filter:', filterType);
+            activeSpecialFilter = filterType;
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -4368,10 +4379,17 @@
         }
 
         // Event-Listener
-        document.getElementById('nameFilter').addEventListener('input', filterAndDisplay);
-        document.getElementById('statusFilter').addEventListener('change', filterAndDisplay);
-        document.getElementById('dateFromFilter').addEventListener('change', filterAndDisplay);
-        document.getElementById('dateToFilter').addEventListener('change', filterAndDisplay);
+        // Manuelle Filteränderung durch den Nutzer beendet einen aktiven Spezialfilter
+        // (z.B. vom Dashboard aus), sonst würde die eigene Auswahl sofort wieder überschrieben.
+        function manualFilterChange() {
+            activeSpecialFilter = null;
+            filterAndDisplay();
+        }
+
+        document.getElementById('nameFilter').addEventListener('input', manualFilterChange);
+        document.getElementById('statusFilter').addEventListener('change', manualFilterChange);
+        document.getElementById('dateFromFilter').addEventListener('change', manualFilterChange);
+        document.getElementById('dateToFilter').addEventListener('change', manualFilterChange);
 
         // View Toggle
         document.getElementById('viewCards').addEventListener('click', function() {
@@ -7490,6 +7508,8 @@
 
         // Filter nach Status
         function filterByStatus(status) {
+            activeSpecialFilter = null;
+
             // Zur Kartenansicht wechseln
             currentView = 'cards';
             document.getElementById('viewCards').classList.add('active');
@@ -7512,6 +7532,8 @@
 
         // Alle Buchungen anzeigen (Filter zurücksetzen)
         function showAllBookings() {
+            activeSpecialFilter = null;
+
             // Zur Kartenansicht wechseln
             currentView = 'cards';
             document.getElementById('viewCards').classList.add('active');
