@@ -4723,6 +4723,13 @@
                             booking.status = booking.status || 'Neu';
                             booking.isNewFromEmail = true; // Markierung für neu eingegangene E-Mails
 
+                            // WICHTIG: Erstellungsdatum setzen, sonst fehlt der Zeitstempel für
+                            // die "Neue Anfragen"-Karte (Filter "diese Woche") und den Sync
+                            if (!booking.erstelltAm) {
+                                booking.erstelltAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                            }
+                            updateBookingTimestamp(booking);
+
                             // Automatisch E-Mail-Nachricht in Chat-Verlauf eintragen
                             if (!booking.emailHistory) {
                                 booking.emailHistory = [];
@@ -7519,10 +7526,19 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Anfragen = Status "Neu" ODER "Anfrage", unabhängig vom Erstellungsdatum
-            // Zeige ALLE Anfragen mit Status "Neu" oder "Anfrage" an
+            // Beginn dieser Woche (Montag 00:00) berechnen
+            const dayOfWeek = today.getDay(); // 0 = Sonntag, 1 = Montag, ...
+            const daysSinceMonday = (dayOfWeek + 6) % 7;
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - daysSinceMonday);
+
+            // Anfragen = Status "Neu" ODER "Anfrage", die diese Woche (ab Montag) reingekommen sind.
+            // Kein Erstellungsdatum bekannt -> sicherheitshalber trotzdem anzeigen.
             const newRequests = allBookings.filter(b => {
-                return b.status === 'Neu' || b.status === 'Anfrage';
+                if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
+                if (!b.erstelltAm) return true;
+                const created = parseDate(b.erstelltAm);
+                return created.getTime() >= startOfWeek.getTime();
             });
 
             console.log('🔔 Neue Anfragen gefunden:', newRequests.length);
