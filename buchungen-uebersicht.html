@@ -4149,7 +4149,7 @@
                     <div class="card-menu">
                         <button class="card-menu-button" onclick="toggleCardMenu(event, '${booking.id}')">⋮</button>
                         <div class="card-menu-dropdown" id="menu-${booking.id}">
-                            <button class="card-menu-item" onclick="openOfferModal('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #667eea; font-weight: 600;">
+                            <button class="card-menu-item" onclick="window.location.href='angebot-erstellen.html?bookingId=' + encodeURIComponent('${booking.id}')" style="color: #667eea; font-weight: 600;">
                                 📋 Angebot erstellen
                             </button>
                             <button class="card-menu-item invoice" onclick="window.location.href='rechnung-erstellen.html?bookingId=${booking.id}'">
