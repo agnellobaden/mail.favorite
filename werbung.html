@@ -84,6 +84,45 @@
     .btn-secondary { background: #f0f0f0; color: #333; }
     .btn-flyer { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; }
 
+    .actions-menu-wrap { position: relative; display: inline-block; }
+    .actions-dropdown {
+        display: none;
+        position: absolute;
+        top: 110%;
+        left: 0;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+        min-width: 320px;
+        z-index: 1000;
+        padding: 8px 0;
+    }
+    .actions-dropdown.active { display: block; }
+    .actions-group-label {
+        padding: 8px 16px 4px;
+        font-size: 0.75em;
+        font-weight: 700;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .actions-dropdown button, .actions-dropdown a {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 10px 16px;
+        background: none;
+        border: none;
+        color: #333;
+        font-size: 0.95em;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+    .actions-dropdown button:hover, .actions-dropdown a:hover { background: #f0f0f0; }
+    .actions-dropdown hr { margin: 6px 0; border: none; border-top: 1px solid #eee; }
+
     .filter-row {
         display: flex;
         gap: 10px;
@@ -185,12 +224,22 @@
         </div>
 
         <div class="actions">
-            <button class="btn btn-primary" onclick="startFirmensuche()">🔍 Firmensuche starten (n8n)</button>
-            <button class="btn btn-primary" onclick="openManualLeadForm()">➕ Firma manuell hinzufügen</button>
-            <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
-            <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
-            <button class="btn btn-secondary" onclick="configureFlyerEmailWebhook()">⚙️ Flyer-E-Mail-Webhook einrichten</button>
-            <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim + Region)</button>
+            <div class="actions-menu-wrap">
+                <button class="btn btn-primary" onclick="toggleActionsMenu(event)">☰ Aktionen</button>
+                <div id="actionsDropdown" class="actions-dropdown">
+                    <div class="actions-group-label">🔍 Firmen finden</div>
+                    <button onclick="startFirmensuche(); closeActionsMenu();">🔍 Firmensuche starten (n8n)</button>
+                    <button onclick="openManualLeadForm(); closeActionsMenu();">➕ Firma manuell hinzufügen</button>
+                    <button onclick="importRecherchierteLeads(); closeActionsMenu();">📋 Recherchierte Leads importieren (Kuppenheim + Region)</button>
+                    <hr>
+                    <div class="actions-group-label">🍦 Flyer</div>
+                    <a href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
+                    <hr>
+                    <div class="actions-group-label">⚙️ Einrichtung</div>
+                    <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
+                    <button onclick="configureFlyerEmailWebhook(); closeActionsMenu();">⚙️ Flyer-E-Mail-Webhook einrichten</button>
+                </div>
+            </div>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
         </div>
 
@@ -304,6 +353,23 @@
         let db = null;
         let allLeads = [];
         let selectedLeadIds = new Set();
+
+        function toggleActionsMenu(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('actionsDropdown').classList.toggle('active');
+        }
+
+        function closeActionsMenu() {
+            document.getElementById('actionsDropdown').classList.remove('active');
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('actionsDropdown');
+            const wrap = document.querySelector('.actions-menu-wrap');
+            if (dropdown && dropdown.classList.contains('active') && wrap && !wrap.contains(e.target)) {
+                closeActionsMenu();
+            }
+        });
 
         const firebaseConfig = {
             apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
