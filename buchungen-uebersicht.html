@@ -2095,6 +2095,7 @@
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+            <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn" style="display: none;">📲 App installieren</button>
             <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
         </div>
     </div>
@@ -7775,6 +7776,31 @@
                 navigator.serviceWorker.register('/sw.js').catch(function(err) {
                     console.error('Service Worker Registrierung fehlgeschlagen:', err);
                 });
+            });
+        }
+
+        let deferredInstallPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            const btn = document.getElementById('installAppBtn');
+            if (btn) btn.style.display = 'block';
+        });
+
+        window.addEventListener('appinstalled', function() {
+            deferredInstallPrompt = null;
+            const btn = document.getElementById('installAppBtn');
+            if (btn) btn.style.display = 'none';
+        });
+
+        function installApp() {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt.userChoice.finally(function() {
+                deferredInstallPrompt = null;
+                const btn = document.getElementById('installAppBtn');
+                if (btn) btn.style.display = 'none';
             });
         }
     </script>
