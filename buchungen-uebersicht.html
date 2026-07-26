@@ -6021,6 +6021,7 @@
             if (isOpening) {
                 positionCardMenu(menu, event.currentTarget);
                 menu.dataset.openedAt = Date.now();
+                menu.dataset.openScrollY = window.scrollY;
             }
         }
 
@@ -6087,6 +6088,13 @@
                 // wieder zuklappen, bevor der Nutzer es überhaupt gesehen hat.
                 const openedAt = parseInt(menu.dataset.openedAt || '0', 10);
                 if (Date.now() - openedAt < 400) return;
+
+                // Nur bei einem SPÜRBAREN Scroll schließen (nicht bei winzigen 1-2px
+                // Zitterern, die z.B. am Handy beim Suchen des richtigen Menüpunkts
+                // passieren können und sonst den Tap ins Leere laufen lassen)
+                const openScrollY = parseFloat(menu.dataset.openScrollY || '0');
+                if (Math.abs(window.scrollY - openScrollY) < 15) return;
+
                 menu.classList.remove('active');
             });
         }, { passive: true, capture: true });
