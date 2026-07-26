@@ -49,7 +49,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
       allow read, write: if request.auth != null
-        && request.auth.token.email == "eisfavorit@gmail.com";
+        && request.auth.token.email in [
+          "eisfavorit@gmail.com",
+          "agnello.baden@gmail.com",
+          "schaefermonika35@gmail.com"
+        ];
     }
   }
 }
@@ -57,10 +61,13 @@ service cloud.firestore {
 
 3. Klicke auf **Veröffentlichen**
 
-Ab jetzt kann NUR NOCH jemand, der mit genau der E-Mail-Adresse
-`eisfavorit@gmail.com` angemeldet ist, überhaupt lesen oder schreiben –
-egal wer sonst den API-Key kennt oder ob jemand auf `login.html` versucht,
-sich mit einer anderen E-Mail ein Konto anzulegen.
+Ab jetzt können NUR NOCH diese drei E-Mail-Adressen überhaupt lesen oder
+schreiben – egal wer sonst den API-Key kennt oder ob jemand auf
+`login.html` versucht, sich mit einer anderen E-Mail ein Konto anzulegen.
+Der Code selbst weist inzwischen auch schon jede andere E-Mail-Adresse
+direkt beim Anmelden mit einer Fehlermeldung ab (unabhängig von den
+Firestore-Regeln) – Schritt 3 bleibt trotzdem wichtig als eigentlicher
+Datenbankschutz.
 
 ---
 

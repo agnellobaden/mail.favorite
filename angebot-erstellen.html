@@ -71,9 +71,15 @@
                 measurementId: "G-WGRT5L3NCX"
             };
             if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
             firebase.auth().onAuthStateChanged(function(user) {
                 if (!user) {
                     window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
                 } else {
                     var gate = document.getElementById('__authGate');
                     if (gate) gate.remove();

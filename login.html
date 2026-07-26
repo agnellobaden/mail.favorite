@@ -129,13 +129,22 @@
             document.getElementById('errorMsg').textContent = '';
         }
 
-        // Wenn bereits angemeldet, direkt weiterleiten
+        const ALLOWED_EMAILS = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+
+        // Wenn bereits angemeldet, direkt weiterleiten (nur erlaubte E-Mails)
         firebase.auth().onAuthStateChanged(function(user) {
-            if (user) {
-                const params = new URLSearchParams(window.location.search);
-                const redirect = params.get('redirect') || 'buchungen-uebersicht.html';
-                window.location.href = redirect;
+            if (!user) return;
+
+            if (ALLOWED_EMAILS.indexOf(user.email) === -1) {
+                firebase.auth().signOut().then(function() {
+                    document.getElementById('errorMsg').textContent = '❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.';
+                });
+                return;
             }
+
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect') || 'buchungen-uebersicht.html';
+            window.location.href = redirect;
         });
 
         function loginWithGoogle() {
