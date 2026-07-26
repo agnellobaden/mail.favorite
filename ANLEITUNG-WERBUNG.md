@@ -13,6 +13,7 @@ oder absagen.
 | Werbung-Übersicht | `werbung.html` | Firmenliste mit Status, erreichbar über das Burger-Menü in buchungen-uebersicht.html |
 | n8n-Workflow 1 | `n8n-workflow-werbung-firmensuche.json` | Sucht Firmen über Google Places API, speichert sie in Firebase |
 | n8n-Workflow 2 | `n8n-workflow-werbung-kampagne.json` | Läuft alle 4 Wochen, verschickt Werbe-E-Mails mit rotierendem Slogan |
+| n8n-Workflow 3 | `n8n-workflow-werbung-flyer-email.json` | Wird manuell aus `werbung.html` ausgelöst (Checkbox-Auswahl + Vorschau), verschickt eine personalisierte **HTML**-E-Mail über Gmail |
 
 Alle Daten liegen in der Firestore-Collection **`marketingLeads`** (gleiches
 Firebase-Projekt `mailfavorite-e8f49` wie die Buchungen).
@@ -69,6 +70,26 @@ Die Workflows lesen den Key über `{{ $env.GOOGLE_PLACES_API_KEY }}`. In n8n:
 
 Workflow "EisFavorite: Werbe-Kampagne für Firmen" **aktivieren** – läuft danach
 automatisch alle 4 Wochen um 9:00 Uhr.
+
+### 6. Personalisierten Flyer-Versand (HTML-E-Mail) einrichten
+
+1. `n8n-workflow-werbung-flyer-email.json` importieren
+2. Beim Firestore-Node **Firebase Service Account**-Credential auswählen
+   (dieselbe wie überall sonst), beim Gmail-Node **eisfavorit@gmail.com**-Credential
+3. **Wichtig:** Öffne den Gmail-Node "Gmail: HTML-E-Mail senden" und prüfe, ob
+   dort eine Option wie "Email Type" / "Content Type" auf **HTML** steht (je
+   nach n8n-Version heißt das Feld anders) – sonst wird die E-Mail nur als
+   Klartext mit sichtbaren HTML-Tags verschickt statt gestaltet
+4. Workflow **aktivieren**, im Webhook-Node die **Production URL** kopieren
+5. In `werbung.html` auf **"⚙️ Flyer-E-Mail-Webhook einrichten"** klicken und
+   die URL einfügen
+6. Ab jetzt: Firmen/Schulen per Häkchen auswählen → **"📧 Flyer an Ausgewählte
+   senden"** → im Dialog jede E-Mail einzeln als Vorschau ansehen und mit
+   **"📧 Jetzt per Gmail senden"** bestätigen
+
+⚠️ Dieser Workflow wurde nicht in einer echten n8n-Instanz getestet (kein
+Zugriff auf eure n8n-Umgebung) – bitte einmal mit "Execute Workflow" und
+einer Test-Adresse prüfen, bevor er im großen Stil genutzt wird.
 
 ## Wie die Firmensuche funktioniert
 

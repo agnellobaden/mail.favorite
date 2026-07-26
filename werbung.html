@@ -188,6 +188,7 @@
             <button class="btn btn-primary" onclick="startFirmensuche()">🔍 Firmensuche starten (n8n)</button>
             <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
             <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
+            <button class="btn btn-secondary" onclick="configureFlyerEmailWebhook()">⚙️ Flyer-E-Mail-Webhook einrichten</button>
             <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim)</button>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
         </div>
@@ -228,18 +229,15 @@
     </div>
 
     <div id="flyerQueueModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
-        <div style="background:#fff; border-radius:16px; max-width:480px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
+        <div style="background:#fff; border-radius:16px; max-width:640px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
             <h3 style="margin:0 0 14px 0; color:#667eea;">📧 Vorschau – Flyer personalisiert versenden</h3>
             <p id="flyerQueueInfo" style="font-size:0.95em; line-height:1.6; color:#333; margin-bottom:14px;"></p>
-            <div style="background:#f8f9fa; border-radius:10px; padding:14px; border:1px solid #eee; margin-bottom:18px;">
-                <div style="font-size:0.85em; color:#888; margin-bottom:4px;">Betreff</div>
-                <div id="flyerPreviewSubject" style="font-weight:700; color:#333; margin-bottom:12px;"></div>
-                <div style="font-size:0.85em; color:#888; margin-bottom:4px;">Text</div>
-                <div id="flyerPreviewBody" style="white-space:pre-wrap; font-size:0.9em; color:#333; line-height:1.5;"></div>
-            </div>
+            <div style="font-size:0.85em; color:#888; margin-bottom:4px;">Betreff</div>
+            <div id="flyerPreviewSubject" style="font-weight:700; color:#333; margin-bottom:12px;"></div>
+            <div style="font-size:0.85em; color:#888; margin-bottom:6px;">So sieht die E-Mail aus:</div>
+            <iframe id="flyerPreviewFrame" style="width:100%; height:420px; border:1px solid #eee; border-radius:10px; margin-bottom:18px;"></iframe>
             <div style="display:flex; flex-direction:column; gap:10px;">
-                <button class="btn btn-flyer" onclick="openCurrentFlyerEmail()">📧 So im E-Mail-Programm öffnen</button>
-                <button class="btn btn-primary" onclick="markSentAndNext()">✅ Gesendet – nächste E-Mail</button>
+                <button class="btn btn-flyer" onclick="sendCurrentFlyerEmail()">📧 Jetzt per Gmail senden</button>
                 <button class="btn btn-secondary" onclick="skipCurrent()">⏭ Überspringen</button>
                 <button class="btn btn-secondary" onclick="closeFlyerQueueModal()">✖ Abbrechen</button>
             </div>
@@ -434,6 +432,18 @@
                 });
         }
 
+        function configureFlyerEmailWebhook() {
+            const current = localStorage.getItem('n8nFlyerEmailWebhookUrl') || '';
+            const url = prompt(
+                'n8n-Webhook-URL für den personalisierten Flyer-Versand eingeben\n(aus dem n8n-Workflow "EisFavorite: Personalisierte Flyer-HTML-E-Mail" → Webhook-Node → Production URL):',
+                current
+            );
+            if (url !== null) {
+                localStorage.setItem('n8nFlyerEmailWebhookUrl', url.trim());
+                alert(url.trim() ? '✓ Webhook-URL gespeichert.' : 'Webhook-URL entfernt.');
+            }
+        }
+
         // Manuell recherchierte Leads (Kuppenheim) - per Websuche/Impressum/Handelsregister
         // zusammengetragen, da Google Places keine Mitarbeiterzahlen liefert.
         const RECHERCHIERTE_LEADS_KUPPENHEIM = [
@@ -574,25 +584,59 @@
             return firstPerson ? ('Hallo ' + firstPerson + ',') : 'Sehr geehrte Damen und Herren,';
         }
 
-        function buildFlyerEmail(lead) {
+        function buildFlyerUrl(lead) {
             const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
             const firstPerson = cp ? cp.split(',')[0].trim() : '';
-            let flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
-            if (firstPerson) flyerUrl += '&name=' + encodeURIComponent(firstPerson);
+            let url = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
+            if (firstPerson) url += '&name=' + encodeURIComponent(firstPerson);
+            return url;
+        }
+
+        // Baut dieselbe HTML-E-Mail wie der n8n-Workflow
+        // "EisFavorite: Personalisierte Flyer-HTML-E-Mail" - dient hier nur der
+        // 1:1-Vorschau im Browser, bevor der eigentliche Versand über den
+        // Webhook (und damit über Gmail) ausgelöst wird.
+        function buildFlyerEmail(lead) {
             const greeting = buildFlyerGreeting(lead);
+            const flyerUrl = buildFlyerUrl(lead);
             const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
-            const body =
-                greeting + '\n\n' +
-                'ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön ' +
-                'für den Einsatz Ihres Teams bei ' + lead.name + ' – EisFavorite kommt mit dem Eiswagen zu ' +
-                'Ihnen und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.\n\n' +
-                'Mehr Infos und Anfrage hier: ' + flyerUrl + '\n\n' +
-                'Viele Grüße\n' +
-                'Eis Agnello · EisFavorite\n' +
-                'Favoritenstrasse 11 · 76456 Kuppenheim\n' +
-                'Tel: +49 176 56813172 · eisfavorit@gmail.com\n\n' +
-                '(Kein Interesse? Einfach mit "Kein Interesse" antworten.)';
-            return { subject, body };
+            const html = `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width:600px; margin:0 auto; background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eee;">
+  <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); background-color:#667eea; color:#ffffff; text-align:center; padding:32px 20px 40px;">
+    <div style="font-size:2.4em; line-height:1;">🍦</div>
+    <div style="font-weight:700; letter-spacing:0.5px; margin-top:6px;">EisFavorite</div>
+    <h1 style="font-size:1.5em; margin:16px 0 8px;">Eine süße Überraschung für das Team von ${lead.name}</h1>
+    <p style="font-size:1.05em; opacity:0.95; margin:0;">Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.</p>
+  </div>
+  <div style="padding:28px 26px;">
+    <p style="color:#333; font-size:1.05em; margin:0 0 16px;">${greeting}</p>
+    <p style="color:#555; line-height:1.7; font-size:1.02em; margin:0 0 18px;">
+      ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön für den
+      Einsatz Ihres Teams bei <strong>${lead.name}</strong> - EisFavorite kommt mit dem Eiswagen zu Ihnen
+      und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.
+    </p>
+    <table role="presentation" width="100%" style="border-collapse:collapse; margin:20px 0;">
+      <tr>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🚚<br><span style="font-size:0.85em; font-weight:600; color:#333;">Wir kommen zu Ihnen</span></td>
+        <td style="width:4%;"></td>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🍨<br><span style="font-size:0.85em; font-weight:600; color:#333;">Frisches Eis vor Ort</span></td>
+        <td style="width:4%;"></td>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">😊<br><span style="font-size:0.85em; font-weight:600; color:#333;">Freude fürs Team</span></td>
+      </tr>
+    </table>
+    <div style="text-align:center; margin:26px 0 10px;">
+      <a href="${flyerUrl}" target="_blank" style="display:inline-block; background:linear-gradient(135deg, #ff9800 0%, #f57c00 100%); background-color:#f57c00; color:#ffffff; text-decoration:none; font-weight:700; font-size:1.1em; padding:15px 38px; border-radius:50px;">🍦 Jetzt unverbindlich anfragen</a>
+      <p style="margin-top:10px; color:#888; font-size:0.85em;">Klicken Sie hier für mehr Infos und um direkt anzufragen</p>
+    </div>
+  </div>
+  <div style="background:#f8f9fa; padding:22px 26px; text-align:center; color:#666; font-size:0.85em; line-height:1.8; border-top:1px solid #eee;">
+    <strong style="color:#333;">Eis Agnello · EisFavorite</strong><br>
+    Favoritenstrasse 11 · 76456 Kuppenheim<br>
+    Tel: +49 176 56813172 · eisfavorit@gmail.com<br><br>
+    Kein Interesse? Einfach mit "Kein Interesse" antworten.
+  </div>
+</div>`;
+            return { subject, html };
         }
 
         function sendFlyerToSelected() {
@@ -610,12 +654,18 @@
                 return;
             }
 
+            if (!localStorage.getItem('n8nFlyerEmailWebhookUrl')) {
+                alert('Bitte zuerst den Flyer-E-Mail-Webhook einrichten (Button "⚙️ Flyer-E-Mail-Webhook einrichten").');
+                configureFlyerEmailWebhook();
+                return;
+            }
+
             let warning = '';
             if (withoutEmail.length > 0) {
                 warning = '\n\n⚠️ Ohne E-Mail-Adresse (werden übersprungen):\n' + withoutEmail.map(l => '- ' + l.name).join('\n');
             }
 
-            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich angeschriebene E-Mail (mit Namen/Firma in Anrede und Betreff).\n\nDu gehst sie im nächsten Fenster einzeln durch und öffnest jede E-Mail selbst im Mailprogramm.${warning}`)) return;
+            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich gestaltete HTML-E-Mail (mit Namen/Firma in Anrede, Betreff und Link) über Gmail (eisfavorit@gmail.com).\n\nDu gehst sie im nächsten Fenster einzeln durch und bestätigst jede E-Mail nach Vorschau.${warning}`)) return;
 
             flyerQueue = withEmail.slice();
             flyerQueueTotal = flyerQueue.length;
@@ -636,36 +686,44 @@
                 'An: <strong>' + lead.name + '</strong> (' + lead.email + ')' +
                 (lead.contactPerson ? '<br>Ansprechpartner: ' + lead.contactPerson : '');
 
-            const { subject, body } = buildFlyerEmail(lead);
+            const { subject, html } = buildFlyerEmail(lead);
             document.getElementById('flyerPreviewSubject').textContent = subject;
-            document.getElementById('flyerPreviewBody').textContent = body;
+            document.getElementById('flyerPreviewFrame').srcdoc =
+                '<body style="margin:0; padding:16px; background:#f0f0f0;">' + html + '</body>';
         }
 
-        function openCurrentFlyerEmail() {
+        function sendCurrentFlyerEmail() {
             const lead = flyerQueue[0];
             if (!lead) return;
-            const { subject, body } = buildFlyerEmail(lead);
-            // Immer über Gmail (eisfavorit@gmail.com) öffnen, nicht über das
-            // System-Standardmailprogramm.
-            const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                '&authuser=eisfavorit@gmail.com' +
-                '&to=' + encodeURIComponent(lead.email) +
-                '&su=' + encodeURIComponent(subject) +
-                '&body=' + encodeURIComponent(body);
-            window.open(gmailUrl, '_blank');
-        }
 
-        function markSentAndNext() {
-            const lead = flyerQueue.shift();
-            if (lead) {
-                const now = Date.now();
-                db.collection('marketingLeads').doc(lead.id).set({
-                    status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
-                    lastContactedAt: now,
-                    lastModifiedMs: now
-                }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+            const webhookUrl = localStorage.getItem('n8nFlyerEmailWebhookUrl');
+            if (!webhookUrl) {
+                alert('Bitte zuerst den Flyer-E-Mail-Webhook einrichten (Button "⚙️ Flyer-E-Mail-Webhook einrichten").');
+                configureFlyerEmailWebhook();
+                return;
             }
-            renderFlyerQueueModal();
+
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    leadId: lead.id,
+                    name: lead.name,
+                    email: lead.email,
+                    contactPerson: lead.contactPerson || ''
+                })
+            })
+                .then(res => {
+                    if (res.ok) {
+                        flyerQueue.shift();
+                        renderFlyerQueueModal();
+                    } else {
+                        alert('⚠️ n8n hat mit Status ' + res.status + ' geantwortet. E-Mail evtl. nicht gesendet - Workflow prüfen.');
+                    }
+                })
+                .catch(err => {
+                    alert('❌ E-Mail konnte nicht gesendet werden: ' + err.message + '\n\nPrüfe, ob die Webhook-URL korrekt ist und n8n erreichbar ist.');
+                });
         }
 
         function skipCurrent() {
