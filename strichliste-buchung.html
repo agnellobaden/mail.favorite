@@ -283,7 +283,20 @@
                 const cleanId = sanitizeFirebaseId(bookingId);
                 db.collection('buchungen').doc(cleanId).get().then(doc => {
                     if (doc.exists) {
-                        loadBooking({ ...doc.data(), id: doc.id });
+                        const remoteBooking = { ...doc.data(), id: doc.id };
+
+                        // WICHTIG: Nur übernehmen, wenn Firebase wirklich neuer ist als der
+                        // lokale Stand - sonst überschreibt eine noch nicht angekommene
+                        // Firebase-Antwort einen frischen, aber noch nicht synchronisierten
+                        // lokalen Zählerstand (z.B. bei langsamem Mobilfunknetz).
+                        const localMs = (localBooking && localBooking.lastModifiedMs) || 0;
+                        const remoteMs = remoteBooking.lastModifiedMs || 0;
+
+                        if (!localBooking || remoteMs >= localMs) {
+                            loadBooking(remoteBooking);
+                        } else {
+                            console.log('ℹ️ Lokaler Stand ist neuer als Firebase - behalte lokale Strichliste');
+                        }
                     } else if (!localBooking) {
                         showError('❌ Buchung nicht gefunden (ID: ' + bookingId + ')');
                     }
@@ -365,6 +378,16 @@
             document.getElementById('statusMsg').textContent = '⏳ Speichere...';
             saveTimeout = setTimeout(() => saveTally(true), 800);
         }
+
+        // Beim Verlassen der Seite (Zurück-Button, Tab schließen, ✕) eine noch
+        // ausstehende Änderung sofort speichern, statt auf die 800ms zu warten -
+        // sonst geht der letzte Tap bei schnellem Verlassen (v.a. am Handy) verloren.
+        window.addEventListener('pagehide', () => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+                saveTally(true);
+            }
+        });
 
         function saveTally(silent = false) {
             if (!currentBooking) return;
