@@ -6612,9 +6612,11 @@
 
         // Strichliste öffnen
         function openTally(bookingId) {
+          try {
             const booking = allBookings.find(b => b.id === bookingId);
             if (!booking) {
                 console.error('❌ Buchung nicht gefunden:', bookingId);
+                alert('❌ Strichliste konnte nicht geöffnet werden: Buchung nicht gefunden (ID: ' + bookingId + ')');
                 return;
             }
 
@@ -6668,6 +6670,10 @@
 
             // Modal-Status speichern (damit nach F5 die Strichliste wieder geöffnet wird)
             saveModalState('tally', bookingId);
+          } catch (e) {
+            console.error('❌ Fehler beim Öffnen der Strichliste:', e);
+            alert('❌ Fehler beim Öffnen der Strichliste:\n\n' + e.message + '\n\nBitte Screenshot davon senden.');
+          }
         }
 
         // Strichliste anzeigen
