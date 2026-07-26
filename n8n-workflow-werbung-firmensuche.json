@@ -1,5 +1,5 @@
 {
-  "name": "EisFavorite: Firmensuche (50km um Rastatt)",
+  "name": "EisFavorite: Firmensuche (50km um Kuppenheim)",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Zentrum: Rastatt. Radius 50km = Maximum der Google Places Nearby Search API.\n// Eine Kategorie pro Places-\"type\" - deckt typische B2B-Zielgruppen ab.\n// Liste bei Bedarf im n8n-Editor erweitern/anpassen.\nconst center = { lat: 48.8592, lng: 8.2043 };\nconst radius = 50000;\n\nconst categories = [\n  'general_contractor',\n  'real_estate_agency',\n  'insurance_agency',\n  'lawyer',\n  'accounting',\n  'car_dealer',\n  'store',\n  'supermarket',\n  'bank',\n  'local_government_office',\n  'moving_company',\n  'electrician',\n  'plumber',\n  'roofing_contractor',\n  'painter',\n  'car_repair',\n  'furniture_store',\n  'warehouse'\n];\n\nreturn categories.map(type => ({\n  json: { lat: center.lat, lng: center.lng, radius, type }\n}));"
+        "functionCode": "// Zentrum: Kuppenheim. Radius 50km = Maximum der Google Places Nearby Search API.\n// Eine Kategorie pro Places-\"type\" - deckt typische B2B-Zielgruppen + Schulen ab.\n// Liste bei Bedarf im n8n-Editor erweitern/anpassen.\nconst center = { lat: 48.8386, lng: 8.2933 };\nconst radius = 50000;\n\nconst categories = [\n  'general_contractor',\n  'real_estate_agency',\n  'insurance_agency',\n  'lawyer',\n  'accounting',\n  'car_dealer',\n  'store',\n  'supermarket',\n  'bank',\n  'local_government_office',\n  'moving_company',\n  'electrician',\n  'plumber',\n  'roofing_contractor',\n  'painter',\n  'car_repair',\n  'furniture_store',\n  'warehouse',\n  'school',\n  'primary_school',\n  'secondary_school'\n];\n\nreturn categories.map(type => ({\n  json: { lat: center.lat, lng: center.lng, radius, type }\n}));"
       },
       "id": "categories",
       "name": "Suchkategorien erzeugen",

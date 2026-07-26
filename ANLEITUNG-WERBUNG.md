@@ -1,8 +1,9 @@
 # 📢 Werbung / Firmen-Akquise – Setup-Anleitung
 
-Automatisierte B2B-Kaltakquise für EisFavorite: findet Firmen im 50km-Umkreis von
-Rastatt, sammelt Kontaktdaten und schreibt sie alle 4 Wochen mit wechselnden
-Slogans an, bis sie buchen oder absagen.
+Automatisierte B2B-Kaltakquise für EisFavorite: findet Firmen und Schulen im
+50km-Umkreis von Kuppenheim, sammelt Kontaktdaten (Adresse, Telefon, E-Mail)
+und schreibt sie alle 4 Wochen mit wechselnden Slogans an, bis sie buchen
+oder absagen.
 
 ## Überblick
 
@@ -71,11 +72,12 @@ automatisch alle 4 Wochen um 9:00 Uhr.
 
 ## Wie die Firmensuche funktioniert
 
-- Sucht per Google Places **Nearby Search** im 50km-Radius um Rastatt
-  (48.8592, 8.2043 – das ist das API-Maximum für den Radius)
-- Läuft mehrere Kategorien durch (Handwerk, Büros, Handel, Verwaltung, …) –
-  die Liste steht im Node "Suchkategorien erzeugen" und lässt sich dort erweitern
-- Holt für jeden Treffer per **Place Details** Telefonnummer und Website
+- Sucht per Google Places **Nearby Search** im 50km-Radius um Kuppenheim
+  (48.8386, 8.2933 – das ist das API-Maximum für den Radius)
+- Läuft mehrere Kategorien durch (Handwerk, Büros, Handel, Verwaltung, Schulen
+  aller Art, …) – die Liste steht im Node "Suchkategorien erzeugen" und lässt
+  sich dort erweitern
+- Holt für jeden Treffer per **Place Details** Adresse, Telefonnummer und Website
 - Ruft die Website ab und **sucht per Regex eine E-Mail-Adresse** im HTML
   (klappt nicht bei jeder Seite – manche haben nur Kontaktformulare ohne
   sichtbare E-Mail-Adresse, dann bleibt das Feld leer)
