@@ -170,7 +170,10 @@
         <div class="header">
             <div class="header-top-row">
                 <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
-                <a href="buchungen-uebersicht.html" class="close-btn" title="Schließen">✕</a>
+                <div style="display: flex; gap: 8px;">
+                    <button class="close-btn" style="width: auto; border-radius: 18px; padding: 0 14px; font-size: 0.85em; font-weight: 700;" onclick="openPriceModal()">💰 Preise</button>
+                    <a href="buchungen-uebersicht.html" class="close-btn" title="Schließen">✕</a>
+                </div>
             </div>
             <h1 id="customerName">Lade...</h1>
             <div class="booking-info" id="bookingInfo"></div>
@@ -196,6 +199,18 @@
         <button class="btn btn-save" onclick="saveTally()">💾 Speichern</button>
     </div>
 
+    <!-- Preise verwalten -->
+    <div id="priceModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; overflow-y:auto;">
+        <div style="max-width:420px; margin:40px auto; background:white; border-radius:16px; padding:25px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <h2 style="color:#667eea; margin-bottom:18px;">💰 Preise verwalten</h2>
+            <div id="priceInputsContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+            <div style="display:flex; gap:10px; margin-top:22px;">
+                <button class="btn" style="background:#f0f0f0; color:#333;" onclick="closePriceModal()">Abbrechen</button>
+                <button class="btn btn-save" onclick="savePricesFromModal()">💾 Speichern</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const PRODUCTS_LIST = [
             { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
@@ -219,6 +234,37 @@
                 if (saved) return JSON.parse(saved);
             } catch (e) {}
             return { ...DEFAULT_PRICES };
+        }
+
+        function savePrices(prices) {
+            localStorage.setItem('productPrices', JSON.stringify(prices));
+        }
+
+        function openPriceModal() {
+            const prices = loadPrices();
+            const container = document.getElementById('priceInputsContainer');
+            container.innerHTML = PRODUCTS_LIST.map(p => `
+                <div>
+                    <label style="display:block; font-weight:600; font-size:0.9em; color:#333; margin-bottom:4px;">${p.emoji} ${p.name} (€)</label>
+                    <input type="number" step="0.01" min="0" id="priceInput_${p.id}" value="${(prices[p.id] ?? DEFAULT_PRICES[p.id]).toFixed(2)}" style="width:100%; padding:10px; border:2px solid #ddd; border-radius:8px; font-size:1em;">
+                </div>
+            `).join('');
+            document.getElementById('priceModal').style.display = 'block';
+        }
+
+        function closePriceModal() {
+            document.getElementById('priceModal').style.display = 'none';
+        }
+
+        function savePricesFromModal() {
+            const prices = {};
+            PRODUCTS_LIST.forEach(p => {
+                const val = parseFloat(document.getElementById(`priceInput_${p.id}`).value);
+                prices[p.id] = isNaN(val) ? DEFAULT_PRICES[p.id] : val;
+            });
+            savePrices(prices);
+            closePriceModal();
+            render();
         }
 
         const urlParams = new URLSearchParams(window.location.search);
