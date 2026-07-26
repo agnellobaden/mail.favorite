@@ -1938,6 +1938,31 @@
     </style>
 </head>
 <body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
     <!-- Firebase Setup Modal -->
     <div id="firebaseSetupModal" class="form-modal" style="display: none;">
         <div class="form-container" style="max-width: 600px;">
@@ -2058,6 +2083,8 @@
             <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+            <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
         </div>
     </div>
 
@@ -6186,6 +6213,14 @@
         // Close burger menu function
         function closeBurgerMenu() {
             document.getElementById('burgerDropdown').classList.remove('active');
+        }
+
+        function logoutUser() {
+            closeBurgerMenu();
+            if (!confirm('Wirklich abmelden?')) return;
+            firebase.auth().signOut().then(() => {
+                window.location.href = 'login.html';
+            });
         }
 
         // Close burger menu when clicking outside
