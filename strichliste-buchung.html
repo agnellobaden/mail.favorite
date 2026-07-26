@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Strichliste - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 15px;
+    }
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        padding-bottom: 100px;
+    }
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+    }
+    .back-link {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9em;
+        opacity: 0.9;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+    .header h1 { font-size: 1.4em; margin-bottom: 4px; }
+    .header .booking-info { font-size: 0.95em; opacity: 0.95; }
+
+    .summary {
+        background: #f8f9fa;
+        margin: 15px;
+        border-radius: 12px;
+        padding: 18px;
+        text-align: center;
+        border: 2px solid #e0e0e0;
+    }
+    .summary .total-label { font-size: 0.85em; color: #666; font-weight: 600; text-transform: uppercase; }
+    .summary .total-value { font-size: 2.2em; font-weight: 800; color: #667eea; }
+
+    .products {
+        padding: 0 15px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+    .product-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .product-card .top-row { display: flex; justify-content: space-between; align-items: center; }
+    .product-card .emoji { font-size: 1.8em; }
+    .product-card .price { font-size: 0.8em; color: #666; font-weight: 600; }
+    .product-card .name { font-weight: 700; font-size: 0.9em; color: #333; text-align: center; min-height: 34px; display: flex; align-items: center; justify-content: center; }
+    .counter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        background: #f8f9fa;
+        padding: 8px;
+        border-radius: 8px;
+    }
+    .counter-btn {
+        width: 42px;
+        height: 42px;
+        border: none;
+        border-radius: 50%;
+        font-size: 1.4em;
+        font-weight: bold;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.1s;
+    }
+    .counter-btn:active { transform: scale(0.9); }
+    .counter-btn.minus { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); }
+    .counter-btn.plus { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+    .counter-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .count-display { flex: 1; text-align: center; font-size: 1.6em; font-weight: 800; color: #667eea; }
+    .product-total { text-align: center; font-size: 0.95em; font-weight: 700; color: #667eea; padding-top: 6px; border-top: 2px solid #f0f0f0; }
+
+    .bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: white;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        padding: 15px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        z-index: 100;
+    }
+    .btn {
+        flex: 1;
+        max-width: 220px;
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1em;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .btn-save { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .btn-reset { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; }
+
+    .status-msg {
+        text-align: center;
+        padding: 10px;
+        font-size: 0.9em;
+        color: #666;
+    }
+    .loading, .error {
+        text-align: center;
+        padding: 60px 20px;
+        color: #888;
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+            <h1 id="customerName">Lade...</h1>
+            <div class="booking-info" id="bookingInfo"></div>
+        </div>
+
+        <div id="loadingState" class="loading">Lade Buchung...</div>
+        <div id="errorState" class="error" style="display:none;"></div>
+
+        <div id="tallyUI" style="display:none;">
+            <div class="summary">
+                <div class="total-label">Gesamtbetrag</div>
+                <div class="total-value" id="totalValue">0.00 €</div>
+            </div>
+
+            <div class="products" id="productsGrid"></div>
+
+            <div class="status-msg" id="statusMsg"></div>
+        </div>
+    </div>
+
+    <div class="bottom-bar" id="bottomBar" style="display:none;">
+        <button class="btn btn-reset" onclick="resetTally()">🔄 Reset</button>
+        <button class="btn btn-save" onclick="saveTally()">💾 Speichern</button>
+    </div>
+
+    <script>
+        const PRODUCTS_LIST = [
+            { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
+            { id: 'spaghetti', name: 'Spaghetti Eis', emoji: '🍝' },
+            { id: 'schokobecher', name: 'Schoko Becher', emoji: '🍫' },
+            { id: 'sahne', name: 'Sahne', emoji: '🥛' },
+            { id: 'eiskaffee', name: 'Eiskaffee', emoji: '☕' },
+            { id: 'milchshake', name: 'Milchshake', emoji: '🥤' },
+            { id: 'streussel', name: 'Streussel', emoji: '🎨' },
+            { id: 'toppings', name: 'Toppings', emoji: '🍓' }
+        ];
+
+        const DEFAULT_PRICES = {
+            kugel: 1.80, spaghetti: 7.50, schokobecher: 7.50, sahne: 1.80,
+            eiskaffee: 7.50, milchshake: 6.00, streussel: 0.50, toppings: 1.00
+        };
+
+        function loadPrices() {
+            try {
+                const saved = localStorage.getItem('productPrices');
+                if (saved) return JSON.parse(saved);
+            } catch (e) {}
+            return { ...DEFAULT_PRICES };
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookingId = urlParams.get('bookingId');
+
+        let db = null;
+        let currentBooking = null;
+        let counts = {};
+        let saveTimeout = null;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+            authDomain: "mailfavorite-e8f49.firebaseapp.com",
+            projectId: "mailfavorite-e8f49",
+            storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+            messagingSenderId: "73719715044",
+            appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+            measurementId: "G-WGRT5L3NCX"
+        };
+
+        function sanitizeFirebaseId(id) {
+            if (!id) return '';
+            return id.toString().replace(/[^a-zA-Z0-9_-]/g, '-');
+        }
+
+        function showError(message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+            document.getElementById('errorState').textContent = message;
+        }
+
+        function findBookingInLocalStorage(id) {
+            try {
+                const saved = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                return saved.find(b => b.id === id) || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function init() {
+            if (!bookingId) {
+                showError('❌ Keine Buchung angegeben. Bitte über das Kartenmenü öffnen.');
+                return;
+            }
+
+            // Zuerst lokal versuchen, damit die Seite sofort etwas anzeigt
+            const localBooking = findBookingInLocalStorage(bookingId);
+            if (localBooking) {
+                loadBooking(localBooking);
+            }
+
+            if (typeof firebase === 'undefined') {
+                if (!localBooking) showError('❌ Firebase konnte nicht geladen werden und keine lokalen Daten gefunden.');
+                return;
+            }
+
+            try {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+
+                const cleanId = sanitizeFirebaseId(bookingId);
+                db.collection('buchungen').doc(cleanId).get().then(doc => {
+                    if (doc.exists) {
+                        loadBooking({ ...doc.data(), id: doc.id });
+                    } else if (!localBooking) {
+                        showError('❌ Buchung nicht gefunden (ID: ' + bookingId + ')');
+                    }
+                }).catch(err => {
+                    console.error('Firebase-Fehler:', err);
+                    if (!localBooking) showError('❌ Fehler beim Laden: ' + err.message);
+                });
+            } catch (e) {
+                console.error('Firebase-Init-Fehler:', e);
+                if (!localBooking) showError('❌ Firebase-Fehler: ' + e.message);
+            }
+        }
+
+        function loadBooking(booking) {
+            currentBooking = booking;
+            counts = {};
+            PRODUCTS_LIST.forEach(p => {
+                counts[p.id] = (booking.tally && booking.tally[p.id]) || 0;
+            });
+
+            document.getElementById('customerName').textContent = booking.name || 'Unbekannt';
+            document.getElementById('bookingInfo').textContent =
+                (booking.company ? booking.company + ' | ' : '') + (booking.date || '-') + ' ' + (booking.time || '');
+
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'none';
+            document.getElementById('tallyUI').style.display = 'block';
+            document.getElementById('bottomBar').style.display = 'flex';
+
+            render();
+        }
+
+        function render() {
+            const prices = loadPrices();
+            const grid = document.getElementById('productsGrid');
+            let total = 0;
+
+            grid.innerHTML = PRODUCTS_LIST.map(product => {
+                const count = counts[product.id] || 0;
+                const price = prices[product.id] || 0;
+                const lineTotal = count * price;
+                total += lineTotal;
+
+                return `
+                    <div class="product-card">
+                        <div class="top-row">
+                            <span class="emoji">${product.emoji}</span>
+                            <span class="price">${price.toFixed(2)} €</span>
+                        </div>
+                        <div class="name">${product.name}</div>
+                        <div class="counter-row">
+                            <button class="counter-btn minus" onclick="changeCount('${product.id}', -1)" ${count === 0 ? 'disabled' : ''}>−</button>
+                            <div class="count-display">${count}</div>
+                            <button class="counter-btn plus" onclick="changeCount('${product.id}', 1)">+</button>
+                        </div>
+                        <div class="product-total">${lineTotal.toFixed(2)} €</div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('totalValue').textContent = total.toFixed(2) + ' €';
+        }
+
+        function changeCount(productId, delta) {
+            counts[productId] = Math.max(0, (counts[productId] || 0) + delta);
+            render();
+            scheduleAutoSave();
+        }
+
+        function resetTally() {
+            if (!confirm('Strichliste wirklich zurücksetzen?')) return;
+            PRODUCTS_LIST.forEach(p => counts[p.id] = 0);
+            render();
+            scheduleAutoSave();
+        }
+
+        function scheduleAutoSave() {
+            clearTimeout(saveTimeout);
+            document.getElementById('statusMsg').textContent = '⏳ Speichere...';
+            saveTimeout = setTimeout(() => saveTally(true), 800);
+        }
+
+        function saveTally(silent = false) {
+            if (!currentBooking) return;
+
+            const prices = loadPrices();
+            let total = 0;
+            PRODUCTS_LIST.forEach(p => {
+                total += (counts[p.id] || 0) * (prices[p.id] || 0);
+            });
+
+            currentBooking.tally = { ...counts };
+            currentBooking.tallyTotal = total;
+            currentBooking.tallyUpdatedAt = new Date().toISOString();
+            currentBooking.lastModifiedMs = Date.now();
+            currentBooking.aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            // Lokal speichern
+            try {
+                const saved = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const index = saved.findIndex(b => b.id === currentBooking.id);
+                if (index >= 0) {
+                    saved[index] = currentBooking;
+                } else {
+                    saved.push(currentBooking);
+                }
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(saved));
+            } catch (e) {
+                console.error('LocalStorage-Fehler:', e);
+            }
+
+            // In Firebase speichern
+            if (db) {
+                const cleanId = sanitizeFirebaseId(currentBooking.id);
+                db.collection('buchungen').doc(cleanId).set({
+                    tally: currentBooking.tally,
+                    tallyTotal: currentBooking.tallyTotal,
+                    tallyUpdatedAt: currentBooking.tallyUpdatedAt,
+                    lastModifiedMs: currentBooking.lastModifiedMs,
+                    aktualisiertAm: currentBooking.aktualisiertAm,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }).then(() => {
+                    document.getElementById('statusMsg').textContent = '✅ Gespeichert';
+                    if (!silent) alert('✅ Strichliste gespeichert!');
+                }).catch(err => {
+                    console.error('Speichern fehlgeschlagen:', err);
+                    document.getElementById('statusMsg').textContent = '❌ Fehler beim Speichern in Firebase (lokal aber gespeichert)';
+                });
+            } else {
+                document.getElementById('statusMsg').textContent = '✅ Lokal gespeichert (Firebase nicht verbunden)';
+                if (!silent) alert('✅ Strichliste lokal gespeichert!');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

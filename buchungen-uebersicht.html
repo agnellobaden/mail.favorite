@@ -4169,7 +4169,7 @@
                                 💰 Als bezahlt markieren
                             </button>
                             ` : ''}
-                            <button class="card-menu-item" onclick="openTally('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #28a745;">
+                            <button class="card-menu-item" onclick="window.location.href='strichliste-buchung.html?bookingId=' + encodeURIComponent('${booking.id}')" style="color: #28a745;">
                                 📋 Strichliste
                             </button>
                             <button class="card-menu-item edit" onclick="editBooking('${booking.id}'); closeCardMenu('${booking.id}')">
