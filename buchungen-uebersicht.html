@@ -3699,6 +3699,23 @@
 
                 filterLabel = '🔔 24h-Erinnerungen fällig';
                 console.log('🔔 24h-Erinnerungen gefiltert:', filtered.length);
+
+            } else if (filterType === 'newRequests') {
+                // Neue Anfragen: Status "Neu"/"Anfrage", die diese Woche (ab Montag) reingekommen sind
+                const dayOfWeek = today.getDay();
+                const daysSinceMonday = (dayOfWeek + 6) % 7;
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - daysSinceMonday);
+
+                filtered = filtered.filter(b => {
+                    if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
+                    if (!b.erstelltAm) return true;
+                    const created = parseDate(b.erstelltAm);
+                    return created.getTime() >= startOfWeek.getTime();
+                });
+
+                filterLabel = '🔔 Neue Anfragen (diese Woche)';
+                console.log('🔔 Neue Anfragen gefiltert:', filtered.length);
             }
 
             // Visuellen Hinweis für aktiven Filter anzeigen
@@ -7439,30 +7456,19 @@
         function handleNewRequestsClick() {
             console.log('🔔 Klick auf Neue Anfragen Karte');
 
-            // Tabelle mit neuen Anfragen einblenden
-            const section = document.getElementById('newRequestsSection');
-            if (!section) {
-                console.log('⚠️ newRequestsSection nicht gefunden!');
-                return;
-            }
+            // Zur Kartenansicht wechseln und als Buchungskarten anzeigen (statt nur einer Tabelle)
+            currentView = 'cards';
+            document.getElementById('viewCards').classList.add('active');
+            document.getElementById('viewTable').classList.remove('active');
 
-            // Sicherstellen dass die Tabelle sichtbar ist
-            section.style.display = 'block';
-            console.log('✓ Tabelle eingeblendet');
+            applySpecialFilter('newRequests');
 
-            // Etwas längere Verzögerung für sanftes Scrollen
             setTimeout(() => {
-                // Scrolle zur Tabelle mit offset für bessere Sichtbarkeit
-                const yOffset = -20; // 20px über der Tabelle
-                const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
-
-                window.scrollTo({
-                    top: y,
-                    behavior: 'smooth'
-                });
-
-                console.log('✓ Scroll zu Tabelle ausgeführt');
-            }, 300);
+                const cardsContainer = document.getElementById('cardsContainer');
+                if (cardsContainer) {
+                    cardsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
         }
 
         // Filter nach Status
