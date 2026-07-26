@@ -2095,7 +2095,7 @@
             <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
-            <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn" style="display: none;">📲 App installieren</button>
+            <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn">📲 App installieren</button>
             <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
         </div>
     </div>
@@ -7784,24 +7784,67 @@
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredInstallPrompt = e;
-            const btn = document.getElementById('installAppBtn');
-            if (btn) btn.style.display = 'block';
         });
 
         window.addEventListener('appinstalled', function() {
             deferredInstallPrompt = null;
-            const btn = document.getElementById('installAppBtn');
-            if (btn) btn.style.display = 'none';
         });
 
         function installApp() {
-            if (!deferredInstallPrompt) return;
-            deferredInstallPrompt.prompt();
-            deferredInstallPrompt.userChoice.finally(function() {
-                deferredInstallPrompt = null;
-                const btn = document.getElementById('installAppBtn');
-                if (btn) btn.style.display = 'none';
-            });
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt.userChoice.finally(function() {
+                    deferredInstallPrompt = null;
+                });
+                return;
+            }
+            showInstallInstructions();
+        }
+
+        function showInstallInstructions() {
+            const ua = navigator.userAgent;
+            const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isAndroid = /android/i.test(ua);
+            const isFirefox = /firefox/i.test(ua);
+            const isSafari = /safari/i.test(ua) && !/chrome|crios|edg/i.test(ua);
+
+            let title = '📲 App installieren';
+            let steps = '';
+
+            if (isIOS) {
+                steps = '1. Tippe unten (oder oben) auf das <b>Teilen-Symbol</b> (Quadrat mit Pfeil nach oben)<br>' +
+                        '2. Scrolle runter und wähle <b>„Zum Home-Bildschirm"</b><br>' +
+                        '3. Tippe auf <b>„Hinzufügen"</b><br><br>' +
+                        '✅ Das EisFavorite-Icon erscheint auf deinem Homescreen!';
+            } else if (isAndroid) {
+                steps = '1. Tippe auf <b>⋮</b> (drei Punkte oben rechts im Browser-Menü)<br>' +
+                        '2. Wähle <b>„App installieren"</b> bzw. <b>„Zum Startbildschirm hinzufügen"</b><br>' +
+                        '3. Bestätige mit <b>„Installieren"</b><br><br>' +
+                        (isFirefox ? '⚠️ In Firefox steht die Option meist unter „Seite" → „Installieren". Am zuverlässigsten funktioniert es in <b>Chrome</b>.' : '✅ Das EisFavorite-Icon erscheint auf deinem Startbildschirm!');
+            } else if (isFirefox || isSafari) {
+                steps = 'Dieser Browser unterstützt die automatische Installation nicht.<br><br>' +
+                        'Bitte öffne die Seite in <b>Chrome</b> oder <b>Edge</b> — dort klickst du auf das <b>Installieren-Symbol</b> in der Adressleiste (rechts neben der URL) bzw. <b>⋮ Menü → „App installieren…"</b>.';
+            } else {
+                steps = '1. Klicke auf das <b>Installieren-Symbol</b> in der Adressleiste (rechts neben der URL)<br>' +
+                        '2. Oder: <b>⋮ Menü → „App installieren…"</b><br>' +
+                        '3. Bestätige mit <b>„Installieren"</b><br><br>' +
+                        '✅ EisFavorite öffnet sich als eigenständige App!';
+            }
+
+            let modal = document.getElementById('installInfoModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'installInfoModal';
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+                modal.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">' +
+                    '<h3 id="installInfoTitle" style="margin:0 0 14px 0;color:#667eea;"></h3>' +
+                    '<div id="installInfoSteps" style="font-size:0.95em;line-height:1.6;color:#333;"></div>' +
+                    '<button onclick="document.getElementById(\'installInfoModal\').remove();" style="margin-top:18px;width:100%;padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;font-weight:700;cursor:pointer;">Verstanden</button>' +
+                    '</div>';
+                document.body.appendChild(modal);
+            }
+            document.getElementById('installInfoTitle').textContent = title;
+            document.getElementById('installInfoSteps').innerHTML = steps;
         }
     </script>
 </body>
