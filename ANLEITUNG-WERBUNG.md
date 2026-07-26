@@ -99,6 +99,10 @@ einer Test-Adresse prüfen, bevor er im großen Stil genutzt wird.
   aller Art, …) – die Liste steht im Node "Suchkategorien erzeugen" und lässt
   sich dort erweitern
 - Holt für jeden Treffer per **Place Details** Adresse, Telefonnummer und Website
+- Berechnet zusätzlich die **Luftlinien-Entfernung zu Kuppenheim** (`distanceKm`)
+  aus den von Google gelieferten Koordinaten - **Mitarbeiterzahlen liefert
+  Google Places dagegen grundsätzlich nicht**, dieses Feld bleibt bei
+  automatisch gefundenen Firmen leer, außer man trägt es manuell nach
 - Ruft die Website ab und **sucht per Regex eine E-Mail-Adresse** im HTML
   (klappt nicht bei jeder Seite – manche haben nur Kontaktformulare ohne
   sichtbare E-Mail-Adresse, dann bleibt das Feld leer)

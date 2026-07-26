@@ -189,7 +189,7 @@
             <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
             <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
             <button class="btn btn-secondary" onclick="configureFlyerEmailWebhook()">⚙️ Flyer-E-Mail-Webhook einrichten</button>
-            <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim)</button>
+            <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim + Region)</button>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
         </div>
 
@@ -202,6 +202,16 @@
                 <option value="abgelehnt">Abgelehnt</option>
             </select>
             <input type="text" id="searchFilter" placeholder="Firma, Ort suchen..." oninput="renderLeads()">
+            <select id="sortField" onchange="renderLeads()">
+                <option value="">Sortieren nach...</option>
+                <option value="employees">Mitarbeiterzahl</option>
+                <option value="distanceKm">Entfernung (km)</option>
+                <option value="name">Firma (A-Z)</option>
+            </select>
+            <select id="sortDirection" onchange="renderLeads()">
+                <option value="desc">Absteigend (größte/weiteste zuerst)</option>
+                <option value="asc">Aufsteigend (kleinste/nächste zuerst)</option>
+            </select>
         </div>
 
         <div class="table-wrap">
@@ -215,6 +225,7 @@
                         <th>Telefon</th>
                         <th>E-Mail</th>
                         <th>Mitarbeiter</th>
+                        <th>Entfernung</th>
                         <th>Status</th>
                         <th>Zuletzt kontaktiert</th>
                     </tr>
@@ -280,6 +291,21 @@
             });
         }
 
+        // Wandelt "5-9", "~1.100" oder "14" in eine Zahl zum Sortieren um.
+        // Bei Bereichen ("5-9") wird der Mittelwert genutzt. Leere/unbekannte
+        // Werte geben null zurück und landen beim Sortieren immer am Ende.
+        function parseEmployeeCount(str) {
+            if (!str) return null;
+            const s = String(str).replace('~', '').trim();
+            if (s.includes('-')) {
+                const parts = s.split('-').map(p => parseInt(p.replace(/\./g, ''), 10)).filter(n => !isNaN(n));
+                if (parts.length === 0) return null;
+                return parts.reduce((a, b) => a + b, 0) / parts.length;
+            }
+            const n = parseInt(s.replace(/\./g, ''), 10);
+            return isNaN(n) ? null : n;
+        }
+
         function updateStats() {
             document.getElementById('statNeu').textContent = allLeads.filter(l => (l.status || 'neu') === 'neu').length;
             document.getElementById('statKontaktiert').textContent = allLeads.filter(l => l.status === 'kontaktiert').length;
@@ -302,6 +328,24 @@
                     (l.address || '').toLowerCase().includes(searchFilter) ||
                     (l.contactPerson || '').toLowerCase().includes(searchFilter)
                 );
+            }
+
+            const sortField = document.getElementById('sortField').value;
+            const sortDir = document.getElementById('sortDirection').value;
+            if (sortField === 'name') {
+                filtered = filtered.slice().sort((a, b) => {
+                    const cmp = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                    return sortDir === 'asc' ? cmp : -cmp;
+                });
+            } else if (sortField === 'employees' || sortField === 'distanceKm') {
+                filtered = filtered.slice().sort((a, b) => {
+                    const va = sortField === 'employees' ? parseEmployeeCount(a.employees) : (typeof a.distanceKm === 'number' ? a.distanceKm : null);
+                    const vb = sortField === 'employees' ? parseEmployeeCount(b.employees) : (typeof b.distanceKm === 'number' ? b.distanceKm : null);
+                    if (va === null && vb === null) return 0;
+                    if (va === null) return 1;
+                    if (vb === null) return -1;
+                    return sortDir === 'asc' ? va - vb : vb - va;
+                });
             }
 
             const tbody = document.getElementById('leadsBody');
@@ -333,6 +377,7 @@
                         <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
                         <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
                         <td>${lead.employees || '-'}</td>
+                        <td>${typeof lead.distanceKm === 'number' ? lead.distanceKm.toFixed(1) + ' km' : '-'}</td>
                         <td>
                             <select class="status-select" onchange="updateLeadStatus('${lead.id}', this.value)">
                                 <option value="neu" ${status === 'neu' ? 'selected' : ''}>Neu</option>
@@ -454,7 +499,8 @@
                 address: 'Schulstraße 8, 76456 Kuppenheim',
                 phone: '07222 406780',
                 email: 'favoriteschule@kuppenheim.de',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-werner-von-siemens-realschule-kuppenheim',
@@ -463,7 +509,8 @@
                 address: 'Wörtelstraße 23, 76456 Kuppenheim',
                 phone: '07222 40699-0',
                 email: 'realschule@kuppenheim.de',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-mercedes-benz-werk-kuppenheim',
@@ -472,7 +519,8 @@
                 address: 'Mercedesstr. 1, 76456 Kuppenheim',
                 phone: '',
                 email: '',
-                employees: '~1.100'
+                employees: '~1.100',
+                distanceKm: 1
             },
             {
                 id: 'lead-stadt-kuppenheim-verwaltung',
@@ -481,7 +529,8 @@
                 address: 'Friedensplatz, 76456 Kuppenheim',
                 phone: '07222 9462-0',
                 email: '',
-                employees: '~125'
+                employees: '~125',
+                distanceKm: 1
             },
             {
                 id: 'lead-autohaus-anton-burger',
@@ -490,7 +539,8 @@
                 address: 'Friedrichstr. 118, 76456 Kuppenheim',
                 phone: '07222 94640',
                 email: 'info@burger-kuppenheim.de',
-                employees: '5-9'
+                employees: '5-9',
+                distanceKm: 1
             },
             {
                 id: 'lead-burger-automobile',
@@ -499,7 +549,8 @@
                 address: 'Murgtalstr. 28-30, 76456 Kuppenheim',
                 phone: '07222 94380',
                 email: '',
-                employees: '5-9'
+                employees: '5-9',
+                distanceKm: 1
             },
             {
                 id: 'lead-autohaus-paul-krell',
@@ -508,7 +559,8 @@
                 address: 'Fritz-Minhardt-Str. 3, 76456 Kuppenheim',
                 phone: '07222 91666-0',
                 email: '',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-aschenberg-gmbh',
@@ -517,7 +569,8 @@
                 address: 'Friedrichstr. 8, 76456 Kuppenheim',
                 phone: '07222 9461-0',
                 email: 'kontakt@autoteile-aschenberg.de',
-                employees: '5-9'
+                employees: '5-9',
+                distanceKm: 1
             },
             {
                 id: 'lead-dielmann-gmbh',
@@ -526,7 +579,8 @@
                 address: 'Johann-Peter-Hebel-Str. 2, 76456 Kuppenheim',
                 phone: '07222 94570',
                 email: 'dielmann@arcor.de',
-                employees: '14'
+                employees: '14',
+                distanceKm: 1
             },
             {
                 id: 'lead-schroeder-metallbau',
@@ -535,7 +589,8 @@
                 address: 'Eichetstr. 8, 76456 Kuppenheim',
                 phone: '',
                 email: 'info@schroeder-metallbau.com',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-weber-metallbau',
@@ -544,7 +599,8 @@
                 address: 'Kunstwiesenweg 14, 76456 Kuppenheim',
                 phone: '',
                 email: 'anfrage@weber-metallbau.info',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-dad-metallbau',
@@ -553,7 +609,8 @@
                 address: 'Eichetstr. 8, 76456 Kuppenheim',
                 phone: '07222 409073',
                 email: '',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-boehmer-brezel',
@@ -562,7 +619,8 @@
                 address: 'Bahnhofstr. 4, 76456 Kuppenheim',
                 phone: '07222 41764',
                 email: '',
-                employees: ''
+                employees: '',
+                distanceKm: 1
             },
             {
                 id: 'lead-cutrona-bau',
@@ -571,7 +629,62 @@
                 address: 'Löwengasse 18, 76456 Kuppenheim',
                 phone: '07222 49640',
                 email: '',
-                employees: ''
+                employees: '',
+                distanceKm: 1
+            },
+            // Größere Arbeitgeber der Region (>50 Mitarbeiter) - über allgemeine
+            // Recherche gefunden, nicht über Google Places (liefert keine
+            // Mitarbeiterzahlen). Entfernungen grob berechnet (Luftlinie ab
+            // Kuppenheim-Zentrum), nicht exakt vermessen.
+            {
+                id: 'lead-mercedes-werk-rastatt',
+                name: 'Mercedes-Benz Werk Rastatt',
+                contactPerson: '',
+                address: 'Mercedesstraße 1, 76437 Rastatt',
+                phone: '',
+                email: '',
+                employees: '~6.500',
+                distanceKm: 7
+            },
+            {
+                id: 'lead-getinge-rastatt',
+                name: 'Getinge Deutschland GmbH (Medizintechnik)',
+                contactPerson: '',
+                address: 'Kehler Str. 31, 76437 Rastatt',
+                phone: '07222 9320',
+                email: 'info.vertrieb@getinge.com',
+                employees: '~1.300',
+                distanceKm: 7
+            },
+            {
+                id: 'lead-reif-bauunternehmung',
+                name: 'Reif Bauunternehmung GmbH & Co. KG',
+                contactPerson: '',
+                address: 'Hohlohstraße 9, 76437 Rastatt',
+                phone: '07222 508-0',
+                email: 'info@reif-bau.de',
+                employees: '~630',
+                distanceKm: 7
+            },
+            {
+                id: 'lead-schoeck-bauteile',
+                name: 'Schöck Bauteile GmbH',
+                contactPerson: '',
+                address: 'Schöckstraße 1, 76534 Baden-Baden',
+                phone: '07223 9670',
+                email: 'schoeck-de@schoeck.com',
+                employees: '~1.100 (Firmengruppe gesamt)',
+                distanceKm: 9.5
+            },
+            {
+                id: 'lead-rauch-landmaschinen',
+                name: 'Rauch Landmaschinenfabrik GmbH',
+                contactPerson: '',
+                address: 'Victoria Boulevard E 200, 77836 Rheinmünster (Baden-Airpark)',
+                phone: '07221 9850',
+                email: '',
+                employees: '',
+                distanceKm: 16
             }
         ];
 
@@ -737,7 +850,7 @@
         }
 
         function importRecherchierteLeads() {
-            if (!confirm(`${RECHERCHIERTE_LEADS_KUPPENHEIM.length} recherchierte Firmen/Schulen aus Kuppenheim jetzt in die Liste importieren?\n\nBereits vorhandene Einträge mit gleichem Namen werden nur ergänzt, nicht überschrieben (Status bleibt erhalten).`)) return;
+            if (!confirm(`${RECHERCHIERTE_LEADS_KUPPENHEIM.length} recherchierte Firmen/Schulen (Kuppenheim + größere Arbeitgeber der Region) jetzt in die Liste importieren?\n\nBereits vorhandene Einträge mit gleichem Namen werden nur ergänzt, nicht überschrieben (Status bleibt erhalten).`)) return;
 
             let done = 0;
             RECHERCHIERTE_LEADS_KUPPENHEIM.forEach(lead => {
@@ -748,6 +861,7 @@
                     phone: lead.phone,
                     email: lead.email,
                     employees: lead.employees,
+                    distanceKm: lead.distanceKm,
                     lastModifiedMs: Date.now()
                 }, { merge: true }).then(() => {
                     done++;
