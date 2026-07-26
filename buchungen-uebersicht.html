@@ -7397,16 +7397,9 @@
                 console.log('📱 Mobile erkannt - Kartenansicht aktiviert');
             }
 
-            // Prüfe Firebase-Setup
-            const hasFirebaseConfig = checkFirebaseSetup();
-            const firebaseSkipped = localStorage.getItem('firebaseSkipped');
-
-            // Zeige Setup-Modal nur, wenn Firebase nicht konfiguriert und nicht übersprungen
-            if (!hasFirebaseConfig && firebaseSkipped !== 'true') {
-                setTimeout(() => {
-                    document.getElementById('firebaseSetupModal').style.display = 'block';
-                }, 1000);
-            }
+            // Firebase-Config ist fest hinterlegt (siehe checkFirebaseSetup) - das
+            // Setup-Popup ist daher nicht mehr nötig und wird nicht mehr angezeigt.
+            checkFirebaseSetup();
 
             // WICHTIG: Wenn Firebase aktiv ist, warte auf erste Daten von Firebase
             // NUR wenn Firebase nicht verfügbar, lade aus LocalStorage
