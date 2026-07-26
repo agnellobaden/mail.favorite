@@ -227,6 +227,19 @@
         </div>
     </div>
 
+    <div id="flyerQueueModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:420px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 14px 0; color:#667eea;">📧 Flyer personalisiert versenden</h3>
+            <p id="flyerQueueInfo" style="font-size:0.95em; line-height:1.6; color:#333; margin-bottom:18px;"></p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-flyer" onclick="openCurrentFlyerEmail()">📧 E-Mail-Programm öffnen</button>
+                <button class="btn btn-primary" onclick="markSentAndNext()">✅ Gesendet – nächste E-Mail</button>
+                <button class="btn btn-secondary" onclick="skipCurrent()">⏭ Überspringen</button>
+                <button class="btn btn-secondary" onclick="closeFlyerQueueModal()">✖ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let db = null;
         let allLeads = [];
@@ -546,6 +559,33 @@
             }
         ];
 
+        let flyerQueue = [];
+        let flyerQueueTotal = 0;
+
+        function buildFlyerGreeting(lead) {
+            const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
+            const firstPerson = cp ? cp.split(',')[0].trim() : '';
+            return firstPerson ? ('Hallo ' + firstPerson + ',') : 'Sehr geehrte Damen und Herren,';
+        }
+
+        function buildFlyerEmail(lead) {
+            const flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html';
+            const greeting = buildFlyerGreeting(lead);
+            const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
+            const body =
+                greeting + '\n\n' +
+                'ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön ' +
+                'für den Einsatz Ihres Teams bei ' + lead.name + ' – EisFavorite kommt mit dem Eiswagen zu ' +
+                'Ihnen und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.\n\n' +
+                'Mehr Infos und Anfrage hier: ' + flyerUrl + '\n\n' +
+                'Viele Grüße\n' +
+                'Eis Agnello · EisFavorite\n' +
+                'Favoritenstrasse 11 · 76456 Kuppenheim\n' +
+                'Tel: +49 176 56813172 · eisfavorit@gmail.com\n\n' +
+                '(Kein Interesse? Einfach mit "Kein Interesse" antworten.)';
+            return { subject, body };
+        }
+
         function sendFlyerToSelected() {
             const selected = allLeads.filter(l => selectedLeadIds.has(l.id));
             if (selected.length === 0) {
@@ -566,39 +606,58 @@
                 warning = '\n\n⚠️ Ohne E-Mail-Adresse (werden übersprungen):\n' + withoutEmail.map(l => '- ' + l.name).join('\n');
             }
 
-            if (!confirm(`Flyer-E-Mail an ${withEmail.length} Empfänger vorbereiten?${warning}`)) return;
+            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich angeschriebene E-Mail (mit Namen/Firma in Anrede und Betreff).\n\nDu gehst sie im nächsten Fenster einzeln durch und öffnest jede E-Mail selbst im Mailprogramm.${warning}`)) return;
 
-            const flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html';
-            const subject = 'Eine süße Überraschung für Ihr Team – EisFavorite';
-            const body =
-                'Guten Tag,\n\n' +
-                'ob als spontane Belohnung, zum Sommerfest, Firmenjubiläum oder einfach als Dankeschön ' +
-                'für den Einsatz Ihres Teams – EisFavorite kommt mit dem Eiswagen zu Ihnen und verwöhnt ' +
-                'Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.\n\n' +
-                'Mehr Infos und Anfrage hier: ' + flyerUrl + '\n\n' +
-                'Viele Grüße\n' +
-                'Eis Agnello · EisFavorite\n' +
-                'Favoritenstrasse 11 · 76456 Kuppenheim\n' +
-                'Tel: +49 176 56813172 · eisfavorit@gmail.com\n\n' +
-                '(Kein Interesse? Einfach mit "Kein Interesse" antworten.)';
+            flyerQueue = withEmail.slice();
+            flyerQueueTotal = flyerQueue.length;
+            document.getElementById('flyerQueueModal').style.display = 'flex';
+            renderFlyerQueueModal();
+        }
 
-            const bcc = withEmail.map(l => l.email).join(',');
-            const mailtoUrl = 'mailto:?bcc=' + encodeURIComponent(bcc) +
-                '&subject=' + encodeURIComponent(subject) +
+        function renderFlyerQueueModal() {
+            const info = document.getElementById('flyerQueueInfo');
+            if (flyerQueue.length === 0) {
+                closeFlyerQueueModal();
+                alert('✅ Alle ausgewählten E-Mails wurden durchgegangen!');
+                return;
+            }
+            const lead = flyerQueue[0];
+            const position = flyerQueueTotal - flyerQueue.length + 1;
+            info.innerHTML = 'E-Mail <strong>' + position + ' von ' + flyerQueueTotal + '</strong><br>' +
+                '<strong>' + lead.name + '</strong><br>' + lead.email +
+                (lead.contactPerson ? '<br>Ansprechpartner: ' + lead.contactPerson : '');
+        }
+
+        function openCurrentFlyerEmail() {
+            const lead = flyerQueue[0];
+            if (!lead) return;
+            const { subject, body } = buildFlyerEmail(lead);
+            window.location.href = 'mailto:' + encodeURIComponent(lead.email) +
+                '?subject=' + encodeURIComponent(subject) +
                 '&body=' + encodeURIComponent(body);
+        }
 
-            window.location.href = mailtoUrl;
-
-            const now = Date.now();
-            withEmail.forEach(lead => {
+        function markSentAndNext() {
+            const lead = flyerQueue.shift();
+            if (lead) {
+                const now = Date.now();
                 db.collection('marketingLeads').doc(lead.id).set({
                     status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
                     lastContactedAt: now,
                     lastModifiedMs: now
                 }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
-            });
+            }
+            renderFlyerQueueModal();
+        }
 
-            alert('📧 E-Mail-Programm wird geöffnet (BCC an ' + withEmail.length + ' Empfänger). Bitte im E-Mail-Programm noch auf "Senden" klicken!\n\nDie ausgewählten Einträge wurden auf Status "Kontaktiert" gesetzt.');
+        function skipCurrent() {
+            flyerQueue.shift();
+            renderFlyerQueueModal();
+        }
+
+        function closeFlyerQueueModal() {
+            document.getElementById('flyerQueueModal').style.display = 'none';
+            flyerQueue = [];
         }
 
         function importRecherchierteLeads() {
