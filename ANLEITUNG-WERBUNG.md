@@ -13,7 +13,7 @@ oder absagen.
 | Werbung-Übersicht | `werbung.html` | Firmenliste mit Status, erreichbar über das Burger-Menü in buchungen-uebersicht.html |
 | n8n-Workflow 1 | `n8n-workflow-werbung-firmensuche.json` | Sucht Firmen über Google Places API, speichert sie in Firebase |
 | n8n-Workflow 2 | `n8n-workflow-werbung-kampagne.json` | Läuft alle 4 Wochen, verschickt Werbe-E-Mails mit rotierendem Slogan |
-| n8n-Workflow 3 | `n8n-workflow-werbung-flyer-email.json` | Wird manuell aus `werbung.html` ausgelöst (Checkbox-Auswahl + Vorschau), verschickt eine personalisierte **HTML**-E-Mail über Gmail |
+| n8n-Workflow 3 | `n8n-workflow-werbung-flyer-email.json` | Alternative/ungenutzte Variante über n8n - **wird aktuell nicht mehr verwendet**, siehe unten |
 
 Alle Daten liegen in der Firestore-Collection **`marketingLeads`** (gleiches
 Firebase-Projekt `mailfavorite-e8f49` wie die Buchungen).
@@ -71,25 +71,33 @@ Die Workflows lesen den Key über `{{ $env.GOOGLE_PLACES_API_KEY }}`. In n8n:
 Workflow "EisFavorite: Werbe-Kampagne für Firmen" **aktivieren** – läuft danach
 automatisch alle 4 Wochen um 9:00 Uhr.
 
-### 6. Personalisierten Flyer-Versand (HTML-E-Mail) einrichten
+### 6. Personalisierten Flyer-Versand (echte HTML-E-Mail) einrichten
 
-1. `n8n-workflow-werbung-flyer-email.json` importieren
-2. Beim Firestore-Node **Firebase Service Account**-Credential auswählen
-   (dieselbe wie überall sonst), beim Gmail-Node **eisfavorit@gmail.com**-Credential
-3. **Wichtig:** Öffne den Gmail-Node "Gmail: HTML-E-Mail senden" und prüfe, ob
-   dort eine Option wie "Email Type" / "Content Type" auf **HTML** steht (je
-   nach n8n-Version heißt das Feld anders) – sonst wird die E-Mail nur als
-   Klartext mit sichtbaren HTML-Tags verschickt statt gestaltet
-4. Workflow **aktivieren**, im Webhook-Node die **Production URL** kopieren
-5. In `werbung.html` auf **"⚙️ Flyer-E-Mail-Webhook einrichten"** klicken und
-   die URL einfügen
-6. Ab jetzt: Firmen/Schulen per Häkchen auswählen → **"📧 Flyer an Ausgewählte
-   senden"** → im Dialog jede E-Mail einzeln als Vorschau ansehen und mit
-   **"📧 Jetzt per Gmail senden"** bestätigen
+Der n8n-Webhook-Weg (`n8n-workflow-werbung-flyer-email.json`) hat sich in der
+Praxis als zu fehleranfällig gezeigt (405-Fehler, Setup-Aufwand). Stattdessen
+verschickt `werbung.html` die HTML-E-Mail jetzt **direkt aus dem Browser**
+über die Gmail-API - dafür ist einmalig eine Google-OAuth-Einrichtung nötig:
 
-⚠️ Dieser Workflow wurde nicht in einer echten n8n-Instanz getestet (kein
-Zugriff auf eure n8n-Umgebung) – bitte einmal mit "Execute Workflow" und
-einer Test-Adresse prüfen, bevor er im großen Stil genutzt wird.
+1. [Google Cloud Console](https://console.cloud.google.com/) → Projekt
+   **mailfavorite-e8f49** auswählen (dasselbe wie für Firebase)
+2. **APIs & Dienste → Bibliothek** → **"Gmail API"** suchen → **Aktivieren**
+3. **APIs & Dienste → OAuth-Zustimmungsbildschirm**:
+   - Nutzertyp **"Extern"**, App-Name z.B. "EisFavorite Werbung"
+   - Unter **"Testnutzer"** die E-Mail-Adresse **eisfavorit@gmail.com**
+     hinzufügen (so lange die App nicht von Google verifiziert ist, dürfen
+     nur eingetragene Testnutzer sie benutzen - reicht für den Eigenbedarf)
+4. **APIs & Dienste → Anmeldedaten → Anmeldedaten erstellen → OAuth-Client-ID**:
+   - Anwendungstyp **"Webanwendung"**
+   - Bei **"Autorisierte JavaScript-Quellen"** eintragen:
+     `https://maileisfavorite.vercel.app`
+   - Erstellen, die **Client-ID** kopieren (endet auf `.apps.googleusercontent.com`)
+5. In `werbung.html` nach `GMAIL_OAUTH_CLIENT_ID` suchen und den Platzhalter
+   durch die kopierte Client-ID ersetzen
+6. Fertig: Firmen/Schulen per Häkchen auswählen → **"📧 Flyer an Ausgewählte
+   senden"** → im Dialog jede E-Mail als Vorschau ansehen und mit **"📧 Jetzt
+   per Gmail senden"** bestätigen. Beim allerersten Versand öffnet sich ein
+   Google-Anmeldefenster - dort **eisfavorit@gmail.com** auswählen und den
+   Versand erlauben (nur einmal pro Browser-Sitzung nötig)
 
 ## Wie die Firmensuche funktioniert
 

@@ -9,6 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+<!-- Google Identity Services: für den direkten Gmail-API-Versand echter HTML-E-Mails -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
     * { box-sizing: border-box; }
     body {
@@ -237,7 +240,6 @@
                     <hr>
                     <div class="actions-group-label">⚙️ Einrichtung</div>
                     <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
-                    <button onclick="configureFlyerEmailWebhook(); closeActionsMenu();">⚙️ Flyer-E-Mail-Webhook einrichten</button>
                 </div>
             </div>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
@@ -339,9 +341,8 @@
             <p id="flyerQueueInfo" style="font-size:0.95em; line-height:1.6; color:#333; margin-bottom:14px;"></p>
             <div style="font-size:0.85em; color:#888; margin-bottom:4px;">Betreff</div>
             <div id="flyerPreviewSubject" style="font-weight:700; color:#333; margin-bottom:12px;"></div>
-            <div style="font-size:0.85em; color:#888; margin-bottom:6px;">So sieht der verlinkte Flyer aus, wenn der Empfänger klickt:</div>
-            <iframe id="flyerPreviewFrame" style="width:100%; height:380px; border:1px solid #eee; border-radius:10px; margin-bottom:8px;"></iframe>
-            <p style="font-size:0.8em; color:#999; margin:0 0 18px;">Die E-Mail selbst wird als Text mit anklickbarem Link verschickt (Gmail kann per Link kein gestaltetes HTML einfügen).</p>
+            <div style="font-size:0.85em; color:#888; margin-bottom:6px;">So sieht die E-Mail aus (genau dieser Inhalt wird verschickt):</div>
+            <iframe id="flyerPreviewFrame" style="width:100%; height:380px; border:1px solid #eee; border-radius:10px; margin-bottom:18px;"></iframe>
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button class="btn btn-flyer" onclick="sendCurrentFlyerEmail()">📧 Jetzt per Gmail senden</button>
                 <button class="btn btn-secondary" onclick="skipCurrent()">⏭ Überspringen</button>
@@ -587,18 +588,6 @@
                 .catch(err => {
                     alert('❌ Firmensuche konnte nicht gestartet werden: ' + err.message + '\n\nPrüfe, ob die Webhook-URL korrekt ist und n8n erreichbar ist.');
                 });
-        }
-
-        function configureFlyerEmailWebhook() {
-            const current = localStorage.getItem('n8nFlyerEmailWebhookUrl') || '';
-            const url = prompt(
-                'n8n-Webhook-URL für den personalisierten Flyer-Versand eingeben\n(aus dem n8n-Workflow "EisFavorite: Personalisierte Flyer-HTML-E-Mail" → Webhook-Node → Production URL):',
-                current
-            );
-            if (url !== null) {
-                localStorage.setItem('n8nFlyerEmailWebhookUrl', url.trim());
-                alert(url.trim() ? '✓ Webhook-URL gespeichert.' : 'Webhook-URL entfernt.');
-            }
         }
 
         function openManualLeadForm() {
@@ -943,7 +932,7 @@
                 warning = '\n\n⚠️ Ohne E-Mail-Adresse (werden übersprungen):\n' + withoutEmail.map(l => '- ' + l.name).join('\n');
             }
 
-            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich angeschriebene E-Mail (Anrede + Firma in Betreff, Link zum Flyer) über Gmail (eisfavorit@gmail.com).\n\nDu gehst sie im nächsten Fenster einzeln durch und öffnest/versendest jede E-Mail selbst.${warning}`)) return;
+            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich gestaltete HTML-E-Mail (Anrede + Firma, Design wie der Flyer) über Gmail (eisfavorit@gmail.com).\n\nBeim ersten Versand musst du dich einmalig bei Google anmelden und den Versand erlauben. Du gehst die Auswahl im nächsten Fenster einzeln durch und bestätigst jede E-Mail nach Vorschau.${warning}`)) return;
 
             flyerQueue = withEmail.slice();
             flyerQueueTotal = flyerQueue.length;
@@ -970,50 +959,102 @@
                 '<body style="margin:0; padding:16px; background:#f0f0f0;">' + html + '</body>';
         }
 
-        // Baut den Klartext-Body für den Gmail-Compose-Link. Gmail kann über
-        // diesen Link kein HTML einfügen (nur Klartext) - die HTML-Vorschau
-        // oben zeigt trotzdem, wie die gestaltete Version aussehen würde,
-        // sobald der Empfänger auf den Link klickt (der führt zur genauso
-        // gestalteten Flyer-Seite).
-        function buildFlyerPlainText(lead) {
-            const greeting = buildFlyerGreeting(lead);
-            const flyerUrl = buildFlyerUrl(lead);
-            const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
-            const body =
-                greeting + '\n\n' +
-                'ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön ' +
-                'für den Einsatz Ihres Teams bei ' + lead.name + ' - EisFavorite kommt mit dem Eiswagen zu ' +
-                'Ihnen und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.\n\n' +
-                'Mehr Infos und Anfrage hier: ' + flyerUrl + '\n\n' +
-                'Viele Grüße\n' +
-                'Eis Agnello · EisFavorite\n' +
-                'Favoritenstrasse 11 · 76456 Kuppenheim\n' +
-                'Tel: +49 176 56813172 · eisfavorit@gmail.com\n\n' +
-                '(Kein Interesse? Einfach mit "Kein Interesse" antworten.)';
-            return { subject, body };
+        // Echter Versand der gestalteten HTML-E-Mail über die Gmail-API.
+        // Dafür braucht es einmalig eine Google-OAuth-Client-ID (siehe
+        // ANLEITUNG-WERBUNG.md) - der Nutzer meldet sich dann einmal pro
+        // Sitzung mit eisfavorit@gmail.com an und erlaubt den Versand.
+        const GMAIL_OAUTH_CLIENT_ID = 'HIER_DEINE_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+        let gmailAccessToken = null;
+        let gmailTokenClient = null;
+
+        function encodeMimeSubject(str) {
+            return '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(str))) + '?=';
+        }
+
+        function base64UrlEncodeUtf8(str) {
+            const b64 = btoa(unescape(encodeURIComponent(str)));
+            return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function ensureGmailAuth(onReady) {
+            if (GMAIL_OAUTH_CLIENT_ID.indexOf('HIER_DEINE') === 0) {
+                alert('⚠️ Der Gmail-Versand ist noch nicht eingerichtet.\n\n' +
+                      'In Google Cloud Console eine OAuth-Client-ID (Web-Anwendung) erstellen ' +
+                      'und im Code bei GMAIL_OAUTH_CLIENT_ID eintragen. Details in ANLEITUNG-WERBUNG.md.');
+                return;
+            }
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+                alert('Google-Anmeldedienst konnte nicht geladen werden. Bitte Seite neu laden.');
+                return;
+            }
+            if (!gmailTokenClient) {
+                gmailTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GMAIL_OAUTH_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/gmail.send',
+                    callback: function(resp) {
+                        if (resp.error) {
+                            alert('❌ Gmail-Anmeldung fehlgeschlagen: ' + resp.error);
+                            return;
+                        }
+                        gmailAccessToken = resp.access_token;
+                        onReady();
+                    }
+                });
+            }
+            gmailTokenClient.requestAccessToken({ prompt: gmailAccessToken ? '' : 'consent' });
         }
 
         function sendCurrentFlyerEmail() {
             const lead = flyerQueue[0];
             if (!lead) return;
 
-            const { subject, body } = buildFlyerPlainText(lead);
-            const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                '&authuser=eisfavorit@gmail.com' +
-                '&to=' + encodeURIComponent(lead.email) +
-                '&su=' + encodeURIComponent(subject) +
-                '&body=' + encodeURIComponent(body);
-            window.open(gmailUrl, '_blank');
+            if (!gmailAccessToken) {
+                ensureGmailAuth(() => sendCurrentFlyerEmail());
+                return;
+            }
 
-            const now = Date.now();
-            db.collection('marketingLeads').doc(lead.id).set({
-                status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
-                lastContactedAt: now,
-                lastModifiedMs: now
-            }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+            const { subject, html } = buildFlyerEmail(lead);
+            const raw = [
+                'Content-Type: text/html; charset="UTF-8"',
+                'MIME-Version: 1.0',
+                'To: ' + lead.email,
+                'Bcc: eisfavorit@gmail.com',
+                'Subject: ' + encodeMimeSubject(subject),
+                '',
+                html
+            ].join('\r\n');
 
-            flyerQueue.shift();
-            renderFlyerQueueModal();
+            fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + gmailAccessToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ raw: base64UrlEncodeUtf8(raw) })
+            }).then(res => {
+                if (res.status === 401) {
+                    // Token abgelaufen/ungültig - einmal neu anmelden und erneut versuchen
+                    gmailAccessToken = null;
+                    ensureGmailAuth(() => sendCurrentFlyerEmail());
+                    return;
+                }
+                if (!res.ok) {
+                    return res.text().then(t => { throw new Error('Status ' + res.status + ': ' + t); });
+                }
+
+                const now = Date.now();
+                db.collection('marketingLeads').doc(lead.id).set({
+                    status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
+                    lastContactedAt: now,
+                    lastModifiedMs: now
+                }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+
+                flyerQueue.shift();
+                renderFlyerQueueModal();
+            }).catch(err => {
+                console.error('Gmail-Versand fehlgeschlagen:', err);
+                alert('❌ E-Mail konnte nicht gesendet werden: ' + err.message);
+            });
         }
 
         function skipCurrent() {
