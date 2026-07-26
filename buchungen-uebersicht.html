@@ -3697,18 +3697,25 @@
         // Bevorstehende Termine diese Woche anzeigen
         function displayUpcomingWeek() {
             const now = new Date();
+            const today = new Date(now);
+            today.setHours(0, 0, 0, 0); // Heute um Mitternacht
+
             const endOfWeek = new Date(now);
             const dayOfWeek = now.getDay();
             const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
             endOfWeek.setDate(now.getDate() + daysUntilSunday);
             endOfWeek.setHours(23, 59, 59, 999);
 
-            // Finde alle bevorstehenden Termine dieser Woche
+            // Finde alle Termine dieser Woche (inkl. heute, auch wenn Uhrzeit vorbei)
             const upcomingThisWeek = allBookings.filter(booking => {
                 const bookingDate = parseDateTime(booking.date, booking.time);
-                const isUpcoming = bookingDate >= now && bookingDate <= endOfWeek;
+                const bookingDateOnly = new Date(bookingDate);
+                bookingDateOnly.setHours(0, 0, 0, 0); // Nur das Datum ohne Uhrzeit
+
+                // Event ist sichtbar wenn: Datum ist heute oder in der Zukunft UND bis Ende der Woche
+                const isThisWeek = bookingDateOnly >= today && bookingDateOnly <= endOfWeek;
                 const isActive = booking.status === 'Gebucht' || booking.status === 'Neu' || booking.status === 'Anfrage';
-                return isUpcoming && isActive;
+                return isThisWeek && isActive;
             }).sort((a, b) => {
                 return parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time);
             });
@@ -7476,16 +7483,22 @@
             const card = document.getElementById('nextAppointmentCard');
             const countdownEl = document.getElementById('nextAppointmentCountdown');
             const detailsEl = document.getElementById('nextAppointmentDetails');
-            
+
             if (!card || !countdownEl || !detailsEl) return;
 
             const now = new Date();
-            
-            // Finde alle zukünftigen "Gebucht" Termine
+            const today = new Date(now);
+            today.setHours(0, 0, 0, 0); // Heute um Mitternacht
+
+            // Finde alle "Gebucht" Termine (inkl. heute, auch wenn Uhrzeit vorbei)
             const upcoming = allBookings.filter(b => {
                 if (b.status !== 'Gebucht') return false;
                 const bookingDate = parseDateTime(b.date, b.time);
-                return bookingDate > now;
+                const bookingDateOnly = new Date(bookingDate);
+                bookingDateOnly.setHours(0, 0, 0, 0); // Nur das Datum ohne Uhrzeit
+
+                // Event ist sichtbar wenn das Datum heute oder in der Zukunft ist
+                return bookingDateOnly >= today;
             });
             
             if (upcoming.length > 0) {
