@@ -6083,25 +6083,15 @@
             });
         });
 
-        // Beim Scrollen offene Kartenmenüs schließen (sonst "schwebt" das fixe Menü
-        // an der falschen Stelle über dem Inhalt). Scrollen INNERHALB eines langen
-        // Menüs (eigenes overflow-y: auto) soll es dabei nicht schließen.
+        // Beim Scrollen offene Kartenmenüs an die neue Button-Position anpassen (NICHT
+        // schließen - ein Schließen beim Scrollen hat den Tap auf Menüpunkte am Handy
+        // öfter "ins Leere" laufen lassen, weil schon winzige Scroll-Zitterer beim
+        // Suchen des richtigen Punkts das Menü unbemerkt zugeklappt haben).
         window.addEventListener('scroll', (e) => {
             if (e.target.closest && e.target.closest('.card-menu-dropdown')) return;
             document.querySelectorAll('.card-menu-dropdown.active').forEach(menu => {
-                // Kurze Karenzzeit nach dem Öffnen: ein durch den Klick selbst
-                // ausgelöstes Fokus-Scrollen (z.B. am PC) soll das Menü nicht sofort
-                // wieder zuklappen, bevor der Nutzer es überhaupt gesehen hat.
-                const openedAt = parseInt(menu.dataset.openedAt || '0', 10);
-                if (Date.now() - openedAt < 400) return;
-
-                // Nur bei einem SPÜRBAREN Scroll schließen (nicht bei winzigen 1-2px
-                // Zitterern, die z.B. am Handy beim Suchen des richtigen Menüpunkts
-                // passieren können und sonst den Tap ins Leere laufen lassen)
-                const openScrollY = parseFloat(menu.dataset.openScrollY || '0');
-                if (Math.abs(window.scrollY - openScrollY) < 15) return;
-
-                menu.classList.remove('active');
+                const button = menu.closest('.card-menu')?.querySelector('.card-menu-button');
+                if (button) positionCardMenu(menu, button);
             });
         }, { passive: true, capture: true });
 
