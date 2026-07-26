@@ -4,41 +4,48 @@
       <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
     </linearGradient>
+    <linearGradient id="cone512" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF69B4;stop-opacity:1" />
+    </linearGradient>
   </defs>
 
-  <!-- Hintergrund -->
+  <!-- Hintergrund (voll ausgefüllt, maskable-sicher) -->
   <rect width="512" height="512" fill="url(#bg512)" rx="100"/>
 
-  <!-- Eiswaffel -->
-  <path d="M 206 300 L 256 420 L 306 300 Z" fill="#D2691E" stroke="#8B4513" stroke-width="6"/>
-  <line x1="206" y1="320" x2="306" y2="320" stroke="#8B4513" stroke-width="5"/>
-  <line x1="210" y1="340" x2="302" y2="340" stroke="#8B4513" stroke-width="5"/>
-  <line x1="218" y1="360" x2="294" y2="360" stroke="#8B4513" stroke-width="5"/>
-  <line x1="226" y1="380" x2="286" y2="380" stroke="#8B4513" stroke-width="5"/>
-  <line x1="234" y1="400" x2="278" y2="400" stroke="#8B4513" stroke-width="5"/>
+  <!-- Räder -->
+  <circle cx="168" cy="392" r="32" fill="#2d2d2d"/>
+  <circle cx="168" cy="392" r="13" fill="#999"/>
+  <circle cx="356" cy="392" r="32" fill="#2d2d2d"/>
+  <circle cx="356" cy="392" r="13" fill="#999"/>
 
-  <!-- Eiskugeln -->
-  <circle cx="256" cy="285" r="58" fill="#FF69B4" stroke="#FF1493" stroke-width="6"/>
-  <ellipse cx="240" cy="270" rx="20" ry="13" fill="#FFC0CB" opacity="0.6"/>
+  <!-- Eisbus-Karosserie -->
+  <rect x="80" y="236" width="320" height="132" rx="16" fill="#ffffff"/>
+  <!-- Fahrerkabine -->
+  <path d="M 330 236 L 392 236 Q 410 236 410 259 L 410 336 Q 410 364 383 364 L 330 364 Z" fill="#ffffff"/>
+  <!-- Windschutzscheibe -->
+  <path d="M 344 250 L 388 250 Q 397 250 397 262 L 397 286 L 340 286 Z" fill="#a7d8f0"/>
 
-  <circle cx="256" cy="190" r="58" fill="#FFA500" stroke="#FF8C00" stroke-width="6"/>
-  <ellipse cx="240" cy="175" rx="20" ry="13" fill="#FFD700" opacity="0.6"/>
+  <!-- Farbige Streifen -->
+  <rect x="80" y="274" width="320" height="15" fill="#FF69B4"/>
+  <rect x="80" y="295" width="320" height="9" fill="#FFD700"/>
 
-  <circle cx="256" cy="95" r="58" fill="#FFD700" stroke="#FFA500" stroke-width="6"/>
-  <ellipse cx="240" cy="80" rx="20" ry="13" fill="#FFFFE0" opacity="0.7"/>
+  <!-- Verkaufsfenster mit Markise -->
+  <rect x="112" y="250" width="115" height="66" rx="8" fill="#e8f4fb"/>
+  <path d="M 102 250 L 227 250 L 241 213 L 88 213 Z" fill="#FF6B6B"/>
+  <path d="M 102 250 L 112 213 L 127 213 L 119 250 Z" fill="#ffffff"/>
+  <path d="M 148 250 L 158 213 L 173 213 L 165 250 Z" fill="#ffffff"/>
+  <path d="M 194 250 L 204 213 L 219 213 Z" fill="#ffffff"/>
 
-  <!-- Streusel -->
-  <circle cx="230" cy="95" r="7" fill="#FF6347"/>
-  <circle cx="278" cy="100" r="7" fill="#4169E1"/>
-  <circle cx="243" cy="110" r="7" fill="#32CD32"/>
-  <circle cx="265" cy="85" r="7" fill="#FF1493"/>
-
-  <circle cx="232" cy="190" r="7" fill="#4169E1"/>
-  <circle cx="285" cy="195" r="7" fill="#FF6347"/>
-  <circle cx="248" cy="205" r="7" fill="#FFD700"/>
-  <circle cx="270" cy="180" r="7" fill="#32CD32"/>
-
-  <circle cx="225" cy="285" r="7" fill="#32CD32"/>
-  <circle cx="280" cy="290" r="7" fill="#4169E1"/>
-  <circle cx="245" cy="300" r="7" fill="#FF6347"/>
+  <!-- Eistüte auf dem Dach -->
+  <g transform="translate(264, 110)">
+    <path d="M -13 82 L 0 121 L 13 82 Z" fill="#D2691E" stroke="#8B4513" stroke-width="3"/>
+    <line x1="-12" y1="93" x2="12" y2="93" stroke="#8B4513" stroke-width="2"/>
+    <line x1="-9" y1="104" x2="9" y2="104" stroke="#8B4513" stroke-width="2"/>
+    <circle cx="0" cy="73" r="17" fill="#FF69B4" stroke="#FF1493" stroke-width="3"/>
+    <circle cx="0" cy="44" r="17" fill="#FFA500" stroke="#FF8C00" stroke-width="3"/>
+    <circle cx="0" cy="15" r="17" fill="url(#cone512)" stroke="#FFA500" stroke-width="3"/>
+    <circle cx="-6" cy="9" r="5" fill="#FFFFE0" opacity="0.7"/>
+  </g>
 </svg>
