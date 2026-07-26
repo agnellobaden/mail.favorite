@@ -1,3 +1,35 @@
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+  authDomain: "mailfavorite-e8f49.firebaseapp.com",
+  projectId: "mailfavorite-e8f49",
+  storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+  messagingSenderId: "73719715044",
+  appId: "1:73719715044:web:e0e762cda49ae166b6c8f1"
+});
+
+const messaging = firebase.messaging();
+
+// Push-Benachrichtigung anzeigen, wenn die App im Hintergrund ist / geschlossen ist
+messaging.onBackgroundMessage(function(payload) {
+  const title = (payload.notification && payload.notification.title) || 'EisFavorite';
+  const options = {
+    body: payload.notification && payload.notification.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: payload.data || {}
+  };
+  self.registration.showNotification(title, options);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.click_action) || '/buchungen-uebersicht.html';
+  event.waitUntil(clients.openWindow(url));
+});
+
 const CACHE_NAME = 'eisfavorite-installable-20260726-v5';
 const urlsToCache = [
   '/',

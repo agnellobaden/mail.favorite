@@ -13,6 +13,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
     <style>
         * {
@@ -2096,6 +2097,7 @@
             <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
             <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn">📲 App installieren</button>
+            <button onclick="enablePushNotifications(); closeBurgerMenu();" id="pushNotifyBtn">🔔 Push-Benachrichtigungen aktivieren</button>
             <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
         </div>
     </div>
@@ -7846,6 +7848,84 @@
             document.getElementById('installInfoTitle').textContent = title;
             document.getElementById('installInfoSteps').innerHTML = steps;
         }
+    </script>
+
+    <script>
+        // Firebase Cloud Messaging: VAPID-Key aus Firebase Console eintragen
+        // (Projekteinstellungen -> Cloud Messaging -> Web-Push-Zertifikate -> Schlüsselpaar generieren)
+        const VAPID_KEY = 'HIER_DEINEN_VAPID_KEY_EINTRAGEN';
+
+        function updatePushButtonLabel() {
+            const btn = document.getElementById('pushNotifyBtn');
+            if (!btn) return;
+            if (typeof Notification === 'undefined') {
+                btn.style.display = 'none';
+            } else if (Notification.permission === 'granted') {
+                btn.textContent = '🔔 Push-Benachrichtigungen aktiv';
+            } else {
+                btn.textContent = '🔔 Push-Benachrichtigungen aktivieren';
+            }
+        }
+
+        async function enablePushNotifications() {
+            if (VAPID_KEY === 'HIER_DEINEN_VAPID_KEY_EINTRAGEN') {
+                alert('⚠️ Push-Benachrichtigungen sind noch nicht eingerichtet.\n\n' +
+                      'Firebase Console -> Projekteinstellungen -> Cloud Messaging -> "Web-Push-Zertifikate" -> ' +
+                      'Schlüsselpaar generieren -> Wert im Code bei VAPID_KEY eintragen.');
+                return;
+            }
+            if (typeof Notification === 'undefined') {
+                alert('Dieser Browser unterstützt keine Push-Benachrichtigungen.');
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    alert('Push-Benachrichtigungen wurden nicht erlaubt. Du kannst das später in den Browser-Einstellungen der Seite ändern.');
+                    return;
+                }
+                const registration = await navigator.serviceWorker.ready;
+                const messaging = firebase.messaging();
+                const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+                if (!token) {
+                    alert('❌ Konnte keinen Push-Token erhalten.');
+                    return;
+                }
+                if (!db) {
+                    alert('⚠️ Firebase ist noch nicht bereit. Bitte kurz warten und erneut versuchen.');
+                    return;
+                }
+                await db.collection('pushTokens').doc(token).set({
+                    token: token,
+                    email: (firebase.auth().currentUser && firebase.auth().currentUser.email) || null,
+                    userAgent: navigator.userAgent,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('✅ Push-Benachrichtigungen sind jetzt aktiviert!');
+                updatePushButtonLabel();
+            } catch (err) {
+                console.error('Push-Setup fehlgeschlagen:', err);
+                alert('❌ Push-Benachrichtigungen konnten nicht aktiviert werden: ' + err.message);
+            }
+        }
+
+        // Nachrichten im Vordergrund (App ist geöffnet) als Browser-Notification anzeigen
+        if (typeof firebase !== 'undefined' && firebase.messaging && firebase.messaging.isSupported && firebase.messaging.isSupported()) {
+            try {
+                firebase.messaging().onMessage(function(payload) {
+                    const title = (payload.notification && payload.notification.title) || 'EisFavorite';
+                    const body = (payload.notification && payload.notification.body) || '';
+                    if (Notification.permission === 'granted') {
+                        new Notification(title, { body: body, icon: '/icon-192.png' });
+                    }
+                });
+            } catch (e) {
+                console.warn('Foreground-Messaging nicht verfügbar:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', updatePushButtonLabel);
+        updatePushButtonLabel();
     </script>
 </body>
 </html>
