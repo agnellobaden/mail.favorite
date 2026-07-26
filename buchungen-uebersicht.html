@@ -5867,6 +5867,12 @@
                 return;
             }
 
+            // Falls die Strichliste (oder ein anderes Modal) noch offen ist, sauber schließen -
+            // sonst legt sie sich (höherer z-index) über das gerade geöffnete Formular.
+            if (document.getElementById('tallyModal').style.display === 'block') {
+                closeTally();
+            }
+
             currentEditingBookingId = bookingId;
 
             // Formular mit Daten füllen
