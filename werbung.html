@@ -186,6 +186,7 @@
 
         <div class="actions">
             <button class="btn btn-primary" onclick="startFirmensuche()">🔍 Firmensuche starten (n8n)</button>
+            <button class="btn btn-primary" onclick="openManualLeadForm()">➕ Firma manuell hinzufügen</button>
             <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
             <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
             <button class="btn btn-secondary" onclick="configureFlyerEmailWebhook()">⚙️ Flyer-E-Mail-Webhook einrichten</button>
@@ -236,6 +237,50 @@
                 <div class="icon">📭</div>
                 <p>Noch keine Firmen gefunden. Starte die Firmensuche über den Button oben.</p>
             </div>
+        </div>
+    </div>
+
+    <div id="manualLeadModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:460px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
+            <h3 style="margin:0 0 18px 0; color:#667eea;">➕ Firma/Schule manuell hinzufügen</h3>
+            <form id="manualLeadForm" onsubmit="submitManualLead(event)">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Firma / Schule *</label>
+                        <input type="text" id="mlName" required style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Ansprechpartner</label>
+                        <input type="text" id="mlContactPerson" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Adresse</label>
+                        <input type="text" id="mlAddress" placeholder="Straße Hausnr., PLZ Ort" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Telefon</label>
+                        <input type="text" id="mlPhone" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">E-Mail</label>
+                        <input type="email" id="mlEmail" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Mitarbeiter</label>
+                            <input type="text" id="mlEmployees" placeholder="z.B. 5-9 oder 120" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Entfernung (km)</label>
+                            <input type="number" step="0.1" id="mlDistanceKm" placeholder="z.B. 12" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                    <button type="submit" class="btn btn-primary">✅ Hinzufügen</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeManualLeadForm()">✖ Abbrechen</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -487,6 +532,53 @@
                 localStorage.setItem('n8nFlyerEmailWebhookUrl', url.trim());
                 alert(url.trim() ? '✓ Webhook-URL gespeichert.' : 'Webhook-URL entfernt.');
             }
+        }
+
+        function openManualLeadForm() {
+            document.getElementById('manualLeadForm').reset();
+            document.getElementById('manualLeadModal').style.display = 'flex';
+        }
+
+        function closeManualLeadForm() {
+            document.getElementById('manualLeadModal').style.display = 'none';
+        }
+
+        function submitManualLead(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('mlName').value.trim();
+            if (!name) return;
+
+            const contactPerson = document.getElementById('mlContactPerson').value.trim();
+            const address = document.getElementById('mlAddress').value.trim();
+            const phone = document.getElementById('mlPhone').value.trim();
+            const email = document.getElementById('mlEmail').value.trim();
+            const employees = document.getElementById('mlEmployees').value.trim();
+            const distanceRaw = document.getElementById('mlDistanceKm').value.trim();
+            const distanceKm = distanceRaw ? parseFloat(distanceRaw) : null;
+
+            const slug = name.toLowerCase()
+                .replace(/[äöüß]/g, c => ({ 'ä':'ae','ö':'oe','ü':'ue','ß':'ss' }[c]))
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const docId = 'lead-manuell-' + (slug || 'firma') + '-' + Date.now();
+
+            db.collection('marketingLeads').doc(docId).set({
+                name,
+                contactPerson,
+                address,
+                phone,
+                email,
+                employees,
+                distanceKm,
+                lastModifiedMs: Date.now()
+            }).then(() => {
+                closeManualLeadForm();
+                alert('✅ "' + name + '" wurde hinzugefügt.');
+            }).catch(err => {
+                console.error('Fehler beim manuellen Hinzufügen:', err);
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
         }
 
         // Manuell recherchierte Leads (Kuppenheim) - per Websuche/Impressum/Handelsregister
