@@ -645,9 +645,14 @@
             const lead = flyerQueue[0];
             if (!lead) return;
             const { subject, body } = buildFlyerEmail(lead);
-            window.location.href = 'mailto:' + encodeURIComponent(lead.email) +
-                '?subject=' + encodeURIComponent(subject) +
+            // Immer über Gmail (eisfavorit@gmail.com) öffnen, nicht über das
+            // System-Standardmailprogramm.
+            const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
+                '&authuser=eisfavorit@gmail.com' +
+                '&to=' + encodeURIComponent(lead.email) +
+                '&su=' + encodeURIComponent(subject) +
                 '&body=' + encodeURIComponent(body);
+            window.open(gmailUrl, '_blank');
         }
 
         function markSentAndNext() {
