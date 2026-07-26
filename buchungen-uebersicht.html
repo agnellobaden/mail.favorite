@@ -1925,6 +1925,16 @@
                 text-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
             }
         }
+
+        /* Eissortenauswahl - Aufklappbarer Bereich */
+        #wunschsorten-area {
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+
+        #wunschsorten-area.collapsed {
+            max-height: 0 !important;
+            padding: 0 15px !important;
+        }
     </style>
 </head>
 <body>
@@ -2325,62 +2335,70 @@
                         <input type="number" id="formDistance" min="0" step="0.1">
                     </div>
                     <div class="form-group full-width">
-                        <label for="formWunschsorten">Wunschsorten (max. 3 Sorten)</label>
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #ddd;">
+                        <label for="formWunschsorten" onclick="toggleWunschsortenArea()" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; padding: 5px 0;">
+                            <span>Wunschsorten (max. 3 Sorten)</span>
+                            <span id="wunschsorten-toggle" style="font-size: 0.8em; transition: transform 0.3s;">▼</span>
+                        </label>
+                        <div id="wunschsorten-area" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #ddd; overflow: hidden; max-height: 1000px;">
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
                                 <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #667eea;">
                                     <strong style="color: #667eea; display: block; margin-bottom: 8px; font-size: 0.9em;">🥛 MILCHEIS</strong>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Schokolade" style="margin-right: 5px;"> Schokolade
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="⚪ Vanille" style="margin-right: 5px;"> Vanille
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="💚 Pistazie" style="margin-right: 5px;"> Pistazie
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍌 Banane" style="margin-right: 5px;"> Banane
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Stracciatella" style="margin-right: 5px;"> Stracciatella
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🌰 Haselnuss" style="margin-right: 5px;"> Haselnuss
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🥥 Kokos" style="margin-right: 5px;"> Kokos
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍪 Cookie" style="margin-right: 5px;"> Cookie
-                                    </label>
+                                    <div>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Schokolade" style="margin-right: 5px;"> Schokolade
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="⚪ Vanille" style="margin-right: 5px;"> Vanille
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="💚 Pistazie" style="margin-right: 5px;"> Pistazie
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍌 Banane" style="margin-right: 5px;"> Banane
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Stracciatella" style="margin-right: 5px;"> Stracciatella
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🌰 Haselnuss" style="margin-right: 5px;"> Haselnuss
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🥥 Kokos" style="margin-right: 5px;"> Kokos
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍪 Cookie" style="margin-right: 5px;"> Cookie
+                                        </label>
+                                    </div>
                                 </div>
                                 <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #667eea;">
                                     <strong style="color: #667eea; display: block; margin-bottom: 8px; font-size: 0.9em;">🥛 SPECIALS</strong>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🥛 Joghurt" style="margin-right: 5px;"> Joghurt
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Trüffel" style="margin-right: 5px;"> Trüffel
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Weiße Schokolade" style="margin-right: 5px;"> Weiße Schokolade
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍷 Malaga" style="margin-right: 5px;"> Malaga
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🐬 Delfino" style="margin-right: 5px;"> Delfino
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🍒 Joghurt-Kirsch" style="margin-right: 5px;"> Joghurt-Kirsch
-                                    </label>
-                                    <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
-                                        <input type="checkbox" class="ice-flavor-checkbox" value="🌿 Waldmeister" style="margin-right: 5px;"> Waldmeister
-                                    </label>
+                                    <div>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🥛 Joghurt" style="margin-right: 5px;"> Joghurt
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍫 Trüffel" style="margin-right: 5px;"> Trüffel
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🤍 Weiße Schokolade" style="margin-right: 5px;"> Weiße Schokolade
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍷 Malaga" style="margin-right: 5px;"> Malaga
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🐬 Delfino" style="margin-right: 5px;"> Delfino
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🍒 Joghurt-Kirsch" style="margin-right: 5px;"> Joghurt-Kirsch
+                                        </label>
+                                        <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
+                                            <input type="checkbox" class="ice-flavor-checkbox" value="🌿 Waldmeister" style="margin-right: 5px;"> Waldmeister
+                                        </label>
+                                    </div>
                                 </div>
                                 <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #f093fb;">
                                     <strong style="color: #f093fb; display: block; margin-bottom: 8px; font-size: 0.9em;">🍓 FRUCHTEIS</strong>
+                                    <div>
                                     <label style="display: block; margin: 5px 0; cursor: pointer; font-size: 0.95em;">
                                         <input type="checkbox" class="ice-flavor-checkbox" value="🍓 Erdbeere" style="margin-right: 5px;"> Erdbeere
                                     </label>
@@ -3480,6 +3498,16 @@
             } catch (e) {
                 console.error('✗ Fehler beim Laden:', e);
             }
+
+            // Kein lokaler Cache vorhanden (z.B. neues Gerät/Browser) UND Firebase hat
+            // nicht rechtzeitig geantwortet: Ladeanzeige trotzdem beenden, statt für immer
+            // bei "Lade Daten..." hängen zu bleiben.
+            document.getElementById('loading').style.display = 'none';
+            const errorEl = document.getElementById('error');
+            errorEl.style.display = 'block';
+            errorEl.innerHTML = '⚠️ Keine Daten gefunden und keine Verbindung zu Firebase.<br>' +
+                'Prüfe deine Internetverbindung oder das Firebase-Kontingent, und lade die Seite dann neu.<br>' +
+                '<button onclick="location.reload()" class="btn btn-primary" style="margin-top: 10px;">🔄 Neu laden</button>';
             return false;
         }
 
@@ -3853,6 +3881,7 @@
         // Sortieren
         function sortBookings(bookings, isFiltered = false) {
             const now = new Date();
+            const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
             // Finde den nächsten zukünftigen Termin (nur Datum, ohne Uhrzeit)
             let nextDate = null;
@@ -3877,6 +3906,18 @@
                 const bDateOnly = parseDate(b.date);
 
                 if (!isFiltered) {
+                    // Heute stattfindender, noch nicht abgerechneter Termin ("läuft gerade") bleibt
+                    // IMMER ganz oben - auch nachdem die Startzeit vorbei ist. Verschwindet erst,
+                    // sobald die Rechnung erstellt wurde (Status wechselt dann von "Gebucht" weg).
+                    const aIsRunningToday = a.status === 'Gebucht' && aDateOnly.getTime() === today0.getTime();
+                    const bIsRunningToday = b.status === 'Gebucht' && bDateOnly.getTime() === today0.getTime();
+
+                    if (aIsRunningToday && !bIsRunningToday) return -1;
+                    if (!aIsRunningToday && bIsRunningToday) return 1;
+                    if (aIsRunningToday && bIsRunningToday) {
+                        return aDateTime - bDateTime;
+                    }
+
                     // Prüfe ob Termin in der Zukunft ist und Status aktiv
                     const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
                     const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
@@ -3908,6 +3949,16 @@
                         return bDateTime - aDateTime; // Neueste vergangene zuerst
                     }
                 } else if (currentSort.column === 'date' && currentSort.direction === 'asc') {
+                    // Auch im gefilterten Zustand: heute laufender, noch nicht abgerechneter Termin ganz oben
+                    const aIsRunningToday = a.status === 'Gebucht' && aDateOnly.getTime() === today0.getTime();
+                    const bIsRunningToday = b.status === 'Gebucht' && bDateOnly.getTime() === today0.getTime();
+
+                    if (aIsRunningToday && !bIsRunningToday) return -1;
+                    if (!aIsRunningToday && bIsRunningToday) return 1;
+                    if (aIsRunningToday && bIsRunningToday) {
+                        return aDateTime - bDateTime;
+                    }
+
                     // Auch im gefilterten Zustand (z.B. Filter "Gebucht"): der nächste anstehende Termin ganz oben
                     const aIsUpcoming = aDateTime >= now && (a.status === 'Gebucht' || a.status === 'Neu' || a.status === 'Anfrage');
                     const bIsUpcoming = bDateTime >= now && (b.status === 'Gebucht' || b.status === 'Neu' || b.status === 'Anfrage');
@@ -4368,6 +4419,22 @@
                 checkbox.parentElement.style.opacity = '1';
             });
         });
+
+        // Toggle-Funktion für gesamten Wunschsorten-Bereich
+        function toggleWunschsortenArea() {
+            const area = document.getElementById('wunschsorten-area');
+            const toggle = document.getElementById('wunschsorten-toggle');
+
+            if (area.classList.contains('collapsed')) {
+                area.classList.remove('collapsed');
+                toggle.textContent = '▼';
+                toggle.style.transform = 'rotate(0deg)';
+            } else {
+                area.classList.add('collapsed');
+                toggle.textContent = '▶';
+                toggle.style.transform = 'rotate(-90deg)';
+            }
+        }
 
         // Eissorten-Auswahl Logik
         function updateIceFlavorsSelection() {
