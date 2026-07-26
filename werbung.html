@@ -569,7 +569,10 @@
         }
 
         function buildFlyerEmail(lead) {
-            const flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html';
+            const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
+            const firstPerson = cp ? cp.split(',')[0].trim() : '';
+            let flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
+            if (firstPerson) flyerUrl += '&name=' + encodeURIComponent(firstPerson);
             const greeting = buildFlyerGreeting(lead);
             const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
             const body =

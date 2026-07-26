@@ -116,6 +116,7 @@
             <p class="slogan" id="sloganText">Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.</p>
         </div>
         <div class="content">
+            <p id="personalNote" style="display:none; background:#fff3cd; border-left:4px solid #ffc107; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-weight:600; color:#333;"></p>
             <h2>Der Eiswagen direkt vor Ihrer Tür</h2>
             <p>
                 Ob als spontane Belohnung, zum Sommerfest, Firmenjubiläum oder einfach als Dankeschön
@@ -165,6 +166,20 @@
         const slogan = params.get('slogan');
         if (slogan) {
             document.getElementById('sloganText').textContent = decodeURIComponent(slogan);
+        }
+
+        // Optional: Persönliche Ansprache aus der E-Mail übernehmen (?name=...&firma=...),
+        // damit der Empfänger auf der Landingpage direkt wiedererkennt, dass es an ihn/sie
+        // persönlich gerichtet war.
+        const name = params.get('name');
+        const firma = params.get('firma');
+        if (name || firma) {
+            let text = '';
+            if (name) text += 'Hallo ' + name + '! ';
+            if (firma) text += 'Diese Nachricht ist speziell für ' + firma + '.';
+            const noteEl = document.getElementById('personalNote');
+            noteEl.textContent = text.trim();
+            noteEl.style.display = 'block';
         }
     </script>
 </body>
