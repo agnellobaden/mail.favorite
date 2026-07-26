@@ -189,6 +189,7 @@
             <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
             <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
             <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim)</button>
+            <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
         </div>
 
         <div class="filter-row">
@@ -206,6 +207,7 @@
             <table id="leadsTable">
                 <thead>
                     <tr>
+                        <th><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"></th>
                         <th>Firma</th>
                         <th>Ansprechpartner</th>
                         <th>Adresse</th>
@@ -228,6 +230,7 @@
     <script>
         let db = null;
         let allLeads = [];
+        let selectedLeadIds = new Set();
 
         const firebaseConfig = {
             apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
@@ -294,13 +297,19 @@
             }
             emptyState.style.display = 'none';
 
+            // Ausgewählte IDs bereinigen, die durch Filter/Löschung nicht mehr existieren
+            const visibleIds = new Set(filtered.map(l => l.id));
+            selectedLeadIds.forEach(id => { if (!visibleIds.has(id)) selectedLeadIds.delete(id); });
+
             tbody.innerHTML = filtered.map(lead => {
                 const status = lead.status || 'neu';
                 const lastContacted = lead.lastContactedAt
                     ? new Date(lead.lastContactedAt).toLocaleDateString('de-DE')
                     : '-';
+                const checked = selectedLeadIds.has(lead.id) ? 'checked' : '';
                 return `
                     <tr>
+                        <td><input type="checkbox" class="lead-checkbox" data-id="${lead.id}" ${checked} onchange="toggleLeadSelection('${lead.id}', this.checked)"></td>
                         <td><strong>${lead.name || 'Unbekannt'}</strong></td>
                         <td>${lead.contactPerson || '-'}</td>
                         <td>${lead.address || '-'}</td>
@@ -319,6 +328,46 @@
                     </tr>
                 `;
             }).join('');
+
+            updateSelectAllCheckbox(filtered);
+            updateSelectedCount();
+        }
+
+        function toggleLeadSelection(leadId, isChecked) {
+            if (isChecked) {
+                selectedLeadIds.add(leadId);
+            } else {
+                selectedLeadIds.delete(leadId);
+            }
+            updateSelectAllCheckbox();
+            updateSelectedCount();
+        }
+
+        function toggleSelectAll(checkAll) {
+            document.querySelectorAll('.lead-checkbox').forEach(cb => {
+                cb.checked = checkAll;
+                if (checkAll) {
+                    selectedLeadIds.add(cb.dataset.id);
+                } else {
+                    selectedLeadIds.delete(cb.dataset.id);
+                }
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectAllCheckbox() {
+            const boxes = document.querySelectorAll('.lead-checkbox');
+            const selectAll = document.getElementById('selectAllCheckbox');
+            if (!selectAll || boxes.length === 0) {
+                if (selectAll) selectAll.checked = false;
+                return;
+            }
+            selectAll.checked = [...boxes].every(cb => cb.checked);
+        }
+
+        function updateSelectedCount() {
+            const el = document.getElementById('selectedCount');
+            if (el) el.textContent = selectedLeadIds.size;
         }
 
         function updateLeadStatus(leadId, newStatus) {
@@ -496,6 +545,61 @@
                 employees: ''
             }
         ];
+
+        function sendFlyerToSelected() {
+            const selected = allLeads.filter(l => selectedLeadIds.has(l.id));
+            if (selected.length === 0) {
+                alert('Bitte zuerst mindestens eine Firma/Schule mit Häkchen markieren.');
+                return;
+            }
+
+            const withEmail = selected.filter(l => l.email);
+            const withoutEmail = selected.filter(l => !l.email);
+
+            if (withEmail.length === 0) {
+                alert('Keine der ' + selected.length + ' ausgewählten Einträge hat eine E-Mail-Adresse hinterlegt.');
+                return;
+            }
+
+            let warning = '';
+            if (withoutEmail.length > 0) {
+                warning = '\n\n⚠️ Ohne E-Mail-Adresse (werden übersprungen):\n' + withoutEmail.map(l => '- ' + l.name).join('\n');
+            }
+
+            if (!confirm(`Flyer-E-Mail an ${withEmail.length} Empfänger vorbereiten?${warning}`)) return;
+
+            const flyerUrl = 'https://maileisfavorite.vercel.app/flyer-firmen.html';
+            const subject = 'Eine süße Überraschung für Ihr Team – EisFavorite';
+            const body =
+                'Guten Tag,\n\n' +
+                'ob als spontane Belohnung, zum Sommerfest, Firmenjubiläum oder einfach als Dankeschön ' +
+                'für den Einsatz Ihres Teams – EisFavorite kommt mit dem Eiswagen zu Ihnen und verwöhnt ' +
+                'Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.\n\n' +
+                'Mehr Infos und Anfrage hier: ' + flyerUrl + '\n\n' +
+                'Viele Grüße\n' +
+                'Eis Agnello · EisFavorite\n' +
+                'Favoritenstrasse 11 · 76456 Kuppenheim\n' +
+                'Tel: +49 176 56813172 · eisfavorit@gmail.com\n\n' +
+                '(Kein Interesse? Einfach mit "Kein Interesse" antworten.)';
+
+            const bcc = withEmail.map(l => l.email).join(',');
+            const mailtoUrl = 'mailto:?bcc=' + encodeURIComponent(bcc) +
+                '&subject=' + encodeURIComponent(subject) +
+                '&body=' + encodeURIComponent(body);
+
+            window.location.href = mailtoUrl;
+
+            const now = Date.now();
+            withEmail.forEach(lead => {
+                db.collection('marketingLeads').doc(lead.id).set({
+                    status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
+                    lastContactedAt: now,
+                    lastModifiedMs: now
+                }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+            });
+
+            alert('📧 E-Mail-Programm wird geöffnet (BCC an ' + withEmail.length + ' Empfänger). Bitte im E-Mail-Programm noch auf "Senden" klicken!\n\nDie ausgewählten Einträge wurden auf Status "Kontaktiert" gesetzt.');
+        }
 
         function importRecherchierteLeads() {
             if (!confirm(`${RECHERCHIERTE_LEADS_KUPPENHEIM.length} recherchierte Firmen/Schulen aus Kuppenheim jetzt in die Liste importieren?\n\nBereits vorhandene Einträge mit gleichem Namen werden nur ergänzt, nicht überschrieben (Status bleibt erhalten).`)) return;
