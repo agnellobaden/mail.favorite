@@ -174,7 +174,7 @@
             <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
         </div>
         <h1>📢 Werbung / Firmen-Akquise</h1>
-        <p class="subtitle">Firmen im 50km-Umkreis von Rastatt für EisFavorite-Buchungen gewinnen</p>
+        <p class="subtitle">Firmen &amp; Schulen im 50km-Umkreis von Kuppenheim für EisFavorite-Buchungen gewinnen</p>
 
         <div class="stats">
             <div class="stat-card neu"><div class="num" id="statNeu">0</div><div class="label">Neu</div></div>
@@ -188,6 +188,7 @@
             <button class="btn btn-primary" onclick="startFirmensuche()">🔍 Firmensuche starten (n8n)</button>
             <a class="btn btn-flyer" href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
             <button class="btn btn-secondary" onclick="configureWebhook()">⚙️ n8n-Webhook einrichten</button>
+            <button class="btn btn-secondary" onclick="importRecherchierteLeads()">📋 Recherchierte Leads importieren (Kuppenheim)</button>
         </div>
 
         <div class="filter-row">
@@ -210,6 +211,7 @@
                         <th>Adresse</th>
                         <th>Telefon</th>
                         <th>E-Mail</th>
+                        <th>Mitarbeiter</th>
                         <th>Status</th>
                         <th>Zuletzt kontaktiert</th>
                     </tr>
@@ -304,6 +306,7 @@
                         <td>${lead.address || '-'}</td>
                         <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
                         <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
+                        <td>${lead.employees || '-'}</td>
                         <td>
                             <select class="status-select" onchange="updateLeadStatus('${lead.id}', this.value)">
                                 <option value="neu" ${status === 'neu' ? 'selected' : ''}>Neu</option>
@@ -348,7 +351,7 @@
                 return;
             }
 
-            if (!confirm('Firmensuche im 50km-Umkreis von Rastatt jetzt über n8n starten?')) return;
+            if (!confirm('Firmensuche im 50km-Umkreis von Kuppenheim jetzt über n8n starten?')) return;
 
             fetch(url, { method: 'POST' })
                 .then(res => {
@@ -361,6 +364,162 @@
                 .catch(err => {
                     alert('❌ Firmensuche konnte nicht gestartet werden: ' + err.message + '\n\nPrüfe, ob die Webhook-URL korrekt ist und n8n erreichbar ist.');
                 });
+        }
+
+        // Manuell recherchierte Leads (Kuppenheim) - per Websuche/Impressum/Handelsregister
+        // zusammengetragen, da Google Places keine Mitarbeiterzahlen liefert.
+        const RECHERCHIERTE_LEADS_KUPPENHEIM = [
+            {
+                id: 'lead-favoriteschule-kuppenheim',
+                name: 'Favoriteschule Kuppenheim (Grund-/Werkrealschule)',
+                contactPerson: 'Marco Wolny (Schulleitung)',
+                address: 'Schulstraße 8, 76456 Kuppenheim',
+                phone: '07222 406780',
+                email: 'favoriteschule@kuppenheim.de',
+                employees: ''
+            },
+            {
+                id: 'lead-werner-von-siemens-realschule-kuppenheim',
+                name: 'Werner-von-Siemens-Realschule Kuppenheim',
+                contactPerson: 'Jürgen Haller (Schulleitung)',
+                address: 'Wörtelstraße 23, 76456 Kuppenheim',
+                phone: '07222 40699-0',
+                email: 'realschule@kuppenheim.de',
+                employees: ''
+            },
+            {
+                id: 'lead-mercedes-benz-werk-kuppenheim',
+                name: 'Mercedes-Benz Werk Kuppenheim',
+                contactPerson: '',
+                address: 'Mercedesstr. 1, 76456 Kuppenheim',
+                phone: '',
+                email: '',
+                employees: '~1.100'
+            },
+            {
+                id: 'lead-stadt-kuppenheim-verwaltung',
+                name: 'Stadt Kuppenheim (Verwaltung)',
+                contactPerson: '',
+                address: 'Friedensplatz, 76456 Kuppenheim',
+                phone: '07222 9462-0',
+                email: '',
+                employees: '~125'
+            },
+            {
+                id: 'lead-autohaus-anton-burger',
+                name: 'Autohaus Anton Burger GmbH',
+                contactPerson: 'Gerda Burger, Manfred Burger',
+                address: 'Friedrichstr. 118, 76456 Kuppenheim',
+                phone: '07222 94640',
+                email: 'info@burger-kuppenheim.de',
+                employees: '5-9'
+            },
+            {
+                id: 'lead-burger-automobile',
+                name: 'Burger Automobile GmbH & Co. KG',
+                contactPerson: 'Familie Burger',
+                address: 'Murgtalstr. 28-30, 76456 Kuppenheim',
+                phone: '07222 94380',
+                email: '',
+                employees: '5-9'
+            },
+            {
+                id: 'lead-autohaus-paul-krell',
+                name: 'Autohaus Paul Krell GmbH',
+                contactPerson: 'Angelika Krell',
+                address: 'Fritz-Minhardt-Str. 3, 76456 Kuppenheim',
+                phone: '07222 91666-0',
+                email: '',
+                employees: ''
+            },
+            {
+                id: 'lead-aschenberg-gmbh',
+                name: 'Aschenberg GmbH (Autoteile/Lack)',
+                contactPerson: 'Peter Aschenberg, Stefan Aschenberg',
+                address: 'Friedrichstr. 8, 76456 Kuppenheim',
+                phone: '07222 9461-0',
+                email: 'kontakt@autoteile-aschenberg.de',
+                employees: '5-9'
+            },
+            {
+                id: 'lead-dielmann-gmbh',
+                name: 'Dielmann GmbH (Natursteinfachbetrieb)',
+                contactPerson: 'Benjamin Dielmann',
+                address: 'Johann-Peter-Hebel-Str. 2, 76456 Kuppenheim',
+                phone: '07222 94570',
+                email: 'dielmann@arcor.de',
+                employees: '14'
+            },
+            {
+                id: 'lead-schroeder-metallbau',
+                name: 'Schröder Metallbau GmbH',
+                contactPerson: 'Torsten Schröder',
+                address: 'Eichetstr. 8, 76456 Kuppenheim',
+                phone: '',
+                email: 'info@schroeder-metallbau.com',
+                employees: ''
+            },
+            {
+                id: 'lead-weber-metallbau',
+                name: 'Weber Metallbau GmbH',
+                contactPerson: 'Daniel Weber',
+                address: 'Kunstwiesenweg 14, 76456 Kuppenheim',
+                phone: '',
+                email: 'anfrage@weber-metallbau.info',
+                employees: ''
+            },
+            {
+                id: 'lead-dad-metallbau',
+                name: 'DAD-Metallbau D\'Onofrio GmbH & Co. KG',
+                contactPerson: 'Donato Antonio D\'Onofrio',
+                address: 'Eichetstr. 8, 76456 Kuppenheim',
+                phone: '07222 409073',
+                email: '',
+                employees: ''
+            },
+            {
+                id: 'lead-boehmer-brezel',
+                name: 'Böhmer Brezel GmbH & Co. KG (Bäckerei)',
+                contactPerson: '',
+                address: 'Bahnhofstr. 4, 76456 Kuppenheim',
+                phone: '07222 41764',
+                email: '',
+                employees: ''
+            },
+            {
+                id: 'lead-cutrona-bau',
+                name: 'Cutrona Bau GmbH',
+                contactPerson: '',
+                address: 'Löwengasse 18, 76456 Kuppenheim',
+                phone: '07222 49640',
+                email: '',
+                employees: ''
+            }
+        ];
+
+        function importRecherchierteLeads() {
+            if (!confirm(`${RECHERCHIERTE_LEADS_KUPPENHEIM.length} recherchierte Firmen/Schulen aus Kuppenheim jetzt in die Liste importieren?\n\nBereits vorhandene Einträge mit gleichem Namen werden nur ergänzt, nicht überschrieben (Status bleibt erhalten).`)) return;
+
+            let done = 0;
+            RECHERCHIERTE_LEADS_KUPPENHEIM.forEach(lead => {
+                db.collection('marketingLeads').doc(lead.id).set({
+                    name: lead.name,
+                    contactPerson: lead.contactPerson,
+                    address: lead.address,
+                    phone: lead.phone,
+                    email: lead.email,
+                    employees: lead.employees,
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).then(() => {
+                    done++;
+                    if (done === RECHERCHIERTE_LEADS_KUPPENHEIM.length) {
+                        alert('✅ Import abgeschlossen: ' + done + ' Einträge.');
+                    }
+                }).catch(err => {
+                    console.error('Fehler beim Import von', lead.name, err);
+                    alert('❌ Fehler beim Import von "' + lead.name + '": ' + err.message);
+                });
+            });
         }
 
         initFirebase();
