@@ -4172,6 +4172,9 @@
                             <button class="card-menu-item" onclick="window.location.href='strichliste-buchung.html?bookingId=' + encodeURIComponent('${booking.id}')" style="color: #28a745;">
                                 📋 Strichliste
                             </button>
+                            <button class="card-menu-item" onclick="openPriceSettings(); closeCardMenu('${booking.id}')" style="color: #f57c00;">
+                                💰 Preise verwalten
+                            </button>
                             <button class="card-menu-item edit" onclick="editBooking('${booking.id}'); closeCardMenu('${booking.id}')">
                                 ✏️ Bearbeiten
                             </button>
@@ -6480,6 +6483,7 @@
 
         // Preismanagement öffnen
         function openPriceSettings() {
+          try {
             const prices = loadPrices();
 
             document.getElementById('priceKugel').value = prices.kugel;
@@ -6491,7 +6495,17 @@
             document.getElementById('priceStreussel').value = prices.streussel;
             document.getElementById('priceToppings').value = prices.toppings;
 
+            // Andere noch offene Modals schließen (z-index-Konflikt vermeiden)
+            ['tallyModal', 'formModal', 'offerModal'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.style.display === 'block') el.style.display = 'none';
+            });
+
             document.getElementById('priceSettingsModal').style.display = 'block';
+          } catch (e) {
+            console.error('❌ Fehler beim Öffnen der Preisverwaltung:', e);
+            alert('❌ Fehler beim Öffnen der Preisverwaltung:\n\n' + e.message);
+          }
         }
 
         // Preismanagement schließen
