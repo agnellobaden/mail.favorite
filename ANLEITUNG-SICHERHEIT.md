@@ -19,20 +19,24 @@ Firebase-Konto):
 
 ---
 
-## Schritt 1: E-Mail/Passwort-Login aktivieren
+## Schritt 1: Login aktivieren
+
+Du kannst dich entweder mit **Google** oder mit **E-Mail/Passwort** anmelden
+(beides ist in der App eingebaut) – **Google ist empfohlen**, da kein
+zusätzliches Passwort nötig ist.
 
 1. Gehe zu [Firebase Console](https://console.firebase.google.com/) → Projekt **mailfavorite-e8f49**
 2. Links im Menü: **Authentication** → Tab **Sign-in method**
-3. Klicke auf **E-Mail/Passwort** → **Aktivieren** → Speichern
+3. **Google** anklicken → **Aktivieren** → Speichern
+   (E-Mail/Passwort kannst du zusätzlich aktivieren, falls gewünscht)
 
-## Schritt 2: Dein Konto einmalig einrichten
+## Schritt 2: Anmelden
 
-1. Öffne `login.html` in deiner App (z.B. `deine-domain.de/login.html`)
-2. Klicke auf **"Noch kein Konto? Einmalig einrichten"**
-3. Trage ein: E-Mail **eisfavorit@gmail.com** und ein Passwort deiner Wahl
-   (mind. 6 Zeichen) – **das ist wichtig, es MUSS genau diese E-Mail-Adresse
-   sein**, siehe Schritt 3
-4. Klicke auf "Konto erstellen" – du wirst automatisch angemeldet
+1. Öffne `login.html` in deiner App
+2. Klicke auf **"Mit Google anmelden"**
+3. Wähle im Google-Fenster das Konto **eisfavorit@gmail.com** aus
+   (falls es das erste Mal ist, evtl. kurz Berechtigung bestätigen)
+4. Du wirst automatisch weitergeleitet – fertig, kein Passwort nötig
 
 ## Schritt 3: Firestore-Regeln verschärfen (der eigentliche Schutz!)
 
@@ -63,15 +67,12 @@ sich mit einer anderen E-Mail ein Konto anzulegen.
 ## Wichtig zu wissen
 
 - **Auf jedem Gerät einmal anmelden:** Handy, PC, Tablet – überall einmal
-  mit `eisfavorit@gmail.com` + deinem Passwort einloggen. Danach bleibt man
-  angemeldet (wie bei den meisten Apps), bis man sich aktiv abmeldet.
+  mit "Mit Google anmelden" + Konto `eisfavorit@gmail.com` auswählen. Danach
+  bleibt man angemeldet (wie bei den meisten Apps), bis man sich aktiv abmeldet.
 - **Abmelden:** Burger-Menü (☰) → "🚪 Abmelden"
-- **Passwort vergessen:** Aktuell gibt es noch keine "Passwort vergessen"-
-  Funktion in `login.html` – falls gewünscht, kann ich die ergänzen
-  (Firebase kann automatisch eine Reset-E-Mail verschicken)
 - **Reihenfolge wichtig:** Mach Schritt 1 und 2 **bevor** du Schritt 3
-  (Regeln verschärfen) machst – sonst kannst du dich nicht mehr anmelden,
-  weil dein Konto noch gar nicht existiert!
+  (Regeln verschärfen) machst – sonst könntest du dich danach ggf. nicht
+  mehr anmelden!
 - Falls nach Schritt 3 etwas "Permission denied" meldet: Prüfe, ob du
   wirklich mit `eisfavorit@gmail.com` angemeldet bist (nicht mit einer
   anderen Google-Mail, falls du mehrere hast)
