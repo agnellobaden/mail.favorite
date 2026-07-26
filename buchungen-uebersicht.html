@@ -5353,18 +5353,29 @@
 
         // Angebots-Modal öffnen
         function openOfferModal(bookingId) {
+          try {
             const booking = allBookings.find(b => b.id === bookingId);
             if (!booking) {
-                alert('Buchung nicht gefunden!');
+                alert('❌ Angebot konnte nicht geöffnet werden: Buchung nicht gefunden (ID: ' + bookingId + ')');
                 return;
             }
 
             currentOfferBooking = booking;
 
+            // Falls ein anderes Modal noch offen ist, sauber schließen (z-index-Konflikt vermeiden)
+            ['tallyModal', 'formModal', 'invoiceModal'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.style.display === 'block') el.style.display = 'none';
+            });
+
             // Angebot generieren
             const offerHTML = generateOfferHTML(booking);
             document.getElementById('offerPreviewContent').innerHTML = offerHTML;
             document.getElementById('offerModal').style.display = 'block';
+          } catch (e) {
+            console.error('❌ Fehler beim Öffnen des Angebots:', e);
+            alert('❌ Fehler beim Öffnen des Angebots:\n\n' + e.message + '\n\nBitte Screenshot davon senden.');
+          }
         }
 
         // Angebots-HTML generieren
