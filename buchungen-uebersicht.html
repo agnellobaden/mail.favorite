@@ -505,6 +505,11 @@
             color: white;
         }
 
+        .card-button.strichliste {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
         .card-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -4323,6 +4328,9 @@
                         </a>
                         <a href="${mapsUrl}" target="_blank" class="card-button navigate" ${!address ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                             🗺️ Navigation
+                        </a>
+                        <a href="strichliste-buchung.html?bookingId=${encodeURIComponent(booking.id)}" class="card-button strichliste">
+                            📋 Strichliste
                         </a>
                     </div>
                 `;
