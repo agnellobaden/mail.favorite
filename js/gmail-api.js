@@ -6,7 +6,7 @@
 // Danach meldet sich der Nutzer einmal pro Browser-Sitzung mit
 // eisfavorit@gmail.com an und erlaubt den Versand - ab dann läuft jeder
 // Versand vollautomatisch im Hintergrund.
-const GMAIL_OAUTH_CLIENT_ID = 'HIER_DEINE_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const GMAIL_OAUTH_CLIENT_ID = '463841641945-v2fr9nc2hoh4shonn4mjltds5cls5cj4.apps.googleusercontent.com';
 
 let _gmailAccessToken = null;
 let _gmailTokenClient = null;
