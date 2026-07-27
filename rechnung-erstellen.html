@@ -560,6 +560,7 @@
             <div class="invoice-details">
                 <p><strong>Rechnungsnummer:</strong> <span contenteditable="true" id="invoiceNumber">2026075205</span></p>
                 <p><strong>Ausgestellt:</strong> <span contenteditable="true" id="invoiceDate"></span></p>
+                <p><strong>Leistung erbracht am:</strong> <span contenteditable="true" id="serviceDate"></span></p>
                 <p><strong>Zahlungsziel:</strong> <span contenteditable="true" id="paymentDue"></span></p>
             </div>
         </div>
@@ -949,6 +950,11 @@
             document.getElementById('customerPostalCode').textContent = postalCode;
             document.getElementById('customerCity').textContent = city;
 
+            // Datum, an dem die Leistung (das Event) tatsächlich erbracht wurde -
+            // wichtig für Kunden, die das auf der Rechnung sehen wollen (z.B. für
+            // ihre eigene Buchhaltung/Spesenabrechnung).
+            document.getElementById('serviceDate').textContent = booking.date || '';
+
             console.log('Booking geladen:', {
                 company: booking.company,
                 name: booking.name,
@@ -1183,6 +1189,11 @@
             y += 5;
             doc.text(`Ausgestellt: ${document.getElementById('invoiceDate').textContent}`, 190, y, { align: 'right' });
             y += 5;
+            const serviceDateText = document.getElementById('serviceDate').textContent;
+            if (serviceDateText) {
+                doc.text(`Leistung erbracht am: ${serviceDateText}`, 190, y, { align: 'right' });
+                y += 5;
+            }
             doc.text(`Zahlungsziel: ${document.getElementById('paymentDue').textContent}`, 190, y, { align: 'right' });
 
             // Intro
