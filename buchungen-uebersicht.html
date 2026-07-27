@@ -63,15 +63,22 @@
             font-size: 1.1em;
         }
 
-        .filter-section {
+        .filter-burger-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
             margin-bottom: 25px;
-            margin-right: 90px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            overflow: visible;
             position: sticky;
             top: 20px;
             z-index: 1000;
+        }
+
+        .filter-section {
+            flex: 1;
+            min-width: 0;
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: visible;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
@@ -909,9 +916,8 @@
 
         /* Burger Menu Styles */
         .burger-menu {
-            position: fixed;
-            top: 20px;
-            right: 20px;
+            position: relative;
+            flex-shrink: 0;
             z-index: 1001;
         }
 
@@ -1353,9 +1359,9 @@
                 padding: 8px 12px;
             }
 
-            .filter-section {
+            .filter-burger-row {
                 margin-bottom: 15px;
-                margin-right: 70px;
+                gap: 10px;
             }
 
             .filter-header {
@@ -1494,11 +1500,6 @@
                 bottom: 15px;
                 right: 15px;
                 font-size: 20px;
-            }
-
-            .burger-menu {
-                top: 15px;
-                right: 15px;
             }
 
             .burger-icon {
@@ -1640,8 +1641,8 @@
                 padding-right: 50px;
             }
 
-            .filter-section {
-                margin-right: 60px;
+            .filter-burger-row {
+                gap: 8px;
             }
 
             .filter-header {
@@ -1738,11 +1739,6 @@
                 bottom: 12px;
                 right: 12px;
                 font-size: 18px;
-            }
-
-            .burger-menu {
-                top: 12px;
-                right: 12px;
             }
 
             .burger-icon {
@@ -2092,33 +2088,8 @@
         </div>
     </div>
 
-    <!-- Burger Menu -->
-    <div class="burger-menu">
-        <div class="burger-icon" id="burgerIcon">
-            <span>☰</span>
-        </div>
-        <div class="burger-dropdown" id="burgerDropdown">
-            <button onclick="switchToCardsView(); closeBurgerMenu();">🎴 Karten-Ansicht</button>
-            <button onclick="switchToTableView(); closeBurgerMenu();">📋 Tabellen-Ansicht</button>
-            <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
-            <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
-            <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
-            <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
-            <button onclick="window.location.href='preise-verwalten.html';">💰 Preise verwalten</button>
-            <button onclick="window.location.href='rechnungsarchiv.html';">🗂️ Rechnungsarchiv</button>
-            <button onclick="window.location.href='strichliste-frei.html';">🧮 Freier Verkauf (ohne Buchung)</button>
-            <button onclick="window.location.href='werbung.html';">📢 Werbung / Firmen-Akquise</button>
-            <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
-            <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
-            <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
-            <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
-            <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn">📲 App installieren</button>
-            <button onclick="enablePushNotifications(); closeBurgerMenu();" id="pushNotifyBtn">🔔 Push-Benachrichtigungen aktivieren</button>
-            <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
-        </div>
-    </div>
-
     <div class="container">
+        <div class="filter-burger-row">
         <div class="filter-section">
             <div class="filter-header" onclick="toggleFilters()">
                 <h3>🔍 Filter</h3>
@@ -2154,6 +2125,33 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Burger Menu -->
+        <div class="burger-menu">
+            <div class="burger-icon" id="burgerIcon">
+                <span>☰</span>
+            </div>
+            <div class="burger-dropdown" id="burgerDropdown">
+                <button onclick="switchToCardsView(); closeBurgerMenu();">🎴 Karten-Ansicht</button>
+                <button onclick="switchToTableView(); closeBurgerMenu();">📋 Tabellen-Ansicht</button>
+                <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
+                <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+                <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
+                <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
+                <button onclick="window.location.href='preise-verwalten.html';">💰 Preise verwalten</button>
+                <button onclick="window.location.href='rechnungsarchiv.html';">🗂️ Rechnungsarchiv</button>
+                <button onclick="window.location.href='strichliste-frei.html';">🧮 Freier Verkauf (ohne Buchung)</button>
+                <button onclick="window.location.href='werbung.html';">📢 Werbung / Firmen-Akquise</button>
+                <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
+                <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
+                <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
+                <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+                <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn">📲 App installieren</button>
+                <button onclick="enablePushNotifications(); closeBurgerMenu();" id="pushNotifyBtn">🔔 Push-Benachrichtigungen aktivieren</button>
+                <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
+            </div>
+        </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
