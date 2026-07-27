@@ -1351,6 +1351,49 @@
         // der Buchung, damit sie beim nächsten Öffnen von "Rechnung erstellen"
         // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
         // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
+
+        // Öffnet eine E-Mail über Gmail: Auf dem Handy zuerst der Versuch, die
+        // Gmail-App direkt per App-eigenem URL-Schema zu öffnen (mit
+        // vorausgefülltem Text) - nur falls die App nicht installiert ist
+        // (kein Seitenwechsel innerhalb von ~1,2s erkennbar), Rückfall auf die
+        // Gmail-Weboberfläche. Am PC direkt die Weboberfläche.
+        function openGmailCompose(to, subject, body) {
+            const authuser = 'eisfavorit@gmail.com';
+            const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
+                '&authuser=' + encodeURIComponent(authuser) +
+                '&to=' + encodeURIComponent(to) +
+                '&su=' + encodeURIComponent(subject) +
+                '&body=' + encodeURIComponent(body);
+
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (!isMobile) {
+                window.location.href = webUrl;
+                return;
+            }
+
+            // Offizielles Gmail-App-URL-Schema (funktioniert auf Android & iOS,
+            // wenn die Gmail-App installiert ist).
+            const appUrl = 'googlegmail:///co?to=' + encodeURIComponent(to) +
+                '&subject=' + encodeURIComponent(subject) +
+                '&body=' + encodeURIComponent(body);
+
+            let appOpened = false;
+            const onHide = () => { appOpened = true; };
+            document.addEventListener('visibilitychange', onHide);
+            window.addEventListener('pagehide', onHide);
+
+            window.location.href = appUrl;
+
+            setTimeout(() => {
+                document.removeEventListener('visibilitychange', onHide);
+                window.removeEventListener('pagehide', onHide);
+                if (!appOpened) {
+                    // Gmail-App vermutlich nicht installiert -> Web-Fallback
+                    window.location.href = webUrl;
+                }
+            }, 1200);
+        }
+
         // Sammelt den aktuellen Stand der Rechnung (Kopfdaten + Positionen) und
         // speichert ihn in booking.invoiceData - dadurch bleibt jede Änderung
         // (Rechnungsnummer, Datum, Kundendaten, Positionen) erhalten, wenn man
@@ -1587,23 +1630,12 @@ Tel: +49 176 56813172`;
                 console.log('📄 Lade PDF automatisch herunter...');
                 generatePDF();
 
-                // Immer über Gmail (eisfavorit@gmail.com) öffnen, nicht über das
-                // System-Standardmailprogramm.
-                const gmailLink = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                    '&authuser=eisfavorit@gmail.com' +
-                    '&to=' + encodeURIComponent(customerEmail) +
-                    '&su=' + encodeURIComponent(`Rechnung ${invoiceNumber} - Vielen Dank!`) +
-                    '&body=' + encodeURIComponent(emailBody);
-
                 console.log('📧 Öffne Gmail für:', customerEmail);
 
-                // Erfolgsmeldung zuerst zeigen, danach direkt zu Gmail navigieren.
-                // Auf dem Handy funktioniert eine direkte Weiterleitung
-                // (location.href) zuverlässiger als ein neuer Tab (window.open
-                // wird von mobilen Browsern öfter blockiert bzw. öffnet die
-                // Gmail-App ohne vorausgefüllten Text).
+                // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
+                // Handy, sonst Weboberfläche - siehe openGmailCompose()).
                 alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
-                window.location.href = gmailLink;
+                openGmailCompose(customerEmail, `Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
@@ -1829,14 +1861,6 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // Immer über Gmail (eisfavorit@gmail.com) öffnen, nicht über das
-                // System-Standardmailprogramm.
-                const gmailLink = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                    '&authuser=eisfavorit@gmail.com' +
-                    '&to=' + encodeURIComponent(customerEmail) +
-                    '&su=' + encodeURIComponent(`Zahlungserinnerung - Rechnung ${invoiceNumber}`) +
-                    '&body=' + encodeURIComponent(emailBody);
-
                 console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
 
                 archivePaymentReminder({
@@ -1844,12 +1868,10 @@ Tel: +49 176 56813172`;
                     reminderCount, isOverdue, daysOverdue, bookingId
                 });
 
-                // Erfolgsmeldung zuerst zeigen, danach direkt zu Gmail navigieren
-                // (location.href statt window.open - funktioniert auf dem Handy
-                // zuverlässiger und öffnet den Text direkt zum Absenden, genau
-                // wie am PC).
+                // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
+                // Handy, sonst Weboberfläche - siehe openGmailCompose()).
                 alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);
-                window.location.href = gmailLink;
+                openGmailCompose(customerEmail, `Zahlungserinnerung - Rechnung ${invoiceNumber}`, emailBody);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
