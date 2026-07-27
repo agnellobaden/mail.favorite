@@ -6,6 +6,12 @@ Firestore-Sammlung `buchungen` (status "Neu"). Keine manuelle JSON-Import
 mehr nötig - die Anfrage erscheint automatisch als Karte in der
 Buchungsübersicht.
 
+Erkennt zusätzlich Antwort-E-Mails von Kunden (kein "Contact Us:"-Betreff):
+passt der Absender zum `email`-Feld einer bestehenden Buchung, wird die
+Nachricht automatisch als "empfangen" in deren Chat-Verlauf
+(`emailHistory`) übernommen - erscheint dann als graue Sprechblase im
+Chat-Fenster in `buchungen-uebersicht.html`, ganz ohne manuelles Kopieren.
+
 **Hinweis:** eisfavorite.de schreibt bei den meisten Anfragen inzwischen
 bereits selbst direkt in Firestore (zu erkennen an `source: "website"` in
 den Buchungsdaten) - dieser Dienst hier ist die Rückfalllösung für

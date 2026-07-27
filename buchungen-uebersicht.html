@@ -500,6 +500,7 @@
             cursor: pointer;
             font-weight: 700;
             font-size: 1.05em;
+            font-family: inherit;
             transition: all 0.2s;
             text-decoration: none;
             text-align: center;
@@ -518,6 +519,11 @@
 
         .card-button.strichliste {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .card-button.chat {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
             color: white;
         }
 
@@ -4306,6 +4312,9 @@
                         <a href="strichliste-buchung.html?bookingId=${encodeURIComponent(booking.id)}" class="card-button strichliste">
                             📋 Strichliste
                         </a>
+                        <button type="button" class="card-button chat" onclick="openEmailChat('${booking.id}')">
+                            💬 Chat-Verlauf
+                        </button>
                     </div>
                 `;
 

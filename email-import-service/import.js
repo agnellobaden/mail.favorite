@@ -7,6 +7,11 @@
  * extrahiert die Buchungsdaten und schreibt sie direkt als neue Buchung
  * (status "Neu") in Firestore.
  *
+ * Erkennt außerdem Antwort-E-Mails von Kunden (kein "Contact Us:"-Betreff):
+ * wird der Absender einer bestehenden Buchung zugeordnet (Feld "email"),
+ * landet die Nachricht automatisch als "empfangen" im emailHistory-Chat
+ * dieser Buchung - genau wie in buchungen-uebersicht.html angezeigt.
+ *
  * Schreibt über die öffentliche Firestore-REST-API in die Sammlung
  * "buchungen" (nicht "bookings"!) - genau die, die buchungen-uebersicht.html
  * tatsächlich anzeigt. Kein Firebase-Admin-Schlüssel nötig, da die
@@ -60,6 +65,138 @@ function firestoreValue(v) {
     if (typeof v === 'boolean') return { booleanValue: v };
     if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: v } : { doubleValue: v };
     return { stringValue: String(v) };
+}
+
+// Wandelt einen beliebigen JS-Wert (auch verschachtelte Arrays/Objekte) in
+// das Firestore-REST-Wertformat um - wird für das Anhängen an emailHistory
+// gebraucht (das ist ein Array von Objekten, nicht nur flache Felder).
+function jsToFirestoreValue(v) {
+    if (v === null || v === undefined) return { nullValue: null };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: v } : { doubleValue: v };
+    if (Array.isArray(v)) return { arrayValue: { values: v.map(jsToFirestoreValue) } };
+    if (typeof v === 'object') {
+        const fields = {};
+        Object.keys(v).forEach(key => { fields[key] = jsToFirestoreValue(v[key]); });
+        return { mapValue: { fields } };
+    }
+    return { stringValue: String(v) };
+}
+
+// Kehrt jsToFirestoreValue um - liest ein Firestore-REST-Wertfeld zurück in
+// einen normalen JS-Wert.
+function firestoreValueToJs(v) {
+    if (!v) return null;
+    if ('nullValue' in v) return null;
+    if ('booleanValue' in v) return v.booleanValue;
+    if ('integerValue' in v) return parseInt(v.integerValue, 10);
+    if ('doubleValue' in v) return v.doubleValue;
+    if ('stringValue' in v) return v.stringValue;
+    if ('arrayValue' in v) return (v.arrayValue.values || []).map(firestoreValueToJs);
+    if ('mapValue' in v) {
+        const obj = {};
+        const fields = v.mapValue.fields || {};
+        Object.keys(fields).forEach(key => { obj[key] = firestoreValueToJs(fields[key]); });
+        return obj;
+    }
+    return null;
+}
+
+function firestoreRestRequest(method, url, body) {
+    return new Promise((resolve, reject) => {
+        const payload = body ? JSON.stringify(body) : undefined;
+        const req = https.request(url, {
+            method,
+            headers: payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}
+        }, res => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(data ? JSON.parse(data) : null);
+                } else {
+                    reject(new Error(`Firestore REST API Status ${res.statusCode}: ${data}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        if (payload) req.write(payload);
+        req.end();
+    });
+}
+
+// Sucht Buchungen, deren Feld "email" zum Absender passt (case-insensitiv,
+// da Kunden ihre Adresse mal groß, mal klein schreiben). Gibt die zuletzt
+// bearbeitete passende Buchung zurück, oder null.
+async function findBookingByEmail(fromAddress) {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
+    const candidates = [fromAddress, fromAddress.toLowerCase()];
+    let matches = [];
+
+    for (const candidate of candidates) {
+        const body = {
+            structuredQuery: {
+                from: [{ collectionId: 'buchungen' }],
+                where: {
+                    fieldFilter: {
+                        field: { fieldPath: 'email' },
+                        op: 'EQUAL',
+                        value: { stringValue: candidate }
+                    }
+                },
+                limit: 10
+            }
+        };
+        const results = await firestoreRestRequest('POST', url, body);
+        (results || []).forEach(r => { if (r.document) matches.push(r.document); });
+        if (matches.length > 0) break;
+    }
+
+    if (matches.length === 0) return null;
+
+    matches.sort((a, b) => {
+        const aFields = a.fields || {};
+        const bFields = b.fields || {};
+        const aMs = aFields.lastModifiedMs ? firestoreValueToJs(aFields.lastModifiedMs) : 0;
+        const bMs = bFields.lastModifiedMs ? firestoreValueToJs(bFields.lastModifiedMs) : 0;
+        return bMs - aMs;
+    });
+
+    return matches[0];
+}
+
+// Hängt eine empfangene Kunden-Nachricht an das emailHistory-Array der
+// gefundenen Buchung an (Read-Modify-Write, da die REST-API kein arrayUnion
+// über einfache PATCH-Requests unterstützt).
+async function appendReceivedMessageToBooking(document, message, receivedAtIso) {
+    const docId = document.name.split('/').pop();
+    const fields = document.fields || {};
+    const existingHistory = fields.emailHistory ? firestoreValueToJs(fields.emailHistory) : [];
+
+    existingHistory.push({
+        message: message,
+        direction: 'received',
+        timestamp: receivedAtIso
+    });
+
+    const now = new Date();
+    const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/buchungen/${docId}` +
+        `?updateMask.fieldPaths=emailHistory&updateMask.fieldPaths=aktualisiertAm&updateMask.fieldPaths=lastModified&updateMask.fieldPaths=lastModifiedMs` +
+        `&key=${FIREBASE_API_KEY}`;
+
+    const body = {
+        fields: {
+            emailHistory: jsToFirestoreValue(existingHistory),
+            aktualisiertAm: { stringValue: updatedDate },
+            lastModified: { stringValue: now.toISOString() },
+            lastModifiedMs: { integerValue: now.getTime() }
+        }
+    };
+
+    await firestoreRestRequest('PATCH', url, body);
+    return docId;
 }
 
 function addBookingToFirestore(booking) {
@@ -187,6 +324,7 @@ async function run() {
 
     const lock = await client.getMailboxLock('INBOX');
     let imported = 0;
+    let replied = 0;
     let highestUid = state.lastUid;
 
     try {
@@ -205,25 +343,50 @@ async function run() {
 
             const parsed = await simpleParser(msg.source);
             const subject = parsed.subject || '';
-            if (!subject.includes(CONTACT_SUBJECT)) {
-                console.log(`  ⏭ UID ${uid} übersprungen (kein Anfrage-Betreff): "${subject}"`);
+
+            if (subject.includes(CONTACT_SUBJECT)) {
+                const text = parsed.text || '';
+                const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
+
+                const booking = parseContactUsEmail(text, receivedDate);
+
+                if (!booking.name && !booking.email) {
+                    console.log(`  ⚠️ UID ${uid} übersprungen (keine Daten erkannt, evtl. anderes Template)`);
+                    continue;
+                }
+
+                const ref = await addBookingToFirestore(booking);
+                imported++;
+                const docId = (ref.name || '').split('/').pop();
+                console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
                 continue;
             }
 
-            const text = parsed.text || '';
-            const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
+            // Kein Anfrage-Formular - prüfen, ob es die Antwort eines Kunden
+            // auf eine bestehende Buchung ist (nach Absender-E-Mail zuordnen).
+            const fromAddress = (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].address || '').trim();
 
-            const booking = parseContactUsEmail(text, receivedDate);
-
-            if (!booking.name && !booking.email) {
-                console.log(`  ⚠️ UID ${uid} übersprungen (keine Daten erkannt, evtl. anderes Template)`);
+            if (!fromAddress || fromAddress.toLowerCase() === EMAIL.toLowerCase()) {
+                console.log(`  ⏭ UID ${uid} übersprungen (kein Anfrage-Betreff, keine externe Kunden-Antwort): "${subject}"`);
                 continue;
             }
 
-            const ref = await addBookingToFirestore(booking);
-            imported++;
-            const docId = (ref.name || '').split('/').pop();
-            console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
+            const booking = await findBookingByEmail(fromAddress);
+            if (!booking) {
+                console.log(`  ⏭ UID ${uid} übersprungen (Absender ${fromAddress} zu keiner Buchung gefunden): "${subject}"`);
+                continue;
+            }
+
+            const replyText = (parsed.text || '').trim().slice(0, 2000);
+            if (!replyText) {
+                console.log(`  ⏭ UID ${uid} übersprungen (leere Nachricht)`);
+                continue;
+            }
+
+            const receivedIso = (parsed.date || new Date()).toISOString();
+            const docId = await appendReceivedMessageToBooking(booking, replyText, receivedIso);
+            replied++;
+            console.log(`  ✓ Antwort von ${fromAddress} im Chat der Buchung [Doc-ID ${docId}] gespeichert`);
         }
     } finally {
         lock.release();
@@ -233,7 +396,7 @@ async function run() {
     saveState({ lastUid: highestUid });
 
     console.log('\n' + '='.repeat(60));
-    console.log(`Fertig. ${imported} neue Anfrage(n) direkt in die App übernommen.`);
+    console.log(`Fertig. ${imported} neue Anfrage(n) importiert, ${replied} Kunden-Antwort(en) im Chat gespeichert.`);
     console.log('='.repeat(60));
 }
 
