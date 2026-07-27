@@ -1345,6 +1345,7 @@
             doc.save(filename);
             archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
             autoSaveInvoiceData();
+            logToBookingHistory(`📄 Rechnung ${invoiceNumber} erstellt (PDF heruntergeladen)`);
         }
 
         // Speichert Rechnungsnummer/Ausgestellt-Datum/Zahlungsziel einmalig in
@@ -1383,6 +1384,42 @@
                 quantity: row.querySelector('.item-quantity').value,
                 bruttoPrice: row.querySelector('.item-brutto-single').value
             }));
+        }
+
+        // Trägt ein Ereignis (Rechnung erstellt/versendet, Zahlungserinnerung,
+        // bezahlt markiert...) als Systemmeldung in den Chat-Verlauf der
+        // Buchung ein - erscheint dort zusammen mit Angeboten und normalen
+        // Nachrichten in einem gemeinsamen, chronologischen Verlauf
+        // (buchungen-uebersicht.html -> "💬 Chat-Verlauf").
+        function logToBookingHistory(message) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+            if (!bookingId) return;
+
+            const entry = { message, direction: 'sent', type: 'system', timestamp: new Date().toISOString() };
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex !== -1) {
+                if (!bookings[bookingIndex].emailHistory) bookings[bookingIndex].emailHistory = [];
+                bookings[bookingIndex].emailHistory.push(entry);
+                bookings[bookingIndex].lastModified = new Date().toISOString();
+                bookings[bookingIndex].lastModifiedMs = Date.now();
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+            }
+
+            // Zusätzlich direkt in Firestore schreiben (arrayUnion), damit es
+            // den nächsten Sync der Buchungsübersicht übersteht - siehe
+            // autoSaveInvoiceData() weiter unten für denselben Hintergrund.
+            if (db) {
+                db.collection('buchungen').doc(bookingId).set({
+                    emailHistory: firebase.firestore.FieldValue.arrayUnion(entry),
+                    lastModified: new Date().toISOString(),
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Konnte Ereignis nicht in Firestore protokollieren:', err);
+                });
+            }
         }
 
         function autoSaveInvoiceData() {
@@ -1615,6 +1652,7 @@ Tel: +49 176 56813172`;
                 // Handy, sonst Weboberfläche - siehe openGmailCompose()).
                 alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
                 openGmailCompose(customerEmail, `Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
+                logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
@@ -1652,6 +1690,7 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].lastModifiedMs = Date.now();
 
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                    logToBookingHistory(`✅ Rechnung ${invoiceNumber} als versendet markiert (Betrag: ${totalBrutto})`);
 
                     alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
 
@@ -1701,6 +1740,7 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].lastModifiedMs = Date.now();
 
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                    logToBookingHistory(`💰 Rechnung ${invoiceNumber} als bezahlt markiert (Betrag: ${totalBrutto})`);
 
                     alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE') + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
 
@@ -1851,6 +1891,7 @@ Tel: +49 176 56813172`;
                 // Handy, sonst Weboberfläche - siehe openGmailCompose()).
                 alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);
                 openGmailCompose(customerEmail, `Zahlungserinnerung - Rechnung ${invoiceNumber}`, emailBody);
+                logToBookingHistory(`⏰ Zahlungserinnerung #${reminderCount} für Rechnung ${invoiceNumber} versendet${isOverdue ? ' (' + daysOverdue + ' Tage überfällig)' : ''}`);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
