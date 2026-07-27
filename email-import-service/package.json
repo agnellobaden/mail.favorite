@@ -1,0 +1,16 @@
+{
+  "name": "eisfavorite-email-import-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Holt neue Anfragen von eisfavorite.de (per E-Mail via EmailJS) ab und schreibt sie automatisch als neue Buchung in Firestore.",
+  "main": "import.js",
+  "scripts": {
+    "start": "node import.js",
+    "test": "node import.js --once"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "imapflow": "^1.0.0",
+    "mailparser": "^3.7.0"
+  }
+}
