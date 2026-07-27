@@ -2670,6 +2670,38 @@
             <div id="emailChatContent" style="padding: 20px; max-height: 600px; overflow-y: auto;">
                 <!-- Dynamisch gefüllt -->
             </div>
+
+            <!-- Neue Nachricht schreiben (WhatsApp-Style, sendet automatisch über Gmail) -->
+            <div style="padding: 15px 20px 20px; border-top: 2px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <textarea id="emailChatMessage" rows="2" placeholder="Nachricht schreiben..." onkeypress="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); addEmailToChat();}" style="
+                        width: 100%;
+                        border: 1px solid #d1d1d1;
+                        border-radius: 20px;
+                        padding: 10px 15px;
+                        font-size: 1em;
+                        resize: none;
+                        font-family: inherit;
+                    "></textarea>
+                </div>
+                <button type="button" id="emailChatSendBtn" onclick="addEmailToChat()" title="An die E-Mail-Adresse dieser Buchung senden (automatisch im Hintergrund)" style="
+                    background: #25D366;
+                    color: white;
+                    border: none;
+                    border-radius: 50%;
+                    width: 45px;
+                    height: 45px;
+                    font-size: 1.5em;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    flex-shrink: 0;
+                " onmouseover="this.style.background='#20BA5A'" onmouseout="this.style.background='#25D366'">
+                    ➤
+                </button>
+            </div>
         </div>
     </div>
 
@@ -6316,6 +6348,57 @@
 
             // Scroll nach unten
             chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        // Nachricht aus dem E-Mail-Verlauf-Fenster senden - automatisch im
+        // Hintergrund über die Gmail-API an die E-Mail-Adresse der Buchung
+        // (kein Compose-Fenster, kein manueller Senden-Klick).
+        function addEmailToChat() {
+            if (!currentEmailChatBooking) return;
+
+            const message = document.getElementById('emailChatMessage').value;
+            if (!message.trim()) {
+                alert('Bitte gib eine Nachricht ein!');
+                return;
+            }
+
+            const customerEmail = (currentEmailChatBooking.email || '').trim();
+            if (!customerEmail) {
+                alert('❌ Keine E-Mail-Adresse für diesen Kunden hinterlegt. Bitte zuerst im Formular eintragen.');
+                return;
+            }
+
+            const messageText = message.trim();
+            const sendBtn = document.getElementById('emailChatSendBtn');
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
+
+            sendGmailApiMessage(customerEmail, 'Eisfavorite', messageText, function() {
+                if (!currentEmailChatBooking.emailHistory) {
+                    currentEmailChatBooking.emailHistory = [];
+                }
+
+                currentEmailChatBooking.emailHistory.push({
+                    message: messageText,
+                    direction: 'sent',
+                    timestamp: new Date().toISOString()
+                });
+
+                const now = new Date();
+                const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+                currentEmailChatBooking.aktualisiertAm = updatedDate;
+                currentEmailChatBooking.lastModified = now.toISOString();
+                currentEmailChatBooking.lastModifiedMs = now.getTime();
+
+                document.getElementById('emailChatMessage').value = '';
+
+                saveToLocalStorage();
+                displayEmailChat();
+
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+            }, function(err) {
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+                alert('❌ E-Mail konnte nicht automatisch gesendet werden: ' + err.message);
+            });
         }
 
         // E-Mail löschen
