@@ -640,6 +640,7 @@
 
     <script>
         let allBookings = [];
+        const db = firebase.firestore();
 
         // ==========================================
         // AUTO-SAVE & SCROLL-POSITION SYSTEM
@@ -1296,6 +1297,38 @@
             const customerName = document.getElementById('customerCompany').textContent;
             const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
             doc.save(filename);
+            archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
+        }
+
+        // Speichert das PDF zusätzlich im Rechnungsarchiv (Firestore), damit es
+        // später jederzeit wieder geöffnet/gedruckt werden kann - unabhängig
+        // vom lokalen Downloads-Ordner.
+        function archiveInvoicePDF(doc, invoiceNumber, customerName, filename) {
+            try {
+                const pdfDataUri = doc.output('datauristring');
+                const urlParams = new URLSearchParams(window.location.search);
+                const bookingId = urlParams.get('bookingId') || '';
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const docId = 'rechnung-' + (invoiceNumber || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '-');
+
+                db.collection('rechnungsarchiv').doc(docId).set({
+                    invoiceNumber: invoiceNumber || '',
+                    customerName: customerName || '',
+                    bookingId: bookingId,
+                    date: dateStr,
+                    amount: document.getElementById('totalBrutto').textContent || '',
+                    filename: filename,
+                    pdfDataUri: pdfDataUri,
+                    createdAtMs: Date.now()
+                }, { merge: true }).then(() => {
+                    console.log('✅ Rechnung im Archiv gespeichert:', docId);
+                }).catch(err => {
+                    console.error('❌ Fehler beim Archivieren der Rechnung:', err);
+                });
+            } catch (e) {
+                console.error('❌ PDF-Archivierung fehlgeschlagen:', e);
+            }
         }
 
         function sendInvoiceByEmail() {

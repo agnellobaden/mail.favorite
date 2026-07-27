@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rechnungsarchiv - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .filter-row input {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-decoration: none;
+        display: inline-block;
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:hover { opacity: 0.9; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
+    tr:hover { background: #f8f9fa; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #888;
+    }
+    .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>🗂️ Rechnungsarchiv</h1>
+        <p class="subtitle">Alle jemals erstellten Rechnungs-PDFs - jederzeit wieder öffnen oder erneut ausdrucken</p>
+
+        <div class="filter-row">
+            <input type="text" id="searchFilter" placeholder="Rechnungsnummer, Kunde suchen..." oninput="renderArchive()">
+        </div>
+
+        <div class="table-wrap">
+            <table id="archiveTable">
+                <thead>
+                    <tr>
+                        <th>Rechnungsnr.</th>
+                        <th>Kunde</th>
+                        <th>Datum</th>
+                        <th>Betrag</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody id="archiveBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">🗂️</div>
+                <p>Noch keine Rechnungen im Archiv. Sobald du eine Rechnung erstellst/versendest, landet das PDF automatisch hier.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allInvoices = [];
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            db = firebase.firestore();
+            db.collection('rechnungsarchiv').onSnapshot(snapshot => {
+                allInvoices = [];
+                snapshot.forEach(doc => {
+                    allInvoices.push({ ...doc.data(), id: doc.id });
+                });
+                allInvoices.sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
+                renderArchive();
+            }, error => {
+                console.error('Firestore-Fehler:', error);
+            });
+        }
+
+        function renderArchive() {
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase().trim();
+            let filtered = allInvoices;
+            if (searchFilter) {
+                filtered = filtered.filter(inv =>
+                    (inv.invoiceNumber || '').toLowerCase().includes(searchFilter) ||
+                    (inv.customerName || '').toLowerCase().includes(searchFilter)
+                );
+            }
+
+            const tbody = document.getElementById('archiveBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = filtered.map(inv => `
+                <tr>
+                    <td><strong>${inv.invoiceNumber || '-'}</strong></td>
+                    <td>${inv.customerName || '-'}</td>
+                    <td>${inv.date || '-'}</td>
+                    <td>${inv.amount || '-'}</td>
+                    <td>
+                        <button class="btn" onclick="openInvoicePdf('${inv.id}')">📄 Öffnen/Drucken</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openInvoicePdf(id) {
+            const inv = allInvoices.find(i => i.id === id);
+            if (!inv || !inv.pdfDataUri) {
+                alert('❌ Für diese Rechnung liegt kein gespeichertes PDF vor.');
+                return;
+            }
+            // PDF-Data-URI in neuem Tab öffnen - von dort kann direkt gedruckt
+            // oder erneut heruntergeladen werden.
+            const win = window.open();
+            if (win) {
+                win.document.write('<iframe src="' + inv.pdfDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
+            } else {
+                alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+            }
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>
