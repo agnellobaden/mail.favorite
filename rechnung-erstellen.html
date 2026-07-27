@@ -1352,46 +1352,25 @@
         // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
         // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
 
-        // Öffnet eine E-Mail über Gmail: Auf dem Handy zuerst der Versuch, die
-        // Gmail-App direkt per App-eigenem URL-Schema zu öffnen (mit
-        // vorausgefülltem Text) - nur falls die App nicht installiert ist
-        // (kein Seitenwechsel innerhalb von ~1,2s erkennbar), Rückfall auf die
-        // Gmail-Weboberfläche. Am PC direkt die Weboberfläche.
+        // Öffnet eine E-Mail: Am PC über die Gmail-Weboberfläche (fester
+        // Geschäfts-Account eisfavorit@gmail.com). Am Handy über mailto: -
+        // das öffnet zuverlässig die Mail-App direkt mit komplett
+        // vorausgefülltem Betreff/Text (nur der PDF-Anhang muss manuell
+        // hinzugefügt werden). Der googlegmail://-App-Link wurde verworfen,
+        // da er in der Praxis den Text nicht zuverlässig übernommen hat.
         function openGmailCompose(to, subject, body) {
-            const authuser = 'eisfavorit@gmail.com';
-            const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                '&authuser=' + encodeURIComponent(authuser) +
-                '&to=' + encodeURIComponent(to) +
-                '&su=' + encodeURIComponent(subject) +
-                '&body=' + encodeURIComponent(body);
-
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (!isMobile) {
+
+            if (isMobile) {
+                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } else {
+                const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
+                    '&authuser=eisfavorit@gmail.com' +
+                    '&to=' + encodeURIComponent(to) +
+                    '&su=' + encodeURIComponent(subject) +
+                    '&body=' + encodeURIComponent(body);
                 window.location.href = webUrl;
-                return;
             }
-
-            // Offizielles Gmail-App-URL-Schema (funktioniert auf Android & iOS,
-            // wenn die Gmail-App installiert ist).
-            const appUrl = 'googlegmail:///co?to=' + encodeURIComponent(to) +
-                '&subject=' + encodeURIComponent(subject) +
-                '&body=' + encodeURIComponent(body);
-
-            let appOpened = false;
-            const onHide = () => { appOpened = true; };
-            document.addEventListener('visibilitychange', onHide);
-            window.addEventListener('pagehide', onHide);
-
-            window.location.href = appUrl;
-
-            setTimeout(() => {
-                document.removeEventListener('visibilitychange', onHide);
-                window.removeEventListener('pagehide', onHide);
-                if (!appOpened) {
-                    // Gmail-App vermutlich nicht installiert -> Web-Fallback
-                    window.location.href = webUrl;
-                }
-            }, 1200);
         }
 
         // Sammelt den aktuellen Stand der Rechnung (Kopfdaten + Positionen) und
