@@ -1656,6 +1656,34 @@ Tel: +49 176 56813172`;
             }
         }
 
+        // Protokolliert jede versendete Zahlungserinnerung in Firestore, damit
+        // sich später nachvollziehen lässt, wann/wie oft erinnert wurde
+        // (sichtbar im Rechnungsarchiv als "Erinnerungen"-Spalte).
+        function archivePaymentReminder(data) {
+            try {
+                const docId = 'erinnerung-' + (data.invoiceNumber || 'ohne-nummer') + '-' + Date.now();
+                db.collection('zahlungserinnerungen').doc(docId).set({
+                    invoiceNumber: data.invoiceNumber || '',
+                    customerName: data.customerCompany || '',
+                    email: data.customerEmail || '',
+                    amount: data.totalBrutto || '',
+                    paymentDue: data.paymentDue || '',
+                    reminderCount: data.reminderCount || 1,
+                    isOverdue: !!data.isOverdue,
+                    daysOverdue: data.daysOverdue || 0,
+                    bookingId: data.bookingId || '',
+                    sentAt: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                    sentAtMs: Date.now()
+                }).then(() => {
+                    console.log('✅ Zahlungserinnerung archiviert:', docId);
+                }).catch(err => {
+                    console.error('❌ Fehler beim Archivieren der Zahlungserinnerung:', err);
+                });
+            } catch (e) {
+                console.error('❌ Archivierung der Zahlungserinnerung fehlgeschlagen:', e);
+            }
+        }
+
         function sendPaymentReminder() {
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerCompany = document.getElementById('customerCompany').textContent;
@@ -1765,6 +1793,11 @@ Tel: +49 176 56813172`;
                 console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
 
                 window.open(gmailLink, '_blank');
+
+                archivePaymentReminder({
+                    invoiceNumber, customerCompany, customerEmail, totalBrutto, paymentDue,
+                    reminderCount, isOverdue, daysOverdue, bookingId
+                });
 
                 // Erfolgsmeldung
                 alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);

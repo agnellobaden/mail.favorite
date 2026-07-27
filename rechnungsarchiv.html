@@ -219,6 +219,7 @@
                         <th>Kunde</th>
                         <th>Datum</th>
                         <th>Betrag</th>
+                        <th>Erinnerungen</th>
                         <th>Aktion</th>
                     </tr>
                 </thead>
@@ -305,6 +306,7 @@
     <script>
         let db = null;
         let allInvoices = [];
+        let allReminders = [];
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -329,6 +331,22 @@
             }, error => {
                 console.error('Firestore-Fehler:', error);
             });
+            db.collection('zahlungserinnerungen').onSnapshot(snapshot => {
+                allReminders = [];
+                snapshot.forEach(doc => {
+                    allReminders.push({ ...doc.data(), id: doc.id });
+                });
+                renderArchive();
+            }, error => {
+                console.error('Firestore-Fehler (Zahlungserinnerungen):', error);
+            });
+        }
+
+        function remindersForInvoice(invoiceNumber) {
+            if (!invoiceNumber) return [];
+            return allReminders
+                .filter(r => r.invoiceNumber === invoiceNumber)
+                .sort((a, b) => (b.sentAtMs || 0) - (a.sentAtMs || 0));
         }
 
         function renderArchive() {
@@ -351,12 +369,18 @@
             }
             emptyState.style.display = 'none';
 
-            tbody.innerHTML = filtered.map(inv => `
+            tbody.innerHTML = filtered.map(inv => {
+                const reminders = remindersForInvoice(inv.invoiceNumber);
+                const remindersCell = reminders.length === 0
+                    ? '-'
+                    : `<span title="${reminders.map(r => 'Erinnerung #' + r.reminderCount + ' am ' + r.sentAt + (r.isOverdue ? ' (' + r.daysOverdue + ' Tage überfällig)' : '')).join('\n')}">${reminders.length}× - zuletzt ${reminders[0].sentAt}</span>`;
+                return `
                 <tr>
                     <td><strong>${inv.invoiceNumber || '-'}</strong></td>
                     <td>${inv.customerName || '-'}</td>
                     <td>${inv.date || '-'}</td>
                     <td>${inv.amount || '-'}</td>
+                    <td>${remindersCell}</td>
                     <td>
                         <div class="row-actions">
                             <button class="btn" onclick="openInvoicePdf('${inv.id}')">📄 Öffnen/Drucken</button>
@@ -365,7 +389,8 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
 
         // Feste Absender-/Bankdaten - identisch zu rechnung-erstellen.html
