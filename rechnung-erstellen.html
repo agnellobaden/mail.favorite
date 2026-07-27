@@ -1390,6 +1390,24 @@
 
             localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
 
+            // WICHTIG: Zusätzlich direkt in Firestore schreiben. Nur lokal im
+            // Browser zu speichern reicht nicht - die Buchungsübersicht
+            // synchronisiert ständig mit Firestore und überschreibt sonst
+            // diesen lokalen Stand wieder mit der (älteren) Firestore-Version,
+            // sobald sie im Hintergrund/in einem anderen Tab aktualisiert.
+            if (db) {
+                db.collection('buchungen').doc(bookingId).set({
+                    invoiceData: bookings[bookingIndex].invoiceData,
+                    invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                    lastModified: new Date().toISOString(),
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Firestore-Speicherung fehlgeschlagen:', err);
+                    const statusEl = document.getElementById('saveStatus');
+                    if (statusEl) statusEl.textContent = '⚠️ Nur lokal gespeichert, Firestore-Fehler: ' + err.message;
+                });
+            }
+
             const statusEl = document.getElementById('saveStatus');
             if (statusEl) {
                 const now = new Date();
