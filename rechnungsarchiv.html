@@ -9,6 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+<!-- jsPDF: zum Neu-Erzeugen des PDFs nach dem Bearbeiten -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
     * { box-sizing: border-box; }
     body {
@@ -88,12 +91,15 @@
     .modal-box {
         background: #fff;
         border-radius: 16px;
-        max-width: 420px;
+        max-width: 720px;
         width: 100%;
         padding: 26px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        max-height: 92vh;
+        overflow-y: auto;
     }
     .modal-box h3 { margin: 0 0 18px 0; color: #667eea; }
+    .modal-box h4 { margin: 20px 0 10px; color: #555; font-size: 1em; border-top: 1px solid #eee; padding-top: 16px; }
     .modal-box label { display: block; font-weight: 600; font-size: 0.9em; margin-bottom: 4px; }
     .modal-box input {
         width: 100%;
@@ -104,6 +110,43 @@
         margin-bottom: 14px;
         box-sizing: border-box;
     }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 14px;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    .items-table th { text-align: left; font-size: 0.8em; color: #888; padding: 4px 6px; }
+    .items-table td { padding: 4px 6px; }
+    .items-table input {
+        margin-bottom: 0;
+        padding: 8px;
+        font-size: 0.9em;
+    }
+    .items-table .item-description { width: 45%; }
+    .items-table .item-qty { width: 15%; }
+    .items-table .item-price { width: 20%; }
+    .item-remove-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        font-weight: 700;
+    }
+    .totals-box {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        font-size: 0.9em;
+    }
+    .totals-box div { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .totals-box .final { font-weight: 700; font-size: 1.1em; color: #333; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 6px; }
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
@@ -192,16 +235,67 @@
         <div class="modal-box">
             <h3>✏️ Rechnung bearbeiten</h3>
             <form id="editForm" onsubmit="saveEditInvoice(event)">
-                <label>Rechnungsnummer</label>
-                <input type="text" id="editInvoiceNumber">
-                <label>Kunde</label>
-                <input type="text" id="editCustomerName">
-                <label>Datum</label>
-                <input type="text" id="editDate" placeholder="TT.MM.JJJJ">
-                <label>Betrag</label>
-                <input type="text" id="editAmount" placeholder="z.B. 123,45 €">
+                <div class="form-grid">
+                    <div>
+                        <label>Rechnungsnummer</label>
+                        <input type="text" id="editInvoiceNumber">
+                    </div>
+                    <div>
+                        <label>Ausgestellt</label>
+                        <input type="text" id="editInvoiceDate" placeholder="TT.MM.JJJJ">
+                    </div>
+                    <div>
+                        <label>Leistung erbracht am</label>
+                        <input type="text" id="editServiceDate" placeholder="TT.MM.JJJJ">
+                    </div>
+                    <div>
+                        <label>Zahlungsziel</label>
+                        <input type="text" id="editPaymentDue" placeholder="TT.MM.JJJJ">
+                    </div>
+                </div>
+
+                <h4>Kunde</h4>
+                <div class="form-grid">
+                    <div class="full">
+                        <label>Firma / Name</label>
+                        <input type="text" id="editCustomerName">
+                    </div>
+                    <div class="full">
+                        <label>Ansprechpartner</label>
+                        <input type="text" id="editCustomerContact">
+                    </div>
+                    <div class="full">
+                        <label>Straße + Hausnummer</label>
+                        <input type="text" id="editCustomerStreet">
+                    </div>
+                    <div>
+                        <label>PLZ</label>
+                        <input type="text" id="editCustomerPostalCode">
+                    </div>
+                    <div>
+                        <label>Ort</label>
+                        <input type="text" id="editCustomerCity">
+                    </div>
+                </div>
+
+                <h4>Positionen</h4>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="item-description">Beschreibung</th>
+                            <th class="item-qty">Menge</th>
+                            <th class="item-price">Preis brutto/Stk.</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="editItemsBody"></tbody>
+                </table>
+                <button type="button" class="btn btn-secondary" onclick="addEditItemRow()" style="margin-bottom:16px;">➕ Position hinzufügen</button>
+
+                <div class="totals-box" id="editTotalsBox"></div>
+
                 <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-                    <button type="submit" class="btn">✅ Speichern</button>
+                    <button type="submit" class="btn">✅ Speichern (PDF wird neu erzeugt)</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditModal()">✖ Abbrechen</button>
                 </div>
             </form>
@@ -274,15 +368,91 @@
             `).join('');
         }
 
+        // Feste Absender-/Bankdaten - identisch zu rechnung-erstellen.html
+        const ARCHIV_SENDER = {
+            name: 'Eis Agnello',
+            street: 'Favoritenstrasse 11',
+            city: '76456 Kuppenheim',
+            taxId: '39102/26343',
+            phone: '+49 176 56813172',
+            bankRecipient: 'Andrea Agnello',
+            bankName: 'Sparkasse Baden Baden',
+            iban: 'DE72 6625 0030 0030 4713 20',
+            bic: 'SOLADES1BAD'
+        };
+
+        function parseAmountToNumber(str) {
+            if (!str) return 0;
+            const cleaned = String(str).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? 0 : n;
+        }
+
         function openEditModal(id) {
             const inv = allInvoices.find(i => i.id === id);
             if (!inv) return;
             document.getElementById('editForm').dataset.id = id;
             document.getElementById('editInvoiceNumber').value = inv.invoiceNumber || '';
+            document.getElementById('editInvoiceDate').value = inv.invoiceDate || inv.date || '';
+            document.getElementById('editServiceDate').value = inv.serviceDate || '';
+            document.getElementById('editPaymentDue').value = inv.paymentDue || '';
             document.getElementById('editCustomerName').value = inv.customerName || '';
-            document.getElementById('editDate').value = inv.date || '';
-            document.getElementById('editAmount').value = inv.amount || '';
+            document.getElementById('editCustomerContact').value = inv.customerContact || '';
+            document.getElementById('editCustomerStreet').value = inv.customerStreet || '';
+            document.getElementById('editCustomerPostalCode').value = inv.customerPostalCode || '';
+            document.getElementById('editCustomerCity').value = inv.customerCity || '';
+
+            const items = (inv.items && inv.items.length > 0)
+                ? inv.items
+                : [{ description: inv.note ? 'Rechnungsbetrag (' + inv.note + ')' : 'Rechnungsbetrag', quantity: 1, priceBrutto: parseAmountToNumber(inv.amount) }];
+
+            const tbody = document.getElementById('editItemsBody');
+            tbody.innerHTML = '';
+            items.forEach(item => addEditItemRow(item));
+
+            recalcEditTotals();
             document.getElementById('editModal').classList.add('active');
+        }
+
+        function addEditItemRow(item) {
+            item = item || { description: '', quantity: 1, priceBrutto: 0 };
+            const tbody = document.getElementById('editItemsBody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" class="edit-item-description" value="${(item.description || '').replace(/"/g, '&quot;')}"></td>
+                <td><input type="number" step="1" min="0" class="edit-item-quantity" value="${item.quantity || 1}" oninput="recalcEditTotals()"></td>
+                <td><input type="number" step="0.01" min="0" class="edit-item-price" value="${(item.priceBrutto || 0).toFixed(2)}" oninput="recalcEditTotals()"></td>
+                <td><button type="button" class="item-remove-btn" onclick="this.closest('tr').remove(); recalcEditTotals();">✖</button></td>
+            `;
+            tbody.appendChild(tr);
+            recalcEditTotals();
+        }
+
+        function collectEditItems() {
+            const rows = document.querySelectorAll('#editItemsBody tr');
+            return [...rows].map(row => ({
+                description: row.querySelector('.edit-item-description').value.trim(),
+                quantity: parseFloat(row.querySelector('.edit-item-quantity').value) || 0,
+                priceBrutto: parseFloat(row.querySelector('.edit-item-price').value) || 0
+            }));
+        }
+
+        function recalcEditTotals() {
+            const items = collectEditItems();
+            let totalNetto = 0, totalMwst = 0, totalBrutto = 0;
+            items.forEach(item => {
+                const lineBrutto = item.quantity * item.priceBrutto;
+                const lineNetto = lineBrutto / 1.07;
+                totalBrutto += lineBrutto;
+                totalNetto += lineNetto;
+                totalMwst += lineBrutto - lineNetto;
+            });
+            document.getElementById('editTotalsBox').innerHTML = `
+                <div><span>Gesamtnetto</span><span>${totalNetto.toFixed(2).replace('.', ',')} €</span></div>
+                <div><span>MwSt. (7%)</span><span>${totalMwst.toFixed(2).replace('.', ',')} €</span></div>
+                <div class="final"><span>Gesamtbetrag</span><span>${totalBrutto.toFixed(2).replace('.', ',')} €</span></div>
+            `;
+            return { totalNetto, totalMwst, totalBrutto };
         }
 
         function closeEditModal() {
@@ -292,16 +462,168 @@
         function saveEditInvoice(event) {
             event.preventDefault();
             const id = document.getElementById('editForm').dataset.id;
-            db.collection('rechnungsarchiv').doc(id).set({
+
+            const fields = {
                 invoiceNumber: document.getElementById('editInvoiceNumber').value.trim(),
+                invoiceDate: document.getElementById('editInvoiceDate').value.trim(),
+                serviceDate: document.getElementById('editServiceDate').value.trim(),
+                paymentDue: document.getElementById('editPaymentDue').value.trim(),
                 customerName: document.getElementById('editCustomerName').value.trim(),
-                date: document.getElementById('editDate').value.trim(),
-                amount: document.getElementById('editAmount').value.trim()
-            }, { merge: true }).then(() => {
+                customerContact: document.getElementById('editCustomerContact').value.trim(),
+                customerStreet: document.getElementById('editCustomerStreet').value.trim(),
+                customerPostalCode: document.getElementById('editCustomerPostalCode').value.trim(),
+                customerCity: document.getElementById('editCustomerCity').value.trim(),
+                items: collectEditItems()
+            };
+
+            const { totalBrutto } = recalcEditTotals();
+            fields.amount = totalBrutto.toFixed(2).replace('.', ',') + ' €';
+            fields.date = fields.invoiceDate;
+
+            const doc = buildArchivePDF(fields);
+            fields.pdfDataUri = doc.output('datauristring');
+            fields.filename = `Rechnung_${fields.invoiceNumber}_${fields.customerName.replace(/\s+/g, '_')}.pdf`;
+
+            db.collection('rechnungsarchiv').doc(id).set(fields, { merge: true }).then(() => {
                 closeEditModal();
             }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
+        }
+
+        // Erzeugt das PDF neu, im selben Layout wie rechnung-erstellen.html.
+        function buildArchivePDF(f) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let y = 20;
+
+            doc.setFontSize(24);
+            doc.setFont(undefined, 'bold');
+            doc.text('EisFavorite', 20, y);
+            doc.setFontSize(18);
+            doc.text('RECHNUNG', 190, y, { align: 'right' });
+
+            y += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(ARCHIV_SENDER.name, 20, y);
+            doc.text(ARCHIV_SENDER.street, 20, y + 5);
+            doc.text(ARCHIV_SENDER.city, 20, y + 10);
+
+            y = 50;
+            doc.setFont(undefined, 'bold');
+            doc.text(f.customerName || '-', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            if (f.customerContact) {
+                doc.text(f.customerContact, 20, y);
+                y += 5;
+            }
+            doc.text(f.customerStreet || '', 20, y);
+            y += 5;
+            doc.text(`${f.customerPostalCode || ''} ${f.customerCity || ''}`, 20, y);
+
+            y = 50;
+            doc.text(`Rechnungsnummer: ${f.invoiceNumber}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Ausgestellt: ${f.invoiceDate}`, 190, y, { align: 'right' });
+            y += 5;
+            if (f.serviceDate) {
+                doc.text(`Leistung erbracht am: ${f.serviceDate}`, 190, y, { align: 'right' });
+                y += 5;
+            }
+            doc.text(`Zahlungsziel: ${f.paymentDue}`, 190, y, { align: 'right' });
+
+            y = 85;
+            doc.text('Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:', 20, y);
+
+            y = 95;
+            doc.setFont(undefined, 'bold');
+            doc.setFillColor(51, 51, 51);
+            doc.rect(20, y - 5, 170, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('Beschreibung', 22, y);
+            doc.text('Menge', 110, y, { align: 'right' });
+            doc.text('Netto', 135, y, { align: 'right' });
+            doc.text('MwSt.', 160, y, { align: 'right' });
+            doc.text('Brutto', 185, y, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+
+            y += 8;
+            doc.setFont(undefined, 'normal');
+
+            let totalNetto = 0, totalMwst = 0, totalBrutto = 0;
+            (f.items || []).forEach(item => {
+                const lineBrutto = item.quantity * item.priceBrutto;
+                const lineNetto = lineBrutto / 1.07;
+                const lineMwst = lineBrutto - lineNetto;
+                totalBrutto += lineBrutto;
+                totalNetto += lineNetto;
+                totalMwst += lineMwst;
+
+                const lines = doc.splitTextToSize(item.description || '', 80);
+                doc.text(lines, 22, y);
+                doc.text(String(item.quantity), 110, y, { align: 'right' });
+                doc.text(lineNetto.toFixed(2).replace('.', ',') + ' €', 135, y, { align: 'right' });
+                doc.text(lineMwst.toFixed(2).replace('.', ',') + ' €', 160, y, { align: 'right' });
+                doc.text(lineBrutto.toFixed(2).replace('.', ',') + ' €', 185, y, { align: 'right' });
+                y += (lines.length * 5) + 2;
+            });
+
+            y += 5;
+            doc.line(20, y, 190, y);
+            y += 8;
+            doc.text('Gesamtnetto:', 135, y);
+            doc.text(totalNetto.toFixed(2).replace('.', ',') + ' €', 185, y, { align: 'right' });
+            y += 6;
+            doc.text('Gesamte MwSt. (7%):', 135, y);
+            doc.text(totalMwst.toFixed(2).replace('.', ',') + ' €', 185, y, { align: 'right' });
+            y += 6;
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(12);
+            doc.text('Gesamtbetrag:', 135, y);
+            doc.text(totalBrutto.toFixed(2).replace('.', ',') + ' €', 185, y, { align: 'right' });
+
+            y += 15;
+            doc.setFontSize(14);
+            doc.text('GESAMTBETRAG ZU BEZAHLEN', 20, y);
+            doc.text(totalBrutto.toFixed(2).replace('.', ',') + ' €', 185, y, { align: 'right' });
+
+            y += 15;
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            doc.text('INHABER', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(ARCHIV_SENDER.name, 20, y);
+            y += 4;
+            doc.text(ARCHIV_SENDER.street, 20, y);
+            y += 4;
+            doc.text(ARCHIV_SENDER.city, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('KONTAKT', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`St-Nr.: ${ARCHIV_SENDER.taxId}`, 20, y);
+            y += 4;
+            doc.text(`Handy: ${ARCHIV_SENDER.phone}`, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('BANKVERBINDUNG', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`Empfänger: ${ARCHIV_SENDER.bankRecipient}`, 20, y);
+            y += 4;
+            doc.text(`Bank: ${ARCHIV_SENDER.bankName}`, 20, y);
+            y += 4;
+            doc.text(`IBAN: ${ARCHIV_SENDER.iban}`, 20, y);
+            y += 4;
+            doc.text(`BIC/SWIFT: ${ARCHIV_SENDER.bic}`, 20, y);
+
+            return doc;
         }
 
         function deleteInvoice(id) {
