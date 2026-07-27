@@ -11,6 +11,7 @@
 
 <!-- Google Identity Services: für den direkten Gmail-API-Versand echter HTML-E-Mails -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="js/gmail-api.js"></script>
 
 <style>
     * { box-sizing: border-box; }
@@ -960,88 +961,14 @@
         }
 
         // Echter Versand der gestalteten HTML-E-Mail über die Gmail-API.
-        // Dafür braucht es einmalig eine Google-OAuth-Client-ID (siehe
-        // ANLEITUNG-WERBUNG.md) - der Nutzer meldet sich dann einmal pro
-        // Sitzung mit eisfavorit@gmail.com an und erlaubt den Versand.
-        const GMAIL_OAUTH_CLIENT_ID = 'HIER_DEINE_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
-        let gmailAccessToken = null;
-        let gmailTokenClient = null;
-
-        function encodeMimeSubject(str) {
-            return '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(str))) + '?=';
-        }
-
-        function base64UrlEncodeUtf8(str) {
-            const b64 = btoa(unescape(encodeURIComponent(str)));
-            return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        }
-
-        function ensureGmailAuth(onReady) {
-            if (GMAIL_OAUTH_CLIENT_ID.indexOf('HIER_DEINE') === 0) {
-                alert('⚠️ Der Gmail-Versand ist noch nicht eingerichtet.\n\n' +
-                      'In Google Cloud Console eine OAuth-Client-ID (Web-Anwendung) erstellen ' +
-                      'und im Code bei GMAIL_OAUTH_CLIENT_ID eintragen. Details in ANLEITUNG-WERBUNG.md.');
-                return;
-            }
-            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-                alert('Google-Anmeldedienst konnte nicht geladen werden. Bitte Seite neu laden.');
-                return;
-            }
-            if (!gmailTokenClient) {
-                gmailTokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: GMAIL_OAUTH_CLIENT_ID,
-                    scope: 'https://www.googleapis.com/auth/gmail.send',
-                    callback: function(resp) {
-                        if (resp.error) {
-                            alert('❌ Gmail-Anmeldung fehlgeschlagen: ' + resp.error);
-                            return;
-                        }
-                        gmailAccessToken = resp.access_token;
-                        onReady();
-                    }
-                });
-            }
-            gmailTokenClient.requestAccessToken({ prompt: gmailAccessToken ? '' : 'consent' });
-        }
-
+        // Nutzt die gemeinsame Anbindung aus js/gmail-api.js (dort auch die
+        // einmalig einzurichtende GMAIL_OAUTH_CLIENT_ID, siehe ANLEITUNG-WERBUNG.md).
         function sendCurrentFlyerEmail() {
             const lead = flyerQueue[0];
             if (!lead) return;
 
-            if (!gmailAccessToken) {
-                ensureGmailAuth(() => sendCurrentFlyerEmail());
-                return;
-            }
-
             const { subject, html } = buildFlyerEmail(lead);
-            const raw = [
-                'Content-Type: text/html; charset="UTF-8"',
-                'MIME-Version: 1.0',
-                'To: ' + lead.email,
-                'Bcc: eisfavorit@gmail.com',
-                'Subject: ' + encodeMimeSubject(subject),
-                '',
-                html
-            ].join('\r\n');
-
-            fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + gmailAccessToken,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ raw: base64UrlEncodeUtf8(raw) })
-            }).then(res => {
-                if (res.status === 401) {
-                    // Token abgelaufen/ungültig - einmal neu anmelden und erneut versuchen
-                    gmailAccessToken = null;
-                    ensureGmailAuth(() => sendCurrentFlyerEmail());
-                    return;
-                }
-                if (!res.ok) {
-                    return res.text().then(t => { throw new Error('Status ' + res.status + ': ' + t); });
-                }
-
+            sendGmailApiHtmlMessage(lead.email, subject, html, function() {
                 const now = Date.now();
                 db.collection('marketingLeads').doc(lead.id).set({
                     status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
@@ -1051,8 +978,7 @@
 
                 flyerQueue.shift();
                 renderFlyerQueueModal();
-            }).catch(err => {
-                console.error('Gmail-Versand fehlgeschlagen:', err);
+            }, function(err) {
                 alert('❌ E-Mail konnte nicht gesendet werden: ' + err.message);
             });
         }

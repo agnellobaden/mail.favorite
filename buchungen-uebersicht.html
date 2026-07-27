@@ -15,6 +15,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 
+    <!-- Google Identity Services: für den automatischen Gmail-API-Versand im Hintergrund -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="js/gmail-api.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -2537,7 +2541,7 @@
                                     font-family: inherit;
                                 "></textarea>
                             </div>
-                            <button type="button" onclick="addEmailToFormChat()" title="An die im Formular stehende E-Mail-Adresse senden" style="
+                            <button type="button" id="formEmailSendBtn" onclick="addEmailToFormChat()" title="An die im Formular stehende E-Mail-Adresse senden (automatisch im Hintergrund)" style="
                                 background: #25D366;
                                 color: white;
                                 border: none;
@@ -6489,32 +6493,40 @@
                 return;
             }
 
-            // Initialisiere Array falls nicht vorhanden
-            if (!booking.emailHistory) {
-                booking.emailHistory = [];
-            }
+            const messageText = message.trim();
+            const sendBtn = document.getElementById('formEmailSendBtn');
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
 
-            // Nachricht als "gesendet" protokollieren
-            booking.emailHistory.push({
-                message: message.trim(),
-                direction: 'sent',
-                timestamp: new Date().toISOString()
+            // Automatisch im Hintergrund über die Gmail-API senden (kein
+            // Compose-Fenster, kein manueller Klick auf "Senden" nötig).
+            // Erst nach erfolgreichem Versand im Chat protokollieren.
+            sendGmailApiMessage(customerEmail, 'Eisfavorite', messageText, function() {
+                if (!booking.emailHistory) {
+                    booking.emailHistory = [];
+                }
+
+                booking.emailHistory.push({
+                    message: messageText,
+                    direction: 'sent',
+                    timestamp: new Date().toISOString()
+                });
+
+                const now = new Date();
+                const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
+                booking.aktualisiertAm = updatedDate;
+                booking.lastModified = now.toISOString();
+                booking.lastModifiedMs = now.getTime();
+
+                document.getElementById('formEmailMessage').value = '';
+
+                saveToLocalStorage();
+                displayFormEmailChat();
+
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+            }, function(err) {
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+                alert('❌ E-Mail konnte nicht automatisch gesendet werden: ' + err.message);
             });
-
-            // Aktualisiere Timestamp für Sync
-            const now = new Date();
-            const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
-            booking.aktualisiertAm = updatedDate;
-            booking.lastModified = now.toISOString();
-            booking.lastModifiedMs = now.getTime();
-
-            // Felder zurücksetzen
-            document.getElementById('formEmailMessage').value = '';
-
-            // Speichern, anzeigen, tatsächlich per E-Mail versenden
-            saveToLocalStorage();
-            displayFormEmailChat();
-            openEmailCompose(customerEmail, 'Eisfavorite', message.trim());
         }
 
         // E-Mail im Formular-Chat löschen

@@ -71,12 +71,16 @@ Die Workflows lesen den Key über `{{ $env.GOOGLE_PLACES_API_KEY }}`. In n8n:
 Workflow "EisFavorite: Werbe-Kampagne für Firmen" **aktivieren** – läuft danach
 automatisch alle 4 Wochen um 9:00 Uhr.
 
-### 6. Personalisierten Flyer-Versand (echte HTML-E-Mail) einrichten
+### 6. Automatischen Gmail-Versand einrichten (einmalig)
 
 Der n8n-Webhook-Weg (`n8n-workflow-werbung-flyer-email.json`) hat sich in der
 Praxis als zu fehleranfällig gezeigt (405-Fehler, Setup-Aufwand). Stattdessen
-verschickt `werbung.html` die HTML-E-Mail jetzt **direkt aus dem Browser**
-über die Gmail-API - dafür ist einmalig eine Google-OAuth-Einrichtung nötig:
+verschickt die App E-Mails jetzt **automatisch im Hintergrund direkt aus dem
+Browser** über die Gmail-API (kein Compose-Fenster, kein manueller Klick auf
+"Senden") - das gilt für den Flyer-Versand in `werbung.html` **und** für den
+Chat im Buchungsformular in `buchungen-uebersicht.html`. Beide nutzen dieselbe
+gemeinsame Anbindung in `js/gmail-api.js`, daher ist die Einrichtung nur
+**einmal** nötig:
 
 1. [Google Cloud Console](https://console.cloud.google.com/) → Projekt
    **mailfavorite-e8f49** auswählen (dasselbe wie für Firebase)
@@ -91,8 +95,8 @@ verschickt `werbung.html` die HTML-E-Mail jetzt **direkt aus dem Browser**
    - Bei **"Autorisierte JavaScript-Quellen"** eintragen:
      `https://maileisfavorite.vercel.app`
    - Erstellen, die **Client-ID** kopieren (endet auf `.apps.googleusercontent.com`)
-5. In `werbung.html` nach `GMAIL_OAUTH_CLIENT_ID` suchen und den Platzhalter
-   durch die kopierte Client-ID ersetzen
+5. In `js/gmail-api.js` nach `GMAIL_OAUTH_CLIENT_ID` suchen und den Platzhalter
+   durch die kopierte Client-ID ersetzen (gilt dann automatisch für alle Seiten)
 6. Fertig: Firmen/Schulen per Häkchen auswählen → **"📧 Flyer an Ausgewählte
    senden"** → im Dialog jede E-Mail als Vorschau ansehen und mit **"📧 Jetzt
    per Gmail senden"** bestätigen. Beim allerersten Versand öffnet sich ein
