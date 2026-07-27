@@ -955,16 +955,26 @@
             // ihre eigene Buchhaltung/Spesenabrechnung).
             document.getElementById('serviceDate').textContent = booking.date || '';
 
-            // Wenn für diese Buchung schon einmal eine Rechnung erstellt wurde,
-            // die damals vergebene Rechnungsnummer/Daten wiederverwenden statt
-            // bei jedem erneuten Öffnen eine neue zufällige Nummer/ein neues
-            // Datum zu erzeugen. Nur beim allerersten Mal (kein invoiceNumber
-            // gespeichert) bleiben die beim Laden generierten Standardwerte
-            // (heutiges Datum, +7 Tage Zahlungsziel, neue Nummer) stehen.
-            if (booking.invoiceNumber) {
-                document.getElementById('invoiceNumber').textContent = booking.invoiceNumber;
-                if (booking.invoiceDate) document.getElementById('invoiceDate').textContent = booking.invoiceDate;
-                if (booking.paymentDue) document.getElementById('paymentDue').textContent = booking.paymentDue;
+            // Wenn für diese Buchung schon einmal eine Rechnung bearbeitet/erzeugt
+            // wurde, den damaligen Stand (Rechnungsnummer, Daten, Kundendaten wie
+            // auf der Rechnung, Positionen) wiederherstellen statt bei jedem
+            // erneuten Öffnen wieder bei den Standardwerten anzufangen.
+            if (booking.invoiceData) {
+                const inv = booking.invoiceData;
+                if (inv.invoiceNumber) document.getElementById('invoiceNumber').textContent = inv.invoiceNumber;
+                if (inv.invoiceDate) document.getElementById('invoiceDate').textContent = inv.invoiceDate;
+                if (inv.serviceDate) document.getElementById('serviceDate').textContent = inv.serviceDate;
+                if (inv.paymentDue) document.getElementById('paymentDue').textContent = inv.paymentDue;
+                if (inv.customerCompany) document.getElementById('customerCompany').textContent = inv.customerCompany;
+                if (inv.customerContact) document.getElementById('customerContact').textContent = inv.customerContact;
+                if (inv.customerStreet) document.getElementById('customerStreet').textContent = inv.customerStreet;
+                if (inv.customerPostalCode) document.getElementById('customerPostalCode').textContent = inv.customerPostalCode;
+                if (inv.customerCity) document.getElementById('customerCity').textContent = inv.customerCity;
+
+                if (inv.items && inv.items.length > 0) {
+                    document.getElementById('itemsBody').innerHTML = '';
+                    inv.items.forEach(item => addItem(item.description, item.quantity, item.bruttoPrice));
+                }
             }
 
             console.log('Booking geladen:', {
@@ -975,58 +985,67 @@
                 city: booking.city
             });
 
-            // Items löschen
-            document.getElementById('itemsBody').innerHTML = '';
+            // Positionen nur automatisch aus Strichliste/Gästezahl/Anfahrt
+            // erzeugen, wenn noch KEIN gespeicherter Rechnungsstand für diese
+            // Buchung existiert - sonst würden die oben aus invoiceData
+            // wiederhergestellten (ggf. manuell bearbeiteten) Positionen sofort
+            // wieder überschrieben.
+            const hasSavedItems = booking.invoiceData && booking.invoiceData.items && booking.invoiceData.items.length > 0;
 
-            // Preise laden
-            const prices = loadPrices();
+            if (!hasSavedItems) {
+                // Items löschen
+                document.getElementById('itemsBody').innerHTML = '';
 
-            // Strichliste laden
-            let tallyData = null;
+                // Preise laden
+                const prices = loadPrices();
 
-            if (booking.tally && typeof booking.tally === 'object') {
-                tallyData = booking.tally;
-            } else {
-                const tallyKey = `tally_${booking.date}_${booking.name}`;
-                tallyData = JSON.parse(localStorage.getItem(tallyKey) || '{}');
-            }
+                // Strichliste laden
+                let tallyData = null;
 
-            // Strichliste: Alle Produkte mit ihren echten Namen und Preisen
-            if (tallyData && Object.keys(tallyData).length > 0) {
-                console.log('📋 Lade Strichliste:', tallyData);
-
-                PRODUCTS_LIST.forEach(product => {
-                    const count = tallyData[product.id] || 0;
-                    if (count > 0) {
-                        const price = prices[product.id] || DEFAULT_PRICES[product.id];
-                        const productName = product.name;
-                        addItem(`${productName} inkl. 7% Umsatzsteuer`, count, price.toFixed(2));
-                        console.log(`  ✓ ${productName}: ${count}x à ${price.toFixed(2)} €`);
-                    }
-                });
-            } else if (booking.gaeste && booking.kugeln) {
-                // Fallback: Wenn keine Strichliste vorhanden, nutze Gäste × Kugeln
-                const totalKugeln = booking.gaeste * booking.kugeln;
-                const kugelPrice = prices.kugel || DEFAULT_PRICES.kugel;
-                addItem('Kugel Eis inkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
-            }
-
-            // Anfahrtskosten berechnen und hinzufügen
-            const distance = parseFloat(booking.distance) || 0;
-            let anfahrtskosten = 0;
-
-            if (distance >= 6) {
-                anfahrtskosten = 45;
-                if (distance >= 10) {
-                    anfahrtskosten = 55;
-                    const additionalKm = Math.floor((distance - 10) / 10);
-                    anfahrtskosten += additionalKm * 10;
+                if (booking.tally && typeof booking.tally === 'object') {
+                    tallyData = booking.tally;
+                } else {
+                    const tallyKey = `tally_${booking.date}_${booking.name}`;
+                    tallyData = JSON.parse(localStorage.getItem(tallyKey) || '{}');
                 }
-            }
 
-            if (anfahrtskosten > 0) {
-                console.log(`🚗 Anfahrtskosten: ${distance} km → ${anfahrtskosten.toFixed(2)} €`);
-                addItem(`Anfahrtskosten (${distance} km) inkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+                // Strichliste: Alle Produkte mit ihren echten Namen und Preisen
+                if (tallyData && Object.keys(tallyData).length > 0) {
+                    console.log('📋 Lade Strichliste:', tallyData);
+
+                    PRODUCTS_LIST.forEach(product => {
+                        const count = tallyData[product.id] || 0;
+                        if (count > 0) {
+                            const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                            const productName = product.name;
+                            addItem(`${productName} inkl. 7% Umsatzsteuer`, count, price.toFixed(2));
+                            console.log(`  ✓ ${productName}: ${count}x à ${price.toFixed(2)} €`);
+                        }
+                    });
+                } else if (booking.gaeste && booking.kugeln) {
+                    // Fallback: Wenn keine Strichliste vorhanden, nutze Gäste × Kugeln
+                    const totalKugeln = booking.gaeste * booking.kugeln;
+                    const kugelPrice = prices.kugel || DEFAULT_PRICES.kugel;
+                    addItem('Kugel Eis inkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
+                }
+
+                // Anfahrtskosten berechnen und hinzufügen
+                const distance = parseFloat(booking.distance) || 0;
+                let anfahrtskosten = 0;
+
+                if (distance >= 6) {
+                    anfahrtskosten = 45;
+                    if (distance >= 10) {
+                        anfahrtskosten = 55;
+                        const additionalKm = Math.floor((distance - 10) / 10);
+                        anfahrtskosten += additionalKm * 10;
+                    }
+                }
+
+                if (anfahrtskosten > 0) {
+                    console.log(`🚗 Anfahrtskosten: ${distance} km → ${anfahrtskosten.toFixed(2)} €`);
+                    addItem(`Anfahrtskosten (${distance} km) inkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+                }
             }
 
             calculateTotals();
@@ -1053,7 +1072,7 @@
                     </select>
                 </td>
                 <td class="desc-col">
-                    <input type="text" class="item-description" value="${description}" ${description ? '' : 'placeholder="Beschreibung eingeben..."'}>
+                    <input type="text" class="item-description" value="${description}" oninput="scheduleAutoSaveInvoice()" ${description ? '' : 'placeholder="Beschreibung eingeben..."'}>
                 </td>
                 <td class="qty-col">
                     <input type="number" class="item-quantity" value="${quantity || 1}" min="0" step="1" onchange="calculateTotals()">
@@ -1149,6 +1168,8 @@
             document.getElementById('totalMwst').textContent = formatCurrency(totalMwst);
             document.getElementById('totalBrutto').textContent = formatCurrency(totalBrutto);
             document.getElementById('finalTotal').textContent = formatCurrency(totalBrutto);
+
+            scheduleAutoSaveInvoice();
         }
 
         function formatCurrency(amount) {
@@ -1321,14 +1342,26 @@
             const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
             doc.save(filename);
             archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
-            persistInvoiceNumberToBooking();
+            autoSaveInvoiceData();
         }
 
         // Speichert Rechnungsnummer/Ausgestellt-Datum/Zahlungsziel einmalig in
         // der Buchung, damit sie beim nächsten Öffnen von "Rechnung erstellen"
         // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
         // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
-        function persistInvoiceNumberToBooking() {
+        // Sammelt den aktuellen Stand der Rechnung (Kopfdaten + Positionen) und
+        // speichert ihn in booking.invoiceData - dadurch bleibt jede Änderung
+        // (Rechnungsnummer, Datum, Kundendaten, Positionen) erhalten, wenn man
+        // die Seite später für dieselbe Buchung erneut öffnet.
+        function collectCurrentItems() {
+            return [...document.querySelectorAll('#itemsBody tr')].map(row => ({
+                description: row.querySelector('.item-description').value,
+                quantity: row.querySelector('.item-quantity').value,
+                bruttoPrice: row.querySelector('.item-brutto-single').value
+            }));
+        }
+
+        function autoSaveInvoiceData() {
             const urlParams = new URLSearchParams(window.location.search);
             const bookingId = urlParams.get('bookingId');
             if (!bookingId) return;
@@ -1337,14 +1370,39 @@
             const bookingIndex = bookings.findIndex(b => b.id === bookingId);
             if (bookingIndex === -1) return;
 
-            // Nicht überschreiben, falls schon vorhanden (erstes Erzeugen zählt).
-            if (!bookings[bookingIndex].invoiceNumber) {
-                bookings[bookingIndex].invoiceNumber = document.getElementById('invoiceNumber').textContent;
-                bookings[bookingIndex].invoiceDate = document.getElementById('invoiceDate').textContent;
-                bookings[bookingIndex].paymentDue = document.getElementById('paymentDue').textContent;
-                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
-            }
+            bookings[bookingIndex].invoiceData = {
+                invoiceNumber: document.getElementById('invoiceNumber').textContent,
+                invoiceDate: document.getElementById('invoiceDate').textContent,
+                serviceDate: document.getElementById('serviceDate').textContent,
+                paymentDue: document.getElementById('paymentDue').textContent,
+                customerCompany: document.getElementById('customerCompany').textContent,
+                customerContact: document.getElementById('customerContact').textContent,
+                customerStreet: document.getElementById('customerStreet').textContent,
+                customerPostalCode: document.getElementById('customerPostalCode').textContent,
+                customerCity: document.getElementById('customerCity').textContent,
+                items: collectCurrentItems()
+            };
+            // Rechnungsnummer weiterhin zusätzlich direkt auf der Buchung
+            // spiegeln (wird an anderen Stellen wie dem Status-Banner gelesen).
+            bookings[bookingIndex].invoiceNumber = document.getElementById('invoiceNumber').textContent;
+
+            localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
         }
+
+        let autoSaveInvoiceTimeout = null;
+        function scheduleAutoSaveInvoice() {
+            clearTimeout(autoSaveInvoiceTimeout);
+            autoSaveInvoiceTimeout = setTimeout(autoSaveInvoiceData, 500);
+        }
+
+        // Jede Änderung an editierbaren Kopf-/Kundendaten-Feldern automatisch
+        // speichern (per Event-Delegation, damit es auch für später
+        // hinzugefügte Felder funktioniert).
+        document.addEventListener('input', function(e) {
+            if (e.target.hasAttribute && e.target.hasAttribute('contenteditable')) {
+                scheduleAutoSaveInvoice();
+            }
+        });
 
         // Speichert das PDF zusätzlich im Rechnungsarchiv (Firestore), damit es
         // später jederzeit wieder geöffnet/gedruckt werden kann - unabhängig
