@@ -1597,13 +1597,13 @@ Tel: +49 176 56813172`;
 
                 console.log('📧 Öffne Gmail für:', customerEmail);
 
-                // Gmail-Compose öffnen (kurze Verzögerung, damit PDF-Download zuerst startet)
-                setTimeout(() => {
-                    window.open(gmailLink, '_blank');
-                }, 500);
-
-                // Erfolgsmeldung
-                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                // Erfolgsmeldung zuerst zeigen, danach direkt zu Gmail navigieren.
+                // Auf dem Handy funktioniert eine direkte Weiterleitung
+                // (location.href) zuverlässiger als ein neuer Tab (window.open
+                // wird von mobilen Browsern öfter blockiert bzw. öffnet die
+                // Gmail-App ohne vorausgefüllten Text).
+                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                window.location.href = gmailLink;
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
@@ -1839,15 +1839,17 @@ Tel: +49 176 56813172`;
 
                 console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
 
-                window.open(gmailLink, '_blank');
-
                 archivePaymentReminder({
                     invoiceNumber, customerCompany, customerEmail, totalBrutto, paymentDue,
                     reminderCount, isOverdue, daysOverdue, bookingId
                 });
 
-                // Erfolgsmeldung
+                // Erfolgsmeldung zuerst zeigen, danach direkt zu Gmail navigieren
+                // (location.href statt window.open - funktioniert auf dem Handy
+                // zuverlässiger und öffnet den Text direkt zum Absenden, genau
+                // wie am PC).
                 alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);
+                window.location.href = gmailLink;
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
