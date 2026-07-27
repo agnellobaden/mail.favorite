@@ -70,6 +70,40 @@
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     .btn:hover { opacity: 0.9; }
+    .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+        background: #fff;
+        border-radius: 16px;
+        max-width: 420px;
+        width: 100%;
+        padding: 26px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .modal-box h3 { margin: 0 0 18px 0; color: #667eea; }
+    .modal-box label { display: block; font-weight: 600; font-size: 0.9em; margin-bottom: 4px; }
+    .modal-box input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+        margin-bottom: 14px;
+        box-sizing: border-box;
+    }
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
@@ -154,6 +188,26 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-box">
+            <h3>✏️ Rechnung bearbeiten</h3>
+            <form id="editForm" onsubmit="saveEditInvoice(event)">
+                <label>Rechnungsnummer</label>
+                <input type="text" id="editInvoiceNumber">
+                <label>Kunde</label>
+                <input type="text" id="editCustomerName">
+                <label>Datum</label>
+                <input type="text" id="editDate" placeholder="TT.MM.JJJJ">
+                <label>Betrag</label>
+                <input type="text" id="editAmount" placeholder="z.B. 123,45 €">
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+                    <button type="submit" class="btn">✅ Speichern</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">✖ Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let db = null;
         let allInvoices = [];
@@ -210,10 +264,53 @@
                     <td>${inv.date || '-'}</td>
                     <td>${inv.amount || '-'}</td>
                     <td>
-                        <button class="btn" onclick="openInvoicePdf('${inv.id}')">📄 Öffnen/Drucken</button>
+                        <div class="row-actions">
+                            <button class="btn" onclick="openInvoicePdf('${inv.id}')">📄 Öffnen/Drucken</button>
+                            <button class="btn btn-secondary" onclick="openEditModal('${inv.id}')">✏️ Bearbeiten</button>
+                            <button class="btn btn-danger" onclick="deleteInvoice('${inv.id}')">🗑️ Löschen</button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
+        }
+
+        function openEditModal(id) {
+            const inv = allInvoices.find(i => i.id === id);
+            if (!inv) return;
+            document.getElementById('editForm').dataset.id = id;
+            document.getElementById('editInvoiceNumber').value = inv.invoiceNumber || '';
+            document.getElementById('editCustomerName').value = inv.customerName || '';
+            document.getElementById('editDate').value = inv.date || '';
+            document.getElementById('editAmount').value = inv.amount || '';
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        function saveEditInvoice(event) {
+            event.preventDefault();
+            const id = document.getElementById('editForm').dataset.id;
+            db.collection('rechnungsarchiv').doc(id).set({
+                invoiceNumber: document.getElementById('editInvoiceNumber').value.trim(),
+                customerName: document.getElementById('editCustomerName').value.trim(),
+                date: document.getElementById('editDate').value.trim(),
+                amount: document.getElementById('editAmount').value.trim()
+            }, { merge: true }).then(() => {
+                closeEditModal();
+            }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function deleteInvoice(id) {
+            const inv = allInvoices.find(i => i.id === id);
+            if (!inv) return;
+            if (!confirm(`Rechnung "${inv.invoiceNumber || '-'}" (${inv.customerName || '-'}) wirklich unwiderruflich aus dem Archiv löschen?\n\nDas PDF geht dabei verloren - nur löschen, wenn du sicher bist.`)) return;
+            db.collection('rechnungsarchiv').doc(id).delete().catch(err => {
+                alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
         }
 
         function openInvoicePdf(id) {
