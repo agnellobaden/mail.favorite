@@ -2670,28 +2670,6 @@
             <div id="emailChatContent" style="padding: 20px; max-height: 600px; overflow-y: auto;">
                 <!-- Dynamisch gefüllt -->
             </div>
-
-            <div style="padding: 20px; border-top: 2px solid #f0f0f0;">
-                <h3 style="margin-bottom: 15px;">➕ Neue E-Mail hinzufügen</h3>
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label for="emailSubject">Betreff</label>
-                        <input type="text" id="emailSubject" placeholder="z.B. Angebot für Hochzeit">
-                    </div>
-                    <div class="form-group full-width">
-                        <label for="emailMessage">Nachricht</label>
-                        <textarea id="emailMessage" rows="4" placeholder="E-Mail-Text..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="emailDirection">Richtung</label>
-                        <select id="emailDirection">
-                            <option value="sent">Gesendet</option>
-                            <option value="received">Empfangen</option>
-                        </select>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="addEmailToChat()" style="margin-top: 15px;">➕ E-Mail hinzufügen</button>
-            </div>
         </div>
     </div>
 
@@ -6338,41 +6316,6 @@
 
             // Scroll nach unten
             chatContent.scrollTop = chatContent.scrollHeight;
-        }
-
-        // E-Mail hinzufügen
-        function addEmailToChat() {
-            if (!currentEmailChatBooking) return;
-
-            const subject = document.getElementById('emailSubject').value;
-            const message = document.getElementById('emailMessage').value;
-            const direction = document.getElementById('emailDirection').value;
-
-            if (!message.trim()) {
-                alert('Bitte gib eine Nachricht ein!');
-                return;
-            }
-
-            // Initialisiere Array falls nicht vorhanden
-            if (!currentEmailChatBooking.emailHistory) {
-                currentEmailChatBooking.emailHistory = [];
-            }
-
-            // E-Mail hinzufügen
-            currentEmailChatBooking.emailHistory.push({
-                subject: subject,
-                message: message,
-                direction: direction,
-                timestamp: new Date().toISOString()
-            });
-
-            // Felder zurücksetzen
-            document.getElementById('emailSubject').value = '';
-            document.getElementById('emailMessage').value = '';
-
-            // Speichern und anzeigen
-            saveToLocalStorage();
-            displayEmailChat();
         }
 
         // E-Mail löschen
