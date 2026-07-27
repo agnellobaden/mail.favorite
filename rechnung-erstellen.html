@@ -955,6 +955,18 @@
             // ihre eigene Buchhaltung/Spesenabrechnung).
             document.getElementById('serviceDate').textContent = booking.date || '';
 
+            // Wenn für diese Buchung schon einmal eine Rechnung erstellt wurde,
+            // die damals vergebene Rechnungsnummer/Daten wiederverwenden statt
+            // bei jedem erneuten Öffnen eine neue zufällige Nummer/ein neues
+            // Datum zu erzeugen. Nur beim allerersten Mal (kein invoiceNumber
+            // gespeichert) bleiben die beim Laden generierten Standardwerte
+            // (heutiges Datum, +7 Tage Zahlungsziel, neue Nummer) stehen.
+            if (booking.invoiceNumber) {
+                document.getElementById('invoiceNumber').textContent = booking.invoiceNumber;
+                if (booking.invoiceDate) document.getElementById('invoiceDate').textContent = booking.invoiceDate;
+                if (booking.paymentDue) document.getElementById('paymentDue').textContent = booking.paymentDue;
+            }
+
             console.log('Booking geladen:', {
                 company: booking.company,
                 name: booking.name,
@@ -1309,6 +1321,29 @@
             const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
             doc.save(filename);
             archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
+            persistInvoiceNumberToBooking();
+        }
+
+        // Speichert Rechnungsnummer/Ausgestellt-Datum/Zahlungsziel einmalig in
+        // der Buchung, damit sie beim nächsten Öffnen von "Rechnung erstellen"
+        // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
+        // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
+        function persistInvoiceNumberToBooking() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+            if (!bookingId) return;
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex === -1) return;
+
+            // Nicht überschreiben, falls schon vorhanden (erstes Erzeugen zählt).
+            if (!bookings[bookingIndex].invoiceNumber) {
+                bookings[bookingIndex].invoiceNumber = document.getElementById('invoiceNumber').textContent;
+                bookings[bookingIndex].invoiceDate = document.getElementById('invoiceDate').textContent;
+                bookings[bookingIndex].paymentDue = document.getElementById('paymentDue').textContent;
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+            }
         }
 
         // Speichert das PDF zusätzlich im Rechnungsarchiv (Firestore), damit es
