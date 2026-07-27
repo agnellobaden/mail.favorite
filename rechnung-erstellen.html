@@ -520,6 +520,7 @@
         </div>
 
         <div class="button-group">
+            <button class="btn btn-primary" onclick="saveInvoiceNow()" style="background: #667eea; font-weight: 700;">💾 Änderungen speichern</button>
             <button class="btn btn-secondary" onclick="resetForm()">Formular zurücksetzen</button>
             <button class="btn btn-primary" onclick="window.print()">🖨️ Drucken</button>
             <button class="btn btn-primary" onclick="generatePDF()">📄 PDF herunterladen</button>
@@ -528,6 +529,7 @@
             <button class="btn btn-success" onclick="markInvoiceAsPaid()" style="background: #28a745;">💰 Als bezahlt markieren</button>
             <button class="btn btn-warning" onclick="sendPaymentReminder()" style="background: #ff9800; display: none;" id="reminderBtn">⏰ Zahlungserinnerung senden</button>
         </div>
+        <p id="saveStatus" style="font-size: 0.85em; color: #888; margin-top: 6px;"></p>
     </div>
 
     <!-- Rechnung -->
@@ -1364,11 +1366,11 @@
         function autoSaveInvoiceData() {
             const urlParams = new URLSearchParams(window.location.search);
             const bookingId = urlParams.get('bookingId');
-            if (!bookingId) return;
+            if (!bookingId) return false;
 
             const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
             const bookingIndex = bookings.findIndex(b => b.id === bookingId);
-            if (bookingIndex === -1) return;
+            if (bookingIndex === -1) return false;
 
             bookings[bookingIndex].invoiceData = {
                 invoiceNumber: document.getElementById('invoiceNumber').textContent,
@@ -1387,6 +1389,33 @@
             bookings[bookingIndex].invoiceNumber = document.getElementById('invoiceNumber').textContent;
 
             localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+            const statusEl = document.getElementById('saveStatus');
+            if (statusEl) {
+                const now = new Date();
+                statusEl.textContent = '✓ Gespeichert um ' + now.toLocaleTimeString('de-DE');
+            }
+            return true;
+        }
+
+        // Manuelles, sofortiges Speichern (kein Debounce) über den
+        // "Änderungen speichern"-Button - mit deutlicher Rückmeldung.
+        function saveInvoiceNow() {
+            clearTimeout(autoSaveInvoiceTimeout);
+            const ok = autoSaveInvoiceData();
+            const statusEl = document.getElementById('saveStatus');
+            if (!ok) {
+                alert('⚠️ Konnte nicht gespeichert werden: Diese Rechnung ist keiner Buchung zugeordnet (kein bookingId in der URL).');
+                return;
+            }
+            if (statusEl) {
+                statusEl.style.color = '#28a745';
+                statusEl.style.fontWeight = '700';
+                setTimeout(() => {
+                    statusEl.style.color = '#888';
+                    statusEl.style.fontWeight = 'normal';
+                }, 2000);
+            }
         }
 
         let autoSaveInvoiceTimeout = null;
