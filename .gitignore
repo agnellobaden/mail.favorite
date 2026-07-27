@@ -5,4 +5,5 @@ node_modules
 email-import-service/config.json
 email-import-service/firebase-service-account.json
 email-import-service/state.json
+email-import-service/import-log.txt
 .env
