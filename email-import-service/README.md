@@ -1,9 +1,20 @@
 # Automatischer E-Mail-Import (eisfavorite.de → Firestore)
 
 Läuft periodisch, holt neue Anfrage-E-Mails (von eisfavorite.de über EmailJS
-an `eisfavorit@gmail.com`) per IMAP ab und schreibt sie **direkt** als neue
-Buchung (Status "Neu") in Firestore. Keine manuelle JSON-Import mehr nötig -
-die Anfrage erscheint automatisch als Karte in der Buchungsübersicht.
+an `eisfavorit@gmail.com`) per IMAP ab und schreibt sie **direkt** in die
+Firestore-Sammlung `buchungen` (status "Neu"). Keine manuelle JSON-Import
+mehr nötig - die Anfrage erscheint automatisch als Karte in der
+Buchungsübersicht.
+
+**Hinweis:** eisfavorite.de schreibt bei den meisten Anfragen inzwischen
+bereits selbst direkt in Firestore (zu erkennen an `source: "website"` in
+den Buchungsdaten) - dieser Dienst hier ist die Rückfalllösung für
+Anfragen, die nur als E-Mail ankommen, ohne diesen direkten Weg.
+
+Da die Firestore-Regeln aktuell offen sind (`allow read, write: if true`),
+reicht die öffentliche Web-API - **kein Firebase-Admin-Schlüssel nötig.**
+⚠️ Das ist gleichzeitig ein Sicherheitsrisiko für die gesamte App, nicht nur
+für diesen Import - siehe `ANLEITUNG-SICHERHEIT.md`.
 
 ## Einmalige Einrichtung
 
@@ -14,18 +25,7 @@ die Anfrage erscheint automatisch als Karte in der Buchungsübersicht.
 3. Zu "App-Passwörter" gehen → App: "Mail" → Gerät: "Windows-Computer" → Generieren
 4. Das 16-stellige Passwort kopieren
 
-### 2. Firebase-Service-Account-Schlüssel erstellen
-
-1. [Firebase Console](https://console.firebase.google.com/) → Projekt `mailfavorite-e8f49`
-2. Zahnrad → **Projekteinstellungen** → Tab **Dienstkonten**
-3. **Neuen privaten Schlüssel generieren** → JSON-Datei wird heruntergeladen
-4. Diese Datei umbenennen zu `firebase-service-account.json` und in diesen Ordner
-   (`email-import-service/`) legen
-
-⚠️ **Diese Datei ist ein Admin-Schlüssel mit vollem Zugriff auf die Datenbank
-- niemals ins Git-Repo committen!** Sie ist bereits in `.gitignore` eingetragen.
-
-### 3. config.json anlegen
+### 2. config.json anlegen
 
 `config.example.json` kopieren zu `config.json` und das App-Passwort aus
 Schritt 1 eintragen:
@@ -36,16 +36,16 @@ Schritt 1 eintragen:
 }
 ```
 
-Auch diese Datei ist in `.gitignore` und wird nie committet.
+Diese Datei ist in `.gitignore` und wird nie committet.
 
-### 4. Abhängigkeiten installieren
+### 3. Abhängigkeiten installieren
 
 ```bash
 cd email-import-service
 npm install
 ```
 
-### 5. Einmal manuell testen
+### 4. Einmal manuell testen
 
 ```bash
 node import.js
@@ -86,5 +86,6 @@ in `import.js` (Objekt `PATTERNS`) angepasst werden.
 - **"Login failed"** → App-Passwort falsch oder 2FA nicht aktiv
 - **Keine E-Mails gefunden** → prüfen, ob die Test-Mail wirklich ungelesen im
   Postfach `eisfavorit@gmail.com` liegt (nicht in Spam o.ä.)
-- **Firestore-Fehler** → `firebase-service-account.json` fehlt oder falsches
-  Projekt
+- **Firestore-Fehler** → prüfen, ob die Firestore-Regeln (noch) offen sind;
+  falls sie inzwischen verschärft wurden, braucht dieser Dienst dann doch
+  wieder eine Authentifizierung (z.B. Service-Account)

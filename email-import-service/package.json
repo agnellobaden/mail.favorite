@@ -9,7 +9,6 @@
     "test": "node import.js --once"
   },
   "dependencies": {
-    "firebase-admin": "^13.0.0",
     "imapflow": "^1.0.0",
     "mailparser": "^3.7.0"
   }

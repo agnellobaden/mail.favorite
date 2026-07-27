@@ -8,36 +8,68 @@
  * Danach werden die E-Mails als gelesen markiert, damit sie beim nächsten
  * Lauf nicht erneut importiert werden.
  *
- * Benötigt zwei lokale, NICHT eingecheckte Dateien in diesem Ordner:
- *   - config.json                  { "gmailAppPassword": "..." }
- *   - firebase-service-account.json (Firebase Admin SDK Schlüssel)
+ * Schreibt über die öffentliche Firestore-REST-API in die Sammlung
+ * "buchungen" (nicht "bookings"!) - genau die, die buchungen-uebersicht.html
+ * tatsächlich anzeigt. Kein Firebase-Admin-Schlüssel nötig, da die
+ * Firestore-Regeln aktuell offen sind.
+ *
+ * Benötigt eine lokale, NICHT eingecheckte Datei in diesem Ordner:
+ *   - config.json   { "gmailAppPassword": "..." }
  */
 
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
-const admin = require('firebase-admin');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
-const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'firebase-service-account.json');
 
 if (!fs.existsSync(CONFIG_PATH)) {
     console.error('❌ config.json fehlt. Bitte erst anlegen (siehe README.md in diesem Ordner).');
     process.exit(1);
 }
-if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) {
-    console.error('❌ firebase-service-account.json fehlt. Bitte erst anlegen (siehe README.md in diesem Ordner).');
-    process.exit(1);
-}
 
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-const serviceAccount = require(SERVICE_ACCOUNT_PATH);
-
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
 
 const EMAIL = 'eisfavorit@gmail.com';
+const FIREBASE_PROJECT_ID = 'mailfavorite-e8f49';
+const FIREBASE_API_KEY = 'AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo';
+
+// Schreibt ein Dokument über die öffentliche Firestore-REST-API (kein Admin-
+// Schlüssel nötig - genau wie der Browser das auch tut).
+function firestoreValue(v) {
+    if (typeof v === 'boolean') return { booleanValue: v };
+    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: v } : { doubleValue: v };
+    return { stringValue: String(v) };
+}
+
+function addBookingToFirestore(booking) {
+    return new Promise((resolve, reject) => {
+        const fields = {};
+        Object.keys(booking).forEach(key => { fields[key] = firestoreValue(booking[key]); });
+        const body = JSON.stringify({ fields });
+
+        const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/buchungen?key=${FIREBASE_API_KEY}`;
+        const req = https.request(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+        }, res => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(JSON.parse(data));
+                } else {
+                    reject(new Error(`Firestore REST API Status ${res.statusCode}: ${data}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+    });
+}
 
 // Gleiche Regex-Muster wie im bisherigen Python-Script (email_importer.py),
 // damit sich das Verhalten nicht ändert.
@@ -196,9 +228,10 @@ async function run() {
 
             const booking = parseEmailToBooking(subject, fromAddress, text, receivedDate);
 
-            const ref = await db.collection('bookings').add(booking);
+            const ref = await addBookingToFirestore(booking);
             imported++;
-            console.log(`  ✓ Neue Anfrage importiert: ${booking.name || '(kein Name erkannt)'} - ${booking.date || '(kein Datum erkannt)'} [Doc-ID ${ref.id}]`);
+            const docId = (ref.name || '').split('/').pop();
+            console.log(`  ✓ Neue Anfrage importiert: ${booking.name || '(kein Name erkannt)'} - ${booking.date || '(kein Datum erkannt)'} [Doc-ID ${docId}]`);
 
             // Als gelesen markieren, damit sie beim nächsten Lauf nicht erneut importiert wird.
             await client.messageFlagsAdd(seq, ['\\Seen']);
