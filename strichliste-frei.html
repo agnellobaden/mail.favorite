@@ -81,6 +81,13 @@
         flex-direction: column;
         gap: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .product-card:active {
+        transform: scale(0.97);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     }
     .product-card .top-row { display: flex; justify-content: space-between; align-items: center; }
     .product-card .emoji { font-size: 1.8em; }
@@ -273,7 +280,7 @@
                 total += lineTotal;
 
                 return `
-                    <div class="product-card">
+                    <div class="product-card" onclick="cardClicked(event, '${product.id}')">
                         <div class="top-row">
                             <span class="emoji">${product.emoji}</span>
                             <span class="price">${price.toFixed(2)} €</span>
@@ -294,8 +301,35 @@
 
         function changeCount(productId, delta) {
             counts[productId] = Math.max(0, (counts[productId] || 0) + delta);
+            if (delta > 0) playAddSound();
             saveCounts();
             render();
+        }
+
+        // Klick auf die Karte selbst zählt +1 - Klicks auf die -/+ Buttons
+        // selbst werden hier ignoriert, die haben ihren eigenen onclick.
+        function cardClicked(event, productId) {
+            if (event.target.closest('button')) return;
+            changeCount(productId, 1);
+        }
+
+        let audioCtx = null;
+        function playAddSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {
+                console.warn('Sound konnte nicht abgespielt werden:', e);
+            }
         }
 
         function resetTally() {

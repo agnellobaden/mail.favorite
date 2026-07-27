@@ -90,6 +90,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .product-card:active {
+            transform: scale(0.97);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
         }
 
         .product-icon {
@@ -294,7 +301,7 @@
         <div class="content">
             <div class="products-grid">
                 <!-- Kugel Eis -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'kugeleis')">
                     <div class="product-icon">🍦</div>
                     <div class="product-name">Kugel Eis</div>
                     <div class="product-price">1,80 €</div>
@@ -309,7 +316,7 @@
                 </div>
 
                 <!-- Spaghetti Eis -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'spaghettieis')">
                     <div class="product-icon">🍝</div>
                     <div class="product-name">Spaghetti Eis</div>
                     <div class="product-price">7,50 €</div>
@@ -324,7 +331,7 @@
                 </div>
 
                 <!-- Schoko Becher -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'schokobecher')">
                     <div class="product-icon">🍫</div>
                     <div class="product-name">Schoko Becher</div>
                     <div class="product-price">7,50 €</div>
@@ -339,7 +346,7 @@
                 </div>
 
                 <!-- Sahne -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'sahne')">
                     <div class="product-icon">🥛</div>
                     <div class="product-name">Sahne</div>
                     <div class="product-price">1,80 €</div>
@@ -354,7 +361,7 @@
                 </div>
 
                 <!-- Becher Klein -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'becherklein')">
                     <div class="product-icon">🥄</div>
                     <div class="product-name">Becher Klein</div>
                     <div class="product-price">3,60 €</div>
@@ -369,7 +376,7 @@
                 </div>
 
                 <!-- Becher Groß -->
-                <div class="product-card">
+                <div class="product-card" onclick="cardClicked(event, 'bechergross')">
                     <div class="product-icon">🥣</div>
                     <div class="product-name">Becher Groß</div>
                     <div class="product-price">6,00 €</div>
@@ -484,6 +491,7 @@
             updateDisplay(product);
             updateTotal();
             vibrate();
+            playAddSound();
         }
 
         function decreaseCounter(product) {
@@ -492,6 +500,32 @@
                 updateDisplay(product);
                 updateTotal();
                 vibrate();
+            }
+        }
+
+        // Klick auf die Karte selbst zählt +1 - Klicks auf die -/+ Buttons
+        // selbst werden hier ignoriert, die haben ihren eigenen onclick.
+        function cardClicked(event, product) {
+            if (event.target.closest('button')) return;
+            increaseCounter(product);
+        }
+
+        let audioCtx = null;
+        function playAddSound() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {
+                console.warn('Sound konnte nicht abgespielt werden:', e);
             }
         }
 
