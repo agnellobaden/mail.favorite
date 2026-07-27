@@ -787,6 +787,10 @@
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
             transition: all 0.3s;
             z-index: 999;
+            /* Rundes Element klickt nur innerhalb des sichtbaren Kreises -
+               sonst fängt die unsichtbare quadratische Ecke Klicks auf
+               darunterliegenden Karten-Buttons ab (z.B. Chat-Verlauf). */
+            clip-path: circle(50%);
         }
 
         .add-booking-btn:hover {
