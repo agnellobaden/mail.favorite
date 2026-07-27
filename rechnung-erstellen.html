@@ -1323,9 +1323,26 @@
                 const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const docId = 'rechnung-' + (invoiceNumber || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '-');
 
+                // Alle Positionen mitspeichern (Beschreibung, Menge, Brutto-Preis/Stk.),
+                // damit im Rechnungsarchiv später die kompletten, echten Daten dieser
+                // Rechnung zu sehen sind statt nur Rechnungsnummer/Betrag.
+                const items = [...document.querySelectorAll('#itemsBody tr')].map(row => ({
+                    description: row.querySelector('.item-description').value || '',
+                    quantity: parseFloat(row.querySelector('.item-quantity').value) || 0,
+                    priceBrutto: parseFloat(row.querySelector('.item-brutto-single').value) || 0
+                })).filter(item => item.description || item.quantity || item.priceBrutto);
+
                 db.collection('rechnungsarchiv').doc(docId).set({
                     invoiceNumber: invoiceNumber || '',
                     customerName: customerName || '',
+                    customerContact: document.getElementById('customerContact').textContent || '',
+                    customerStreet: document.getElementById('customerStreet').textContent || '',
+                    customerPostalCode: document.getElementById('customerPostalCode').textContent || '',
+                    customerCity: document.getElementById('customerCity').textContent || '',
+                    invoiceDate: document.getElementById('invoiceDate').textContent || '',
+                    serviceDate: document.getElementById('serviceDate').textContent || '',
+                    paymentDue: document.getElementById('paymentDue').textContent || '',
+                    items: items,
                     bookingId: bookingId,
                     date: dateStr,
                     amount: document.getElementById('totalBrutto').textContent || '',
