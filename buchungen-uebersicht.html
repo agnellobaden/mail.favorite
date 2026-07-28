@@ -6137,23 +6137,29 @@
         // ==================== KARTEN-MENÜ ====================
 
         // 3-Punkte-Menü öffnen/schließen
+        // WICHTIG: Menü wird relativ zum geklickten Button gesucht (nicht per
+        // ID) - dieselbe Buchung kann gleichzeitig doppelt im DOM stehen
+        // (z.B. in der Hauptliste UND im Termine-am-Tag-Popup), da hätte
+        // eine ID-Suche immer nur das erste, evtl. unsichtbare Menü erwischt.
         function toggleCardMenu(event, bookingId) {
             event.stopPropagation();
 
+            const button = event.currentTarget;
+            const menu = button.closest('.card-menu').querySelector('.card-menu-dropdown');
+
             // Alle anderen Menüs schließen
-            document.querySelectorAll('.card-menu-dropdown').forEach(menu => {
-                if (menu.id !== `menu-${bookingId}`) {
-                    menu.classList.remove('active');
+            document.querySelectorAll('.card-menu-dropdown').forEach(m => {
+                if (m !== menu) {
+                    m.classList.remove('active');
                 }
             });
 
             // Aktuelles Menü togglen
-            const menu = document.getElementById(`menu-${bookingId}`);
             const isOpening = !menu.classList.contains('active');
             menu.classList.toggle('active');
 
             if (isOpening) {
-                positionCardMenu(menu, event.currentTarget);
+                positionCardMenu(menu, button);
                 menu.dataset.openedAt = Date.now();
                 menu.dataset.openScrollY = window.scrollY;
             }
@@ -6223,13 +6229,24 @@
             });
         }, { passive: true, capture: true });
 
-        // Menü schließen
+        // Menü schließen - anhand des Elements, von dem der Klick kam (nicht
+        // per ID, siehe Kommentar bei toggleCardMenu weiter oben).
         function closeCardMenu(bookingId) {
-            const menu = document.getElementById(`menu-${bookingId}`);
+            const menu = typeof event !== 'undefined' && event && event.target
+                ? event.target.closest('.card-menu-dropdown')
+                : null;
+
             if (menu) {
                 menu.classList.remove('active');
                 menu.classList.remove('open-upward');
+                return;
             }
+
+            // Fallback (z.B. falls ohne Klick-Event aufgerufen)
+            document.querySelectorAll(`#menu-${bookingId}`).forEach(m => {
+                m.classList.remove('active');
+                m.classList.remove('open-upward');
+            });
         }
 
         // Alle Menüs schließen beim Klick außerhalb
