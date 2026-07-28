@@ -239,6 +239,7 @@
                     <hr>
                     <div class="actions-group-label">🗄️ Aufräumen</div>
                     <button onclick="archiveLeadsWithoutEmail(); closeActionsMenu();">🗄️ Einträge ohne E-Mail archivieren</button>
+                    <button onclick="recategorizeAllLeads(); closeActionsMenu();">🏷️ Kategorien neu zuordnen (alle Einträge)</button>
                     <hr>
                     <div class="actions-group-label">🍦 Flyer</div>
                     <a href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
@@ -453,6 +454,38 @@
             verwaltung: '🏛️ Verwaltung'
         };
         const CATEGORY_ORDER = ['firma', 'schule', 'kindergarten', 'verein', 'verwaltung'];
+
+        // Leitet die Kategorie aus dem Namen ab - dieselbe Logik, die auch
+        // für RECHERCHIERTE_LEADS_KUPPENHEIM verwendet wurde.
+        function guessCategoryFromName(name) {
+            const n = name || '';
+            if (/kindergarten|kita|kinderhaus|kindertagesst|kiga|zwergenstube|kinderkrippe|familienzentrum/i.test(n)) return 'kindergarten';
+            if (/^DJK /i.test(n)) return 'verein';
+            if (/verein|e\.V\.|förderverein|feuerwehr/i.test(n)) return 'verein';
+            if (/schule/i.test(n)) return 'schule';
+            if (/^Stadt |Verwaltung/i.test(n)) return 'verwaltung';
+            return 'firma';
+        }
+
+        function recategorizeAllLeads() {
+            if (!confirm(`Für alle ${allLeads.length} Einträge die Kategorie aus dem Namen neu ableiten und in Firestore speichern?\n\nBetrifft vor allem Einträge, die schon vor der Kategorie-Funktion importiert wurden und deshalb noch als "Firma" markiert sind.`)) return;
+
+            let done = 0;
+            allLeads.forEach(lead => {
+                const category = guessCategoryFromName(lead.name);
+                db.collection('marketingLeads').doc(lead.id).set({
+                    category,
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).then(() => {
+                    done++;
+                    if (done === allLeads.length) {
+                        alert('✅ Kategorien für ' + done + ' Einträge aktualisiert.');
+                    }
+                }).catch(err => {
+                    console.error('Fehler beim Neuzuordnen der Kategorie:', lead.name, err);
+                });
+            });
+        }
 
         function updateStats() {
             const withEmail = allLeads.filter(l => !!l.email);
