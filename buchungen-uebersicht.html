@@ -4132,6 +4132,16 @@
             return new Date(parts[2], parts[1] - 1, parts[0]);
         }
 
+        // Gibt "DD.MM.YYYY" um den deutschen Wochentag ergänzt zurück,
+        // z.B. "29.07.2026 (Mi)" - für die Datumsanzeige auf den Karten.
+        function formatDateWithWeekday(dateStr) {
+            if (!dateStr) return dateStr;
+            const date = parseDate(dateStr);
+            if (isNaN(date)) return dateStr;
+            const weekday = date.toLocaleDateString('de-DE', { weekday: 'short' });
+            return `${dateStr} (${weekday})`;
+        }
+
         // Datum aus "DD.MM.YYYY" oder ISO parsen (kompatibel mit verschiedenen Formaten)
         function parseAnyDate(dateStr) {
             if (!dateStr) return new Date(NaN);
@@ -4295,7 +4305,7 @@
                             </div>
                         </div>
                         <div class="card-date">
-                            <div class="card-date-day">${booking.date || '-'}</div>
+                            <div class="card-date-day">${booking.date ? formatDateWithWeekday(booking.date) : '-'}</div>
                             <div class="card-date-time">${booking.time || '-'}</div>
                         </div>
                     </div>
