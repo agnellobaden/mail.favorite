@@ -455,11 +455,12 @@
         const CATEGORY_ORDER = ['firma', 'schule', 'kindergarten', 'verein', 'verwaltung'];
 
         function updateStats() {
-            document.getElementById('statNeu').textContent = allLeads.filter(l => (l.status || 'neu') === 'neu').length;
-            document.getElementById('statKontaktiert').textContent = allLeads.filter(l => l.status === 'kontaktiert').length;
-            document.getElementById('statGebucht').textContent = allLeads.filter(l => l.status === 'gebucht').length;
-            document.getElementById('statAbgelehnt').textContent = allLeads.filter(l => l.status === 'abgelehnt').length;
-            document.getElementById('statArchiviert').textContent = allLeads.filter(l => l.status === 'archiviert').length;
+            const withEmail = allLeads.filter(l => !!l.email);
+            document.getElementById('statNeu').textContent = withEmail.filter(l => (l.status || 'neu') === 'neu').length;
+            document.getElementById('statKontaktiert').textContent = withEmail.filter(l => l.status === 'kontaktiert').length;
+            document.getElementById('statGebucht').textContent = withEmail.filter(l => l.status === 'gebucht').length;
+            document.getElementById('statAbgelehnt').textContent = withEmail.filter(l => l.status === 'abgelehnt').length;
+            document.getElementById('statArchiviert').textContent = allLeads.filter(l => !l.email).length;
             document.getElementById('statGesamt').textContent = allLeads.length;
         }
 
@@ -468,11 +469,12 @@
             const categoryFilter = document.getElementById('categoryFilter').value;
             const searchFilter = document.getElementById('searchFilter').value.toLowerCase().trim();
 
-            let filtered = allLeads;
-            if (statusFilter === 'alle') {
-                // "Alle Status" blendet archivierte Einträge (ohne E-Mail) standardmäßig aus
-                filtered = filtered.filter(l => (l.status || 'neu') !== 'archiviert');
-            } else {
+            // Nur Einträge mit E-Mail-Adresse werden in der Liste angezeigt -
+            // alles andere gilt als archiviert (weiterhin in Firestore vorhanden).
+            let filtered = allLeads.filter(l => !!l.email);
+            if (statusFilter === 'archiviert') {
+                filtered = allLeads.filter(l => !l.email);
+            } else if (statusFilter !== 'alle') {
                 filtered = filtered.filter(l => (l.status || 'neu') === statusFilter);
             }
             if (categoryFilter !== 'alle') {
