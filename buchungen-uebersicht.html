@@ -7799,28 +7799,24 @@
             if (!card || !countdownEl || !detailsEl) return;
 
             const now = new Date();
-            const today = new Date(now);
-            today.setHours(0, 0, 0, 0); // Heute um Mitternacht
 
-            // Finde alle "Gebucht" Termine (inkl. heute, auch wenn Uhrzeit vorbei)
+            // Finde alle "Gebucht" Termine, die tatsächlich noch bevorstehen
+            // (Datum UND Uhrzeit noch nicht vorbei - ein heutiger Termin, der
+            // schon gelaufen ist, zählt nicht mehr als "nächster Termin").
             const upcoming = allBookings.filter(b => {
                 if (b.status !== 'Gebucht') return false;
                 const bookingDate = parseDateTime(b.date, b.time);
-                const bookingDateOnly = new Date(bookingDate);
-                bookingDateOnly.setHours(0, 0, 0, 0); // Nur das Datum ohne Uhrzeit
-
-                // Event ist sichtbar wenn das Datum heute oder in der Zukunft ist
-                return bookingDateOnly >= today;
+                return bookingDate >= now;
             });
-            
+
             if (upcoming.length > 0) {
                 // Sortiere chronologisch
                 upcoming.sort((a, b) => parseDateTime(a.date, a.time) - parseDateTime(b.date, b.time));
-                
+
                 const nextBooking = upcoming[0];
                 const nextDate = parseDateTime(nextBooking.date, nextBooking.time);
-                
-                const diffTime = Math.abs(nextDate - now);
+
+                const diffTime = nextDate - now;
                 const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 const diffHours = Math.floor((diffTime / (1000 * 60 * 60)) % 24);
                 
