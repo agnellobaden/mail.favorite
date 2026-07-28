@@ -4278,7 +4278,7 @@
                                 📋 Angebot erstellen
                             </button>
                             <button class="card-menu-item invoice" onclick="window.location.href='rechnung-erstellen.html?bookingId=${booking.id}'">
-                                📄 Rechnung erstellen
+                                ${booking.invoiceNumber ? '📄 Rechnung anschauen und bearbeiten' : '📄 Rechnung erstellen'}
                             </button>
                             <button class="card-menu-item email" onclick="openEmailChat('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💬 E-Mail Verlauf
