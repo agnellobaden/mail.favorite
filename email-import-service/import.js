@@ -12,38 +12,49 @@
  * landet die Nachricht automatisch als "empfangen" im emailHistory-Chat
  * dieser Buchung - genau wie in buchungen-uebersicht.html angezeigt.
  *
- * Schreibt über die öffentliche Firestore-REST-API in die Sammlung
+ * Schreibt über das Firebase Admin SDK (Service-Account) in die Sammlung
  * "buchungen" (nicht "bookings"!) - genau die, die buchungen-uebersicht.html
- * tatsächlich anzeigt. Kein Firebase-Admin-Schlüssel nötig, da die
- * Firestore-Regeln aktuell offen sind.
+ * tatsächlich anzeigt. Ein Admin-Zugang ist nötig, seit die Firestore-Regeln
+ * auf "nur eingeloggte, erlaubte E-Mail-Adressen" beschränkt sind - der
+ * öffentliche API-Key allein reicht seitdem nicht mehr aus.
  *
  * Verfolgt die höchste bereits verarbeitete IMAP-UID in state.json, statt
  * sich auf den "ungelesen"-Status zu verlassen (der kann durch anderes
  * Öffnen des Postfachs verändert werden, z.B. auf dem Handy).
  *
- * Benötigt eine lokale, NICHT eingecheckte Datei in diesem Ordner:
- *   - config.json   { "gmailAppPassword": "..." }
+ * Benötigt zwei lokale, NICHT eingecheckte Dateien in diesem Ordner:
+ *   - config.json                    { "gmailAppPassword": "..." }
+ *   - firebase-service-account.json  (siehe README.md, Abschnitt "Einrichtung")
  */
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
+const admin = require('firebase-admin');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const STATE_PATH = path.join(__dirname, 'state.json');
+const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'firebase-service-account.json');
 
 if (!fs.existsSync(CONFIG_PATH)) {
     console.error('❌ config.json fehlt. Bitte erst anlegen (siehe README.md in diesem Ordner).');
     process.exit(1);
 }
 
+if (!fs.existsSync(SERVICE_ACCOUNT_PATH)) {
+    console.error('❌ firebase-service-account.json fehlt. Bitte erst anlegen (siehe README.md, Abschnitt "Einrichtung").');
+    process.exit(1);
+}
+
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
+admin.initializeApp({
+    credential: admin.credential.cert(require(SERVICE_ACCOUNT_PATH))
+});
+const db = admin.firestore();
+
 const EMAIL = 'eisfavorit@gmail.com';
-const FIREBASE_PROJECT_ID = 'mailfavorite-e8f49';
-const FIREBASE_API_KEY = 'AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo';
 const CONTACT_SUBJECT = 'Contact Us:';
 
 function loadState() {
@@ -59,171 +70,49 @@ function saveState(state) {
     fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 }
 
-// Schreibt ein Dokument über die öffentliche Firestore-REST-API (kein Admin-
-// Schlüssel nötig - genau wie der Browser das auch tut).
-function firestoreValue(v) {
-    if (typeof v === 'boolean') return { booleanValue: v };
-    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: v } : { doubleValue: v };
-    return { stringValue: String(v) };
-}
-
-// Wandelt einen beliebigen JS-Wert (auch verschachtelte Arrays/Objekte) in
-// das Firestore-REST-Wertformat um - wird für das Anhängen an emailHistory
-// gebraucht (das ist ein Array von Objekten, nicht nur flache Felder).
-function jsToFirestoreValue(v) {
-    if (v === null || v === undefined) return { nullValue: null };
-    if (typeof v === 'boolean') return { booleanValue: v };
-    if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: v } : { doubleValue: v };
-    if (Array.isArray(v)) return { arrayValue: { values: v.map(jsToFirestoreValue) } };
-    if (typeof v === 'object') {
-        const fields = {};
-        Object.keys(v).forEach(key => { fields[key] = jsToFirestoreValue(v[key]); });
-        return { mapValue: { fields } };
-    }
-    return { stringValue: String(v) };
-}
-
-// Kehrt jsToFirestoreValue um - liest ein Firestore-REST-Wertfeld zurück in
-// einen normalen JS-Wert.
-function firestoreValueToJs(v) {
-    if (!v) return null;
-    if ('nullValue' in v) return null;
-    if ('booleanValue' in v) return v.booleanValue;
-    if ('integerValue' in v) return parseInt(v.integerValue, 10);
-    if ('doubleValue' in v) return v.doubleValue;
-    if ('stringValue' in v) return v.stringValue;
-    if ('arrayValue' in v) return (v.arrayValue.values || []).map(firestoreValueToJs);
-    if ('mapValue' in v) {
-        const obj = {};
-        const fields = v.mapValue.fields || {};
-        Object.keys(fields).forEach(key => { obj[key] = firestoreValueToJs(fields[key]); });
-        return obj;
-    }
-    return null;
-}
-
-function firestoreRestRequest(method, url, body) {
-    return new Promise((resolve, reject) => {
-        const payload = body ? JSON.stringify(body) : undefined;
-        const req = https.request(url, {
-            method,
-            headers: payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}
-        }, res => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    resolve(data ? JSON.parse(data) : null);
-                } else {
-                    reject(new Error(`Firestore REST API Status ${res.statusCode}: ${data}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        if (payload) req.write(payload);
-        req.end();
-    });
+async function addBookingToFirestore(booking) {
+    const ref = await db.collection('buchungen').add(booking);
+    return ref.id;
 }
 
 // Sucht Buchungen, deren Feld "email" zum Absender passt (case-insensitiv,
 // da Kunden ihre Adresse mal groß, mal klein schreiben). Gibt die zuletzt
 // bearbeitete passende Buchung zurück, oder null.
 async function findBookingByEmail(fromAddress) {
-    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
     const candidates = [fromAddress, fromAddress.toLowerCase()];
     let matches = [];
 
     for (const candidate of candidates) {
-        const body = {
-            structuredQuery: {
-                from: [{ collectionId: 'buchungen' }],
-                where: {
-                    fieldFilter: {
-                        field: { fieldPath: 'email' },
-                        op: 'EQUAL',
-                        value: { stringValue: candidate }
-                    }
-                },
-                limit: 10
-            }
-        };
-        const results = await firestoreRestRequest('POST', url, body);
-        (results || []).forEach(r => { if (r.document) matches.push(r.document); });
+        const snapshot = await db.collection('buchungen').where('email', '==', candidate).get();
+        snapshot.forEach(doc => matches.push(doc));
         if (matches.length > 0) break;
     }
 
     if (matches.length === 0) return null;
 
-    matches.sort((a, b) => {
-        const aFields = a.fields || {};
-        const bFields = b.fields || {};
-        const aMs = aFields.lastModifiedMs ? firestoreValueToJs(aFields.lastModifiedMs) : 0;
-        const bMs = bFields.lastModifiedMs ? firestoreValueToJs(bFields.lastModifiedMs) : 0;
-        return bMs - aMs;
-    });
+    matches.sort((a, b) => (b.data().lastModifiedMs || 0) - (a.data().lastModifiedMs || 0));
 
     return matches[0];
 }
 
 // Hängt eine empfangene Kunden-Nachricht an das emailHistory-Array der
-// gefundenen Buchung an (Read-Modify-Write, da die REST-API kein arrayUnion
-// über einfache PATCH-Requests unterstützt).
-async function appendReceivedMessageToBooking(document, message, receivedAtIso) {
-    const docId = document.name.split('/').pop();
-    const fields = document.fields || {};
-    const existingHistory = fields.emailHistory ? firestoreValueToJs(fields.emailHistory) : [];
-
-    existingHistory.push({
-        message: message,
-        direction: 'received',
-        timestamp: receivedAtIso
-    });
-
+// gefundenen Buchung an.
+async function appendReceivedMessageToBooking(doc, message, receivedAtIso) {
     const now = new Date();
     const updatedDate = `${now.getDate().toString().padStart(2, '0')}.${(now.getMonth() + 1).toString().padStart(2, '0')}.${now.getFullYear()}`;
 
-    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/buchungen/${docId}` +
-        `?updateMask.fieldPaths=emailHistory&updateMask.fieldPaths=aktualisiertAm&updateMask.fieldPaths=lastModified&updateMask.fieldPaths=lastModifiedMs` +
-        `&key=${FIREBASE_API_KEY}`;
-
-    const body = {
-        fields: {
-            emailHistory: jsToFirestoreValue(existingHistory),
-            aktualisiertAm: { stringValue: updatedDate },
-            lastModified: { stringValue: now.toISOString() },
-            lastModifiedMs: { integerValue: now.getTime() }
-        }
-    };
-
-    await firestoreRestRequest('PATCH', url, body);
-    return docId;
-}
-
-function addBookingToFirestore(booking) {
-    return new Promise((resolve, reject) => {
-        const fields = {};
-        Object.keys(booking).forEach(key => { fields[key] = firestoreValue(booking[key]); });
-        const body = JSON.stringify({ fields });
-
-        const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/buchungen?key=${FIREBASE_API_KEY}`;
-        const req = https.request(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-        }, res => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    resolve(JSON.parse(data));
-                } else {
-                    reject(new Error(`Firestore REST API Status ${res.statusCode}: ${data}`));
-                }
-            });
-        });
-        req.on('error', reject);
-        req.write(body);
-        req.end();
+    await doc.ref.update({
+        emailHistory: admin.firestore.FieldValue.arrayUnion({
+            message: message,
+            direction: 'received',
+            timestamp: receivedAtIso
+        }),
+        aktualisiertAm: updatedDate,
+        lastModified: now.toISOString(),
+        lastModifiedMs: now.getTime()
     });
+
+    return doc.id;
 }
 
 const GERMAN_MONTHS = {
@@ -355,9 +244,8 @@ async function run() {
                     continue;
                 }
 
-                const ref = await addBookingToFirestore(booking);
+                const docId = await addBookingToFirestore(booking);
                 imported++;
-                const docId = (ref.name || '').split('/').pop();
                 console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
                 continue;
             }

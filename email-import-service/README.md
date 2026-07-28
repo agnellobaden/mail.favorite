@@ -17,10 +17,10 @@ bereits selbst direkt in Firestore (zu erkennen an `source: "website"` in
 den Buchungsdaten) - dieser Dienst hier ist die Rückfalllösung für
 Anfragen, die nur als E-Mail ankommen, ohne diesen direkten Weg.
 
-Da die Firestore-Regeln aktuell offen sind (`allow read, write: if true`),
-reicht die öffentliche Web-API - **kein Firebase-Admin-Schlüssel nötig.**
-⚠️ Das ist gleichzeitig ein Sicherheitsrisiko für die gesamte App, nicht nur
-für diesen Import - siehe `ANLEITUNG-SICHERHEIT.md`.
+Schreibt über das **Firebase Admin SDK** (Service-Account-Schlüssel) in
+Firestore - nötig, seit die Firestore-Regeln auf die drei erlaubten
+E-Mail-Adressen beschränkt sind (siehe `ANLEITUNG-SICHERHEIT.md`). Der
+öffentliche API-Key allein reicht seitdem nicht mehr aus.
 
 ## Einmalige Einrichtung
 
@@ -44,14 +44,28 @@ Schritt 1 eintragen:
 
 Diese Datei ist in `.gitignore` und wird nie committet.
 
-### 3. Abhängigkeiten installieren
+### 3. Firebase-Service-Account-Schlüssel erstellen
+
+1. [Firebase Console](https://console.firebase.google.com/) → Projekt
+   **mailfavorite-e8f49** → ⚙️ **Projekteinstellungen** → Tab
+   **Dienstkonten** (Service Accounts)
+2. **"Neuen privaten Schlüssel generieren"** klicken → Datei wird
+   heruntergeladen (ein `.json`-Dateiname wie
+   `mailfavorite-e8f49-firebase-adminsdk-xxxxx.json`)
+3. Diese Datei in diesen Ordner (`email-import-service/`) kopieren und in
+   **`firebase-service-account.json`** umbenennen
+4. Diese Datei ist in `.gitignore` und wird nie committet - sie gewährt
+   vollen Admin-Zugriff auf die Datenbank, daher niemals weitergeben oder
+   ins öffentliche GitHub-Repo hochladen
+
+### 4. Abhängigkeiten installieren
 
 ```bash
 cd email-import-service
 npm install
 ```
 
-### 4. Einmal manuell testen
+### 5. Einmal manuell testen
 
 ```bash
 node import.js
@@ -92,6 +106,9 @@ in `import.js` (Objekt `PATTERNS`) angepasst werden.
 - **"Login failed"** → App-Passwort falsch oder 2FA nicht aktiv
 - **Keine E-Mails gefunden** → prüfen, ob die Test-Mail wirklich ungelesen im
   Postfach `eisfavorit@gmail.com` liegt (nicht in Spam o.ä.)
-- **Firestore-Fehler** → prüfen, ob die Firestore-Regeln (noch) offen sind;
-  falls sie inzwischen verschärft wurden, braucht dieser Dienst dann doch
-  wieder eine Authentifizierung (z.B. Service-Account)
+- **"firebase-service-account.json fehlt"** → Schritt 3 oben nochmal
+  durchführen
+- **"PERMISSION_DENIED" trotz Service-Account** → prüfen, ob im Service-Account
+  wirklich die Firestore-Berechtigung vorhanden ist (Standard-Rolle
+  "Firebase Admin SDK Administrator Service Agent" - wird beim Erstellen
+  automatisch mitgeliefert, sollte also normalerweise passen)
