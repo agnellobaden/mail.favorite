@@ -7391,6 +7391,18 @@
                 const card = createBookingCardElement(booking, index, null, false);
                 card.style.marginBottom = '15px';
 
+                // Menüpunkte (Bearbeiten, E-Mail Verlauf, ...) öffnen eigene
+                // Modals mit niedrigerem z-index als dieses Popup - ohne das
+                // Popup zu schließen, würden sie unsichtbar dahinter liegen.
+                const menuEl = card.querySelector('.card-menu');
+                if (menuEl) {
+                    menuEl.addEventListener('click', function(e) {
+                        if (e.target.closest('.card-menu-item')) {
+                            overlay.remove();
+                        }
+                    });
+                }
+
                 const statusCheck = booking.status ? booking.status.trim().toUpperCase() : '';
                 const isGebucht = statusCheck === 'GEBUCHT' || statusCheck.includes('GEBUCHT');
                 if (!isGebucht) {
