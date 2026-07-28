@@ -4208,6 +4208,18 @@
             });
 
             bookings.forEach((booking, index) => {
+                const card = createBookingCardElement(booking, index, nextBooking);
+                container.appendChild(card);
+            });
+
+            // Angezeigte Einträge aktualisieren
+            document.getElementById('displayedEntries').textContent = bookings.length;
+        }
+
+        // Baut eine einzelne Buchungskarte (gleiches Aussehen/Buttons wie in
+        // der normalen Übersicht) - wiederverwendet von displayCards() und
+        // vom "Termine am Tag"-Popup, damit beide identisch aussehen.
+        function createBookingCardElement(booking, index, nextBooking) {
                 const isNext = booking === nextBooking;
                 const card = document.createElement('div');
                 card.className = 'booking-card';
@@ -4343,11 +4355,7 @@
                     }
                 });
 
-                container.appendChild(card);
-            });
-
-            // Angezeigte Einträge aktualisieren
-            document.getElementById('displayedEntries').textContent = bookings.length;
+                return card;
         }
 
         // Tabellen-Ansicht anzeigen (Buchungen)
@@ -7343,57 +7351,60 @@
 
             if (dayBookings.length === 0) return;
 
-            // Create a nice display of bookings for this day
-            let bookingsHTML = `
-                <div style="background: white; padding: 15px; border-radius: 10px; max-width: 600px; width: calc(100vw - 40px); margin: 10px auto; max-height: 80vh; overflow-y: auto;">
-                    <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">📅 Termine am ${dateStr}</h3>
-            `;
-
-            dayBookings.forEach(booking => {
-                // Trim status to remove whitespace and check if it contains "GEBUCHT"
-                const statusCheck = booking.status ? booking.status.trim().toUpperCase() : '';
-                const isGebucht = statusCheck === 'GEBUCHT' || statusCheck.includes('GEBUCHT');
-                const bgColor = isGebucht ? '#e8f5e9' : '#e3f2fd';
-                const borderColor = isGebucht ? '#4CAF50' : '#667eea';
-                const statusLabel = isGebucht ? 'Gebucht' : 'NEU';
-                const statusColor = isGebucht ? '#4CAF50' : '#667eea';
-
-                bookingsHTML += `
-                    <div onclick="this.closest('[style*=\\'position: fixed\\']').remove(); editBooking('${booking.id}')" style="background: ${bgColor}; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor}; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
-                            <div style="font-weight: 700; color: #333; flex: 1; word-break: break-word;">
-                                ${booking.name || 'Unbekannt'}
-                            </div>
-                            <div style="background: ${statusColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.7em; font-weight: 700; white-space: nowrap;">
-                                ${statusLabel}
-                            </div>
-                        </div>
-                        <div style="font-size: 0.85em; color: #666; line-height: 1.6; word-break: break-word;">
-                            <strong>Uhrzeit:</strong> ${booking.time || '-'} ${booking.timeEnd ? '- ' + booking.timeEnd : ''}<br>
-                            ${booking.email ? `<strong>E-Mail:</strong> <span style="word-break: break-all;">${booking.email}</span><br>` : ''}
-                            ${booking.phone ? `<strong>Telefon:</strong> ${booking.phone}<br>` : ''}
-                            ${booking.guests ? `<strong>Gäste:</strong> ${booking.guests}<br>` : ''}
-                            ${booking.address ? `<strong>Adresse:</strong> ${booking.address}` : ''}
-                        </div>
-                        ${!isGebucht ? `
-                        <button onclick="event.stopPropagation(); markAsGebucht('${booking.id}', this.closest('[style*=\\'position: fixed\\']'))"
-                                style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9em; transition: all 0.3s ease;">
-                            ✓ Als Gebucht markieren
-                        </button>
-                        ` : ''}
-                    </div>
-                `;
-            });
-
-            bookingsHTML += `
-                    <button onclick="this.parentElement.remove()" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Schließen</button>
-                </div>
-            `;
-
-            // Show in modal overlay
+            // Overlay + Container - zeigt die Buchungen mit den exakt
+            // gleichen Karten (inkl. Anrufen/Navigation/Chat-Verlauf-Buttons)
+            // wie die normale Übersicht, statt einer vereinfachten Info-Box.
             const overlay = document.createElement('div');
             overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;';
-            overlay.innerHTML = bookingsHTML;
+
+            const container = document.createElement('div');
+            container.style.cssText = 'background: white; padding: 15px; border-radius: 10px; max-width: 500px; width: calc(100vw - 40px); margin: 10px auto; max-height: 80vh; overflow-y: auto;';
+
+            const title = document.createElement('h3');
+            title.style.cssText = 'color: #667eea; margin-bottom: 15px; font-size: 1.1em;';
+            title.textContent = `📅 Termine am ${dateStr}`;
+            container.appendChild(title);
+
+            dayBookings.forEach((booking, index) => {
+                const card = createBookingCardElement(booking, index, null);
+                card.style.marginBottom = '15px';
+
+                // Beim Klick auf die Karte (nicht auf Button/Link/Menü) auch
+                // das Termine-Popup schließen, damit die Bearbeiten-Ansicht
+                // ohne den grauen Hintergrund-Overlay erscheint.
+                card.addEventListener('click', function(e) {
+                    if (!e.target.closest('a') &&
+                        !e.target.closest('button') &&
+                        !e.target.closest('.card-menu')) {
+                        overlay.remove();
+                    }
+                });
+
+                const statusCheck = booking.status ? booking.status.trim().toUpperCase() : '';
+                const isGebucht = statusCheck === 'GEBUCHT' || statusCheck.includes('GEBUCHT');
+                if (!isGebucht) {
+                    const markBtn = document.createElement('button');
+                    markBtn.type = 'button';
+                    markBtn.textContent = '✓ Als Gebucht markieren';
+                    markBtn.style.cssText = 'width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9em;';
+                    markBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        markAsGebucht(booking.id, overlay);
+                    };
+                    card.appendChild(markBtn);
+                }
+
+                container.appendChild(card);
+            });
+
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Schließen';
+            closeBtn.className = 'btn btn-primary';
+            closeBtn.style.cssText = 'width: 100%; margin-top: 10px;';
+            closeBtn.onclick = () => overlay.remove();
+            container.appendChild(closeBtn);
+
+            overlay.appendChild(container);
             overlay.onclick = (e) => {
                 if (e.target === overlay) overlay.remove();
             };
