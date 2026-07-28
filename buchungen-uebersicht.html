@@ -4219,7 +4219,7 @@
         // Baut eine einzelne Buchungskarte (gleiches Aussehen/Buttons wie in
         // der normalen Übersicht) - wiederverwendet von displayCards() und
         // vom "Termine am Tag"-Popup, damit beide identisch aussehen.
-        function createBookingCardElement(booking, index, nextBooking) {
+        function createBookingCardElement(booking, index, nextBooking, clickToEdit = true) {
                 const isNext = booking === nextBooking;
                 const card = document.createElement('div');
                 card.className = 'booking-card';
@@ -4344,16 +4344,19 @@
                     </div>
                 `;
 
-                // Karte anklickbar machen zum Bearbeiten
-                card.style.cursor = 'pointer';
-                card.addEventListener('click', function(e) {
-                    // Nur öffnen wenn nicht auf Button, Link oder Menü geklickt wurde
-                    if (!e.target.closest('a') &&
-                        !e.target.closest('button') &&
-                        !e.target.closest('.card-menu')) {
-                        editBooking(booking.id);
-                    }
-                });
+                // Karte anklickbar machen zum Bearbeiten (nicht im Termine-
+                // am-Tag-Popup - dort soll die Karte nur angezeigt werden)
+                if (clickToEdit) {
+                    card.style.cursor = 'pointer';
+                    card.addEventListener('click', function(e) {
+                        // Nur öffnen wenn nicht auf Button, Link oder Menü geklickt wurde
+                        if (!e.target.closest('a') &&
+                            !e.target.closest('button') &&
+                            !e.target.closest('.card-menu')) {
+                            editBooking(booking.id);
+                        }
+                    });
+                }
 
                 return card;
         }
@@ -7366,19 +7369,10 @@
             container.appendChild(title);
 
             dayBookings.forEach((booking, index) => {
-                const card = createBookingCardElement(booking, index, null);
+                // clickToEdit=false: die Karte hier soll nur angezeigt
+                // werden, nicht direkt ins Bearbeiten-Formular springen.
+                const card = createBookingCardElement(booking, index, null, false);
                 card.style.marginBottom = '15px';
-
-                // Beim Klick auf die Karte (nicht auf Button/Link/Menü) auch
-                // das Termine-Popup schließen, damit die Bearbeiten-Ansicht
-                // ohne den grauen Hintergrund-Overlay erscheint.
-                card.addEventListener('click', function(e) {
-                    if (!e.target.closest('a') &&
-                        !e.target.closest('button') &&
-                        !e.target.closest('.card-menu')) {
-                        overlay.remove();
-                    }
-                });
 
                 const statusCheck = booking.status ? booking.status.trim().toUpperCase() : '';
                 const isGebucht = statusCheck === 'GEBUCHT' || statusCheck.includes('GEBUCHT');
