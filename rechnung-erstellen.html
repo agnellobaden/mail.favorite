@@ -1603,6 +1603,21 @@
                         bookings[bookingIndex].lastModifiedMs = Date.now();
 
                         localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                        if (db) {
+                            db.collection('buchungen').doc(bookingId).set({
+                                invoiceSent: bookings[bookingIndex].invoiceSent,
+                                invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                                invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                                invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                                status: 'Rechnung versendet',
+                                aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                                lastModified: bookings[bookingIndex].lastModified,
+                                lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                            }, { merge: true }).catch(err => {
+                                console.error('❌ Firestore-Speicherung (versendet) fehlgeschlagen:', err);
+                            });
+                        }
                     }
                 }
 
@@ -1690,9 +1705,25 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].lastModifiedMs = Date.now();
 
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    if (db) {
+                        db.collection('buchungen').doc(bookingId).set({
+                            invoiceSent: bookings[bookingIndex].invoiceSent,
+                            invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                            invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                            invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                            status: 'Rechnung versendet',
+                            aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                            lastModified: bookings[bookingIndex].lastModified,
+                            lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                        }, { merge: true }).catch(err => {
+                            console.error('❌ Firestore-Speicherung (versendet) fehlgeschlagen:', err);
+                        });
+                    }
+
                     logToBookingHistory(`✅ Rechnung ${invoiceNumber} als versendet markiert (Betrag: ${totalBrutto})`);
 
-                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto);
 
                     // Seite neu laden, um Status-Banner anzuzeigen
                     location.reload();
@@ -1740,9 +1771,32 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].lastModifiedMs = Date.now();
 
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    // WICHTIG: Zusätzlich direkt in Firestore schreiben - sonst
+                    // überschreibt die Buchungsübersicht (die ständig mit
+                    // Firestore synchronisiert) diesen Stand wieder mit der
+                    // alten "unbezahlt"-Version, und die Rechnung taucht
+                    // weiterhin in den offenen Listen auf.
+                    if (db) {
+                        db.collection('buchungen').doc(bookingId).set({
+                            invoicePaid: true,
+                            invoicePaidDate: bookings[bookingIndex].invoicePaidDate,
+                            invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                            invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                            invoiceSent: bookings[bookingIndex].invoiceSent,
+                            invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                            status: 'Bezahlte Rechnung',
+                            aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                            lastModified: bookings[bookingIndex].lastModified,
+                            lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                        }, { merge: true }).catch(err => {
+                            console.error('❌ Firestore-Speicherung (bezahlt) fehlgeschlagen:', err);
+                        });
+                    }
+
                     logToBookingHistory(`💰 Rechnung ${invoiceNumber} als bezahlt markiert (Betrag: ${totalBrutto})`);
 
-                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE') + '\n\n✓ Änderung wird bei nächstem Sync mit Firebase synchronisiert.');
+                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
 
                     // Seite neu laden, um Status-Banner anzuzeigen
                     location.reload();
