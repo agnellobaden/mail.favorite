@@ -6277,7 +6277,12 @@
             }
 
             displayEmailChat();
-            document.getElementById('emailChatModal').style.display = 'block';
+            const modal = document.getElementById('emailChatModal');
+            modal.style.display = 'block';
+            // Erzwingt ein sofortiges Neuzeichnen - auf manchen mobilen
+            // Browsern wird ein fixed-position-Element sonst erst beim
+            // nächsten Klick/Scroll tatsächlich sichtbar.
+            void modal.offsetHeight;
         }
 
         // E-Mail Chat anzeigen (WhatsApp-Style)
@@ -7354,7 +7359,7 @@
                 const statusColor = isGebucht ? '#4CAF50' : '#667eea';
 
                 bookingsHTML += `
-                    <div style="background: ${bgColor}; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor};">
+                    <div onclick="this.closest('[style*=\\'position: fixed\\']').remove(); editBooking('${booking.id}')" style="background: ${bgColor}; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor}; cursor: pointer;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
                             <div style="font-weight: 700; color: #333; flex: 1; word-break: break-word;">
                                 ${booking.name || 'Unbekannt'}
@@ -7371,7 +7376,7 @@
                             ${booking.address ? `<strong>Adresse:</strong> ${booking.address}` : ''}
                         </div>
                         ${!isGebucht ? `
-                        <button onclick="markAsGebucht('${booking.id}', this.closest('[style*=\\'position: fixed\\']'))"
+                        <button onclick="event.stopPropagation(); markAsGebucht('${booking.id}', this.closest('[style*=\\'position: fixed\\']'))"
                                 style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9em; transition: all 0.3s ease;">
                             ✓ Als Gebucht markieren
                         </button>
