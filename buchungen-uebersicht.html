@@ -2580,9 +2580,14 @@
                     </div>
                 </div>
                 <div class="form-actions" style="justify-content: space-between;">
-                    <button type="button" class="btn" id="deleteBookingBtn" onclick="deleteBooking()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; display: none;">
-                        🗑️ Löschen
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn" id="deleteBookingBtn" onclick="deleteBooking()" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; display: none;">
+                            🗑️ Löschen
+                        </button>
+                        <button type="button" class="btn" id="openInvoiceBtn" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; display: none;">
+                            🧾 Rechnung öffnen
+                        </button>
+                    </div>
                     <div style="display: flex; gap: 10px;">
                         <button type="button" class="btn btn-secondary" id="cancelFormBtn">Abbrechen</button>
                         <button type="submit" class="btn btn-primary">Speichern</button>
@@ -4517,6 +4522,7 @@
 
             // Löschen-Button verstecken (neue Buchung kann nicht gelöscht werden)
             document.getElementById('deleteBookingBtn').style.display = 'none';
+            document.getElementById('openInvoiceBtn').style.display = 'none';
 
             document.getElementById('formModal').style.display = 'block';
             document.getElementById('bookingForm').reset();
@@ -6066,6 +6072,18 @@
 
             // Löschen-Button anzeigen
             document.getElementById('deleteBookingBtn').style.display = 'block';
+
+            // "Rechnung öffnen"-Button: nur solange eine Rechnung existiert
+            // (versendet) und noch NICHT bezahlt wurde.
+            const openInvoiceBtn = document.getElementById('openInvoiceBtn');
+            if (booking.invoiceSent && !booking.invoicePaid) {
+                openInvoiceBtn.style.display = 'block';
+                openInvoiceBtn.onclick = () => {
+                    window.location.href = 'rechnung-erstellen.html?bookingId=' + encodeURIComponent(booking.id);
+                };
+            } else {
+                openInvoiceBtn.style.display = 'none';
+            }
 
             // Formular öffnen
             document.getElementById('formModal').style.display = 'block';
