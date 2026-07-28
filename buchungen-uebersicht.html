@@ -2177,9 +2177,9 @@
                 <button onclick="openCalendar()" title="Terminkalender öffnen" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(102,126,234,0.3); flex-shrink: 0;">📅</button>
                 <button onclick="window.location.href='strichliste-frei.html'" title="Freier Verkauf (ohne Buchung)" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(245,124,0,0.3); flex-shrink: 0;">🧮</button>
                 <a href="dashboard.html" class="btn btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; font-weight: 600; transition: all 0.3s;">💰 Dashboard</a>
-                <div id="firebaseStatus" style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: #f8f9fa; border-radius: 8px;">
+                <div id="firebaseStatus" title="Verbinde..." style="display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0;">
                     <div id="firebaseStatusDot" style="width: 10px; height: 10px; background: #ffc107; border-radius: 50%;"></div>
-                    <span id="firebaseStatusText" style="font-size: 0.85em; font-weight: 600; color: #666;">Verbinde...</span>
+                    <span id="firebaseStatusText" style="display: none;">Verbinde...</span>
                 </div>
             </div>
         </div>
@@ -2816,31 +2816,35 @@
         function updateFirebaseStatus(status, message) {
             const dot = document.getElementById('firebaseStatusDot');
             const text = document.getElementById('firebaseStatusText');
+            const container = document.getElementById('firebaseStatus');
 
             if (!dot || !text) return;
 
+            let statusText = '';
             switch(status) {
                 case 'connected':
                     dot.style.background = '#4CAF50';
-                    text.style.color = '#4CAF50';
-                    text.textContent = message || '🟢 Live verbunden';
+                    statusText = message || 'Live verbunden';
                     break;
                 case 'syncing':
                     dot.style.background = '#2196F3';
-                    text.style.color = '#2196F3';
-                    text.textContent = message || '🔄 Synchronisiere...';
+                    statusText = message || 'Synchronisiere...';
                     break;
                 case 'error':
                     dot.style.background = '#f44336';
-                    text.style.color = '#f44336';
-                    text.textContent = message || '🔴 Getrennt';
+                    statusText = message || 'Getrennt';
                     break;
                 case 'connecting':
                     dot.style.background = '#ffc107';
-                    text.style.color = '#ffc107';
-                    text.textContent = message || '🟡 Verbinde...';
+                    statusText = message || 'Verbinde...';
                     break;
             }
+
+            // Nur ein einziger kleiner Punkt sichtbar - der Text steht als
+            // Tooltip zur Verfügung, ohne Platz auf der Seite zu brauchen.
+            statusText = statusText.replace(/^[🟢🔄🔴🟡]\s*/, '');
+            text.textContent = statusText;
+            if (container) container.title = statusText;
         }
 
         // Firebase initialisieren
