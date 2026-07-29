@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werbung / Firmen-Akquise - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<!-- Google Identity Services: für den direkten Gmail-API-Versand echter HTML-E-Mails -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="js/gmail-api.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .stats {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        flex: 1;
+        min-width: 130px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+    .stat-card .num { font-size: 1.8em; font-weight: 700; }
+    .stat-card .label { font-size: 0.8em; opacity: 0.9; }
+    .stat-card.neu { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stat-card.kontaktiert { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); }
+    .stat-card.gebucht { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .stat-card.abgelehnt { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
+
+    .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95em;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-flyer { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; }
+
+    .actions-menu-wrap { position: relative; display: inline-block; }
+    .actions-dropdown {
+        display: none;
+        position: absolute;
+        top: 110%;
+        left: 0;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+        min-width: 320px;
+        z-index: 1000;
+        padding: 8px 0;
+    }
+    .actions-dropdown.active { display: block; }
+    .actions-group-label {
+        padding: 8px 16px 4px;
+        font-size: 0.75em;
+        font-weight: 700;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .actions-dropdown button, .actions-dropdown a {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 10px 16px;
+        background: none;
+        border: none;
+        color: #333;
+        font-size: 0.95em;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+    .actions-dropdown button:hover, .actions-dropdown a:hover { background: #f0f0f0; }
+    .actions-dropdown hr { margin: 6px 0; border: none; border-top: 1px solid #eee; }
+
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .filter-row select, .filter-row input {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
+    tr:hover { background: #f8f9fa; }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 700;
+        color: white;
+        display: inline-block;
+    }
+    .status-neu { background: #667eea; }
+    .status-kontaktiert { background: #f57c00; }
+    .status-gebucht { background: #28a745; }
+    .status-abgelehnt { background: #6c757d; }
+
+    .status-select {
+        padding: 5px 8px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        font-size: 0.85em;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #888;
+    }
+    .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+
+    .table-wrap { overflow-x: auto; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>📢 Werbung / Firmen-Akquise</h1>
+        <p class="subtitle">Firmen &amp; Schulen im 50km-Umkreis von Kuppenheim für EisFavorite-Buchungen gewinnen</p>
+
+        <div class="stats">
+            <div class="stat-card neu"><div class="num" id="statNeu">0</div><div class="label">Neu</div></div>
+            <div class="stat-card kontaktiert"><div class="num" id="statKontaktiert">0</div><div class="label">Kontaktiert</div></div>
+            <div class="stat-card gebucht"><div class="num" id="statGebucht">0</div><div class="label">Gebucht</div></div>
+            <div class="stat-card abgelehnt"><div class="num" id="statAbgelehnt">0</div><div class="label">Abgelehnt</div></div>
+            <div class="stat-card" style="background:#999;"><div class="num" id="statArchiviert">0</div><div class="label">Archiviert (ohne E-Mail)</div></div>
+            <div class="stat-card" style="background:#333;"><div class="num" id="statGesamt">0</div><div class="label">Gesamt</div></div>
+        </div>
+
+        <div class="actions">
+            <div class="actions-menu-wrap">
+                <button class="btn btn-primary" onclick="toggleActionsMenu(event)">☰ Aktionen</button>
+                <div id="actionsDropdown" class="actions-dropdown">
+                    <div class="actions-group-label">🔍 Firmen finden</div>
+                    <button onclick="startFirmensuche(); closeActionsMenu();">🔍 Firmensuche starten (n8n)</button>
+                    <button onclick="openManualLeadForm(); closeActionsMenu();">➕ Firma manuell hinzufügen</button>
+                    <button onclick="importRecherchierteLeads(); closeActionsMenu();">📋 Recherchierte Leads importieren (Kuppenheim + Region)</button>
+                    <hr>
+                    <div class="actions-group-label">🗄️ Aufräumen</div>
+                    <button onclick="archiveLeadsWithoutEmail(); closeActionsMenu();">🗄️ Einträge ohne E-Mail archivieren</button>
+                    <button onclick="recategorizeAllLeads(); closeActionsMenu();">🏷️ Kategorien neu zuordnen (alle Einträge)</button>
+                    <hr>
+                    <div class="actions-group-label">🍦 Flyer</div>
+                    <a href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
+                    <hr>
+                    <div class="actions-group-label">⚙️ Einrichtung</div>
+                    <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
+                </div>
+            </div>
+            <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
+        </div>
+
+        <div class="filter-row">
+            <select id="statusFilter" onchange="renderLeads()">
+                <option value="alle">Alle Status (ohne Archiv)</option>
+                <option value="neu">Neu</option>
+                <option value="kontaktiert">Kontaktiert</option>
+                <option value="gebucht">Gebucht</option>
+                <option value="abgelehnt">Abgelehnt</option>
+                <option value="archiviert">Archiviert (ohne E-Mail)</option>
+            </select>
+            <select id="categoryFilter" onchange="renderLeads()">
+                <option value="alle">Alle Kategorien</option>
+                <option value="firma">🏢 Firma</option>
+                <option value="schule">🏫 Schule</option>
+                <option value="kindergarten">🧸 Kindergarten/Kita</option>
+                <option value="foerderverein">🎗️ Förderverein</option>
+                <option value="verein">🤝 Verein</option>
+                <option value="verwaltung">🏛️ Verwaltung</option>
+            </select>
+            <input type="text" id="searchFilter" placeholder="Firma, Ort suchen..." oninput="renderLeads()">
+            <select id="sortField" onchange="renderLeads()">
+                <option value="category">Kategorie</option>
+                <option value="">Sortieren nach...</option>
+                <option value="employees">Mitarbeiterzahl</option>
+                <option value="distanceKm">Entfernung (km)</option>
+                <option value="name">Firma (A-Z)</option>
+            </select>
+            <select id="sortDirection" onchange="renderLeads()">
+                <option value="desc">Absteigend (größte/weiteste zuerst)</option>
+                <option value="asc">Aufsteigend (kleinste/nächste zuerst)</option>
+            </select>
+        </div>
+
+        <div class="table-wrap">
+            <table id="leadsTable">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"></th>
+                        <th>Kategorie</th>
+                        <th>Firma</th>
+                        <th>Ansprechpartner</th>
+                        <th>Adresse</th>
+                        <th>Telefon</th>
+                        <th>E-Mail</th>
+                        <th>Mitarbeiter</th>
+                        <th>Entfernung</th>
+                        <th>Status</th>
+                        <th>Zuletzt kontaktiert</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">📭</div>
+                <p>Noch keine Firmen gefunden. Starte die Firmensuche über den Button oben.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="manualLeadModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:460px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
+            <h3 style="margin:0 0 18px 0; color:#667eea;">➕ Firma/Schule manuell hinzufügen</h3>
+            <form id="manualLeadForm" onsubmit="submitManualLead(event)">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Firma / Schule *</label>
+                        <input type="text" id="mlName" required style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Kategorie</label>
+                        <select id="mlCategory" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                            <option value="firma">🏢 Firma</option>
+                            <option value="schule">🏫 Schule</option>
+                            <option value="kindergarten">🧸 Kindergarten/Kita</option>
+                            <option value="verein">🤝 Verein/Förderverein</option>
+                            <option value="verwaltung">🏛️ Verwaltung</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Ansprechpartner</label>
+                        <input type="text" id="mlContactPerson" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Adresse</label>
+                        <input type="text" id="mlAddress" placeholder="Straße Hausnr., PLZ Ort" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Telefon</label>
+                        <input type="text" id="mlPhone" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">E-Mail</label>
+                        <input type="email" id="mlEmail" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Mitarbeiter</label>
+                            <input type="text" id="mlEmployees" placeholder="z.B. 5-9 oder 120" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Entfernung (km)</label>
+                            <input type="number" step="0.1" id="mlDistanceKm" placeholder="z.B. 12" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                    <button type="submit" class="btn btn-primary">✅ Hinzufügen</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeManualLeadForm()">✖ Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="flyerQueueModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:640px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
+            <h3 style="margin:0 0 14px 0; color:#667eea;">📧 Vorschau – Flyer personalisiert versenden</h3>
+            <p id="flyerQueueInfo" style="font-size:0.95em; line-height:1.6; color:#333; margin-bottom:14px;"></p>
+            <div style="font-size:0.85em; color:#888; margin-bottom:4px;">Betreff</div>
+            <div id="flyerPreviewSubject" style="font-weight:700; color:#333; margin-bottom:12px;"></div>
+            <div style="font-size:0.85em; color:#888; margin-bottom:6px;">So sieht die E-Mail aus (genau dieser Inhalt wird verschickt):</div>
+            <iframe id="flyerPreviewFrame" style="width:100%; height:380px; border:1px solid #eee; border-radius:10px; margin-bottom:18px;"></iframe>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-flyer" onclick="sendCurrentFlyerEmail()">📧 Jetzt per Gmail senden</button>
+                <button class="btn btn-secondary" onclick="skipCurrent()">⏭ Überspringen</button>
+                <button class="btn btn-secondary" onclick="closeFlyerQueueModal()">✖ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allLeads = [];
+        let selectedLeadIds = new Set();
+
+        function toggleActionsMenu(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('actionsDropdown').classList.toggle('active');
+        }
+
+        function closeActionsMenu() {
+            document.getElementById('actionsDropdown').classList.remove('active');
+        }
+
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('actionsDropdown');
+            const wrap = document.querySelector('.actions-menu-wrap');
+            if (dropdown && dropdown.classList.contains('active') && wrap && !wrap.contains(e.target)) {
+                closeActionsMenu();
+            }
+        });
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+            authDomain: "mailfavorite-e8f49.firebaseapp.com",
+            projectId: "mailfavorite-e8f49",
+            storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+            messagingSenderId: "73719715044",
+            appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+            measurementId: "G-WGRT5L3NCX"
+        };
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            startRealtimeSync();
+        }
+
+        function startRealtimeSync() {
+            db.collection('marketingLeads').onSnapshot(snapshot => {
+                allLeads = [];
+                snapshot.forEach(doc => {
+                    allLeads.push({ ...doc.data(), id: doc.id });
+                });
+                updateStats();
+                renderLeads();
+            }, error => {
+                console.error('Firestore-Fehler:', error);
+            });
+        }
+
+        // Wandelt "5-9", "~1.100" oder "14" in eine Zahl zum Sortieren um.
+        // Bei Bereichen ("5-9") wird der Mittelwert genutzt. Leere/unbekannte
+        // Werte geben null zurück und landen beim Sortieren immer am Ende.
+        function parseEmployeeCount(str) {
+            if (!str) return null;
+            const s = String(str).replace('~', '').trim();
+            if (s.includes('-')) {
+                const parts = s.split('-').map(p => parseInt(p.replace(/\./g, ''), 10)).filter(n => !isNaN(n));
+                if (parts.length === 0) return null;
+                return parts.reduce((a, b) => a + b, 0) / parts.length;
+            }
+            const n = parseInt(s.replace(/\./g, ''), 10);
+            return isNaN(n) ? null : n;
+        }
+
+        const CATEGORY_LABELS = {
+            firma: '🏢 Firma',
+            schule: '🏫 Schule',
+            kindergarten: '🧸 Kindergarten/Kita',
+            foerderverein: '🎗️ Förderverein',
+            verein: '🤝 Verein',
+            verwaltung: '🏛️ Verwaltung'
+        };
+        const CATEGORY_ORDER = ['firma', 'schule', 'kindergarten', 'foerderverein', 'verein', 'verwaltung'];
+
+        // Leitet die Kategorie aus dem Namen ab - dieselbe Logik, die auch
+        // für RECHERCHIERTE_LEADS_KUPPENHEIM verwendet wurde.
+        function guessCategoryFromName(name) {
+            const n = name || '';
+            if (/kindergarten|kita|kinderhaus|kindertagesst|kiga|zwergenstube|kinderkrippe|familienzentrum/i.test(n)) return 'kindergarten';
+            if (/förderverein|freunde und förderer/i.test(n)) return 'foerderverein';
+            if (/^DJK /i.test(n)) return 'verein';
+            if (/verein|e\.V\.|feuerwehr/i.test(n)) return 'verein';
+            if (/schule/i.test(n)) return 'schule';
+            if (/^Stadt |Verwaltung/i.test(n)) return 'verwaltung';
+            return 'firma';
+        }
+
+        function recategorizeAllLeads() {
+            if (!confirm(`Für alle ${allLeads.length} Einträge die Kategorie aus dem Namen neu ableiten und in Firestore speichern?\n\nBetrifft vor allem Einträge, die schon vor der Kategorie-Funktion importiert wurden und deshalb noch als "Firma" markiert sind.`)) return;
+
+            let done = 0;
+            allLeads.forEach(lead => {
+                const category = guessCategoryFromName(lead.name);
+                db.collection('marketingLeads').doc(lead.id).set({
+                    category,
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).then(() => {
+                    done++;
+                    if (done === allLeads.length) {
+                        alert('✅ Kategorien für ' + done + ' Einträge aktualisiert.');
+                    }
+                }).catch(err => {
+                    console.error('Fehler beim Neuzuordnen der Kategorie:', lead.name, err);
+                });
+            });
+        }
+
+        function updateStats() {
+            const withEmail = allLeads.filter(l => !!l.email);
+            document.getElementById('statNeu').textContent = withEmail.filter(l => (l.status || 'neu') === 'neu').length;
+            document.getElementById('statKontaktiert').textContent = withEmail.filter(l => l.status === 'kontaktiert').length;
+            document.getElementById('statGebucht').textContent = withEmail.filter(l => l.status === 'gebucht').length;
+            document.getElementById('statAbgelehnt').textContent = withEmail.filter(l => l.status === 'abgelehnt').length;
+            document.getElementById('statArchiviert').textContent = allLeads.filter(l => !l.email).length;
+            document.getElementById('statGesamt').textContent = allLeads.length;
+        }
+
+        function renderLeads() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase().trim();
+
+            // Nur Einträge mit E-Mail-Adresse werden in der Liste angezeigt -
+            // alles andere gilt als archiviert (weiterhin in Firestore vorhanden).
+            let filtered = allLeads.filter(l => !!l.email);
+            if (statusFilter === 'archiviert') {
+                filtered = allLeads.filter(l => !l.email);
+            } else if (statusFilter !== 'alle') {
+                filtered = filtered.filter(l => (l.status || 'neu') === statusFilter);
+            }
+            if (categoryFilter !== 'alle') {
+                filtered = filtered.filter(l => (l.category || 'firma') === categoryFilter);
+            }
+            if (searchFilter) {
+                filtered = filtered.filter(l =>
+                    (l.name || '').toLowerCase().includes(searchFilter) ||
+                    (l.address || '').toLowerCase().includes(searchFilter) ||
+                    (l.contactPerson || '').toLowerCase().includes(searchFilter)
+                );
+            }
+
+            const sortField = document.getElementById('sortField').value;
+            const sortDir = document.getElementById('sortDirection').value;
+            if (sortField === 'category') {
+                filtered = filtered.slice().sort((a, b) => {
+                    const ia = CATEGORY_ORDER.indexOf(a.category || 'firma');
+                    const ib = CATEGORY_ORDER.indexOf(b.category || 'firma');
+                    if (ia !== ib) return ia - ib;
+                    return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                });
+            } else if (sortField === 'name') {
+                filtered = filtered.slice().sort((a, b) => {
+                    const cmp = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+                    return sortDir === 'asc' ? cmp : -cmp;
+                });
+            } else if (sortField === 'employees' || sortField === 'distanceKm') {
+                filtered = filtered.slice().sort((a, b) => {
+                    const va = sortField === 'employees' ? parseEmployeeCount(a.employees) : (typeof a.distanceKm === 'number' ? a.distanceKm : null);
+                    const vb = sortField === 'employees' ? parseEmployeeCount(b.employees) : (typeof b.distanceKm === 'number' ? b.distanceKm : null);
+                    if (va === null && vb === null) return 0;
+                    if (va === null) return 1;
+                    if (vb === null) return -1;
+                    return sortDir === 'asc' ? va - vb : vb - va;
+                });
+            }
+
+            const tbody = document.getElementById('leadsBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            // Ausgewählte IDs bereinigen, die durch Filter/Löschung nicht mehr existieren
+            const visibleIds = new Set(filtered.map(l => l.id));
+            selectedLeadIds.forEach(id => { if (!visibleIds.has(id)) selectedLeadIds.delete(id); });
+
+            tbody.innerHTML = filtered.map(lead => {
+                const status = lead.status || 'neu';
+                const lastContacted = lead.lastContactedAt
+                    ? new Date(lead.lastContactedAt).toLocaleDateString('de-DE')
+                    : '-';
+                const checked = selectedLeadIds.has(lead.id) ? 'checked' : '';
+                const category = lead.category || 'firma';
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="lead-checkbox" data-id="${lead.id}" ${checked} onchange="toggleLeadSelection('${lead.id}', this.checked)"></td>
+                        <td>${CATEGORY_LABELS[category] || category}</td>
+                        <td><strong>${lead.name || 'Unbekannt'}</strong></td>
+                        <td>${lead.contactPerson || '-'}</td>
+                        <td>${lead.address || '-'}</td>
+                        <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
+                        <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
+                        <td>${lead.employees || '-'}</td>
+                        <td>${typeof lead.distanceKm === 'number' ? lead.distanceKm.toFixed(1) + ' km' : '-'}</td>
+                        <td>
+                            <select class="status-select" onchange="updateLeadStatus('${lead.id}', this.value)">
+                                <option value="neu" ${status === 'neu' ? 'selected' : ''}>Neu</option>
+                                <option value="kontaktiert" ${status === 'kontaktiert' ? 'selected' : ''}>Kontaktiert</option>
+                                <option value="gebucht" ${status === 'gebucht' ? 'selected' : ''}>Gebucht</option>
+                                <option value="abgelehnt" ${status === 'abgelehnt' ? 'selected' : ''}>Abgelehnt</option>
+                                <option value="archiviert" ${status === 'archiviert' ? 'selected' : ''}>Archiviert</option>
+                            </select>
+                        </td>
+                        <td>${lastContacted}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            updateSelectAllCheckbox(filtered);
+            updateSelectedCount();
+        }
+
+        function toggleLeadSelection(leadId, isChecked) {
+            if (isChecked) {
+                selectedLeadIds.add(leadId);
+            } else {
+                selectedLeadIds.delete(leadId);
+            }
+            updateSelectAllCheckbox();
+            updateSelectedCount();
+        }
+
+        function toggleSelectAll(checkAll) {
+            document.querySelectorAll('.lead-checkbox').forEach(cb => {
+                cb.checked = checkAll;
+                if (checkAll) {
+                    selectedLeadIds.add(cb.dataset.id);
+                } else {
+                    selectedLeadIds.delete(cb.dataset.id);
+                }
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectAllCheckbox() {
+            const boxes = document.querySelectorAll('.lead-checkbox');
+            const selectAll = document.getElementById('selectAllCheckbox');
+            if (!selectAll || boxes.length === 0) {
+                if (selectAll) selectAll.checked = false;
+                return;
+            }
+            selectAll.checked = [...boxes].every(cb => cb.checked);
+        }
+
+        function updateSelectedCount() {
+            const el = document.getElementById('selectedCount');
+            if (el) el.textContent = selectedLeadIds.size;
+        }
+
+        function updateLeadStatus(leadId, newStatus) {
+            db.collection('marketingLeads').doc(leadId).set({
+                status: newStatus,
+                lastModifiedMs: Date.now()
+            }, { merge: true }).catch(err => {
+                console.error('Fehler beim Status-Update:', err);
+                alert('Status konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function archiveLeadsWithoutEmail() {
+            const toArchive = allLeads.filter(l => !l.email && (l.status || 'neu') !== 'archiviert');
+            if (toArchive.length === 0) {
+                alert('Alle Einträge ohne E-Mail sind bereits archiviert.');
+                return;
+            }
+            if (!confirm(`${toArchive.length} Einträge ohne E-Mail-Adresse jetzt archivieren?\n\nSie bleiben in der Datenbank erhalten, verschwinden aber aus der normalen Ansicht (Filter "Archiviert" zeigt sie weiterhin an).`)) return;
+
+            let done = 0;
+            toArchive.forEach(lead => {
+                db.collection('marketingLeads').doc(lead.id).set({
+                    status: 'archiviert',
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).then(() => {
+                    done++;
+                    if (done === toArchive.length) {
+                        alert('✅ ' + done + ' Einträge archiviert.');
+                    }
+                }).catch(err => {
+                    console.error('Fehler beim Archivieren:', lead.name, err);
+                });
+            });
+        }
+
+        function configureWebhook() {
+            const current = localStorage.getItem('n8nWerbungWebhookUrl') || '';
+            const url = prompt(
+                'n8n-Webhook-URL für die Firmensuche eingeben\n(aus dem n8n-Workflow "EisFavorite: Firmensuche" → Webhook-Node → Production URL):',
+                current
+            );
+            if (url !== null) {
+                localStorage.setItem('n8nWerbungWebhookUrl', url.trim());
+                alert(url.trim() ? '✓ Webhook-URL gespeichert.' : 'Webhook-URL entfernt.');
+            }
+        }
+
+        function startFirmensuche() {
+            const url = localStorage.getItem('n8nWerbungWebhookUrl');
+            if (!url) {
+                alert('Bitte zuerst die n8n-Webhook-URL einrichten (Button "⚙️ n8n-Webhook einrichten").');
+                configureWebhook();
+                return;
+            }
+
+            if (!confirm('Firmensuche im 50km-Umkreis von Kuppenheim jetzt über n8n starten?')) return;
+
+            fetch(url, { method: 'POST' })
+                .then(res => {
+                    if (res.ok) {
+                        alert('✓ Firmensuche gestartet! Neue Firmen erscheinen automatisch in der Liste, sobald n8n sie gefunden hat.');
+                    } else {
+                        alert('⚠️ n8n hat mit Status ' + res.status + ' geantwortet. Prüfe den Workflow.');
+                    }
+                })
+                .catch(err => {
+                    alert('❌ Firmensuche konnte nicht gestartet werden: ' + err.message + '\n\nPrüfe, ob die Webhook-URL korrekt ist und n8n erreichbar ist.');
+                });
+        }
+
+        function openManualLeadForm() {
+            document.getElementById('manualLeadForm').reset();
+            document.getElementById('manualLeadModal').style.display = 'flex';
+        }
+
+        function closeManualLeadForm() {
+            document.getElementById('manualLeadModal').style.display = 'none';
+        }
+
+        function submitManualLead(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('mlName').value.trim();
+            if (!name) return;
+
+            const category = document.getElementById('mlCategory').value;
+            const contactPerson = document.getElementById('mlContactPerson').value.trim();
+            const address = document.getElementById('mlAddress').value.trim();
+            const phone = document.getElementById('mlPhone').value.trim();
+            const email = document.getElementById('mlEmail').value.trim();
+            const employees = document.getElementById('mlEmployees').value.trim();
+            const distanceRaw = document.getElementById('mlDistanceKm').value.trim();
+            const distanceKm = distanceRaw ? parseFloat(distanceRaw) : null;
+
+            const slug = name.toLowerCase()
+                .replace(/[äöüß]/g, c => ({ 'ä':'ae','ö':'oe','ü':'ue','ß':'ss' }[c]))
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const docId = 'lead-manuell-' + (slug || 'firma') + '-' + Date.now();
+
+            db.collection('marketingLeads').doc(docId).set({
+                name,
+                category,
+                contactPerson,
+                address,
+                phone,
+                email,
+                employees,
+                distanceKm,
+                lastModifiedMs: Date.now()
+            }).then(() => {
+                closeManualLeadForm();
+                alert('✅ "' + name + '" wurde hinzugefügt.');
+            }).catch(err => {
+                console.error('Fehler beim manuellen Hinzufügen:', err);
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        // Manuell recherchierte Leads (Kuppenheim) - per Websuche/Impressum/Handelsregister
+        // zusammengetragen, da Google Places keine Mitarbeiterzahlen liefert.
+        const RECHERCHIERTE_LEADS_KUPPENHEIM = [
+            { id: "lead-favoriteschule-kuppenheim", name: "Favoriteschule Kuppenheim (Grund-/Werkrealschule)", category: "schule", contactPerson: "Marco Wolny (Schulleitung)", address: "Schulstraße 8, 76456 Kuppenheim", phone: "07222 406780", email: "favoriteschule@kuppenheim.de", employees: "", distanceKm: 1 },
+            { id: "lead-werner-von-siemens-realschule-kuppenheim", name: "Werner-von-Siemens-Realschule Kuppenheim", category: "schule", contactPerson: "Jürgen Haller (Schulleitung)", address: "Wörtelstraße 23, 76456 Kuppenheim", phone: "07222 40699-0", email: "realschule@kuppenheim.de", employees: "", distanceKm: 1 },
+            { id: "lead-mercedes-benz-werk-kuppenheim", name: "Mercedes-Benz Werk Kuppenheim", category: "firma", contactPerson: "", address: "Mercedesstr. 1, 76456 Kuppenheim", phone: "", email: "", employees: "~1.100", distanceKm: 1 },
+            { id: "lead-stadt-kuppenheim-verwaltung", name: "Stadt Kuppenheim (Verwaltung)", category: "verwaltung", contactPerson: "", address: "Friedensplatz, 76456 Kuppenheim", phone: "07222 9462-0", email: "", employees: "~125", distanceKm: 1 },
+            { id: "lead-autohaus-anton-burger", name: "Autohaus Anton Burger GmbH", category: "firma", contactPerson: "Gerda Burger, Manfred Burger", address: "Friedrichstr. 118, 76456 Kuppenheim", phone: "07222 94640", email: "info@burger-kuppenheim.de", employees: "5-9", distanceKm: 1 },
+            { id: "lead-burger-automobile", name: "Burger Automobile GmbH & Co. KG", category: "firma", contactPerson: "Familie Burger", address: "Murgtalstr. 28-30, 76456 Kuppenheim", phone: "07222 94380", email: "", employees: "5-9", distanceKm: 1 },
+            { id: "lead-autohaus-paul-krell", name: "Autohaus Paul Krell GmbH", category: "firma", contactPerson: "Angelika Krell", address: "Fritz-Minhardt-Str. 3, 76456 Kuppenheim", phone: "07222 91666-0", email: "", employees: "", distanceKm: 1 },
+            { id: "lead-aschenberg-gmbh", name: "Aschenberg GmbH (Autoteile/Lack)", category: "firma", contactPerson: "Peter Aschenberg, Stefan Aschenberg", address: "Friedrichstr. 8, 76456 Kuppenheim", phone: "07222 9461-0", email: "kontakt@autoteile-aschenberg.de", employees: "5-9", distanceKm: 1 },
+            { id: "lead-dielmann-gmbh", name: "Dielmann GmbH (Natursteinfachbetrieb)", category: "firma", contactPerson: "Benjamin Dielmann", address: "Johann-Peter-Hebel-Str. 2, 76456 Kuppenheim", phone: "07222 94570", email: "dielmann@arcor.de", employees: "14", distanceKm: 1 },
+            { id: "lead-schroeder-metallbau", name: "Schröder Metallbau GmbH", category: "firma", contactPerson: "Torsten Schröder", address: "Eichetstr. 8, 76456 Kuppenheim", phone: "", email: "info@schroeder-metallbau.com", employees: "", distanceKm: 1 },
+            { id: "lead-weber-metallbau", name: "Weber Metallbau GmbH", category: "firma", contactPerson: "Daniel Weber", address: "Kunstwiesenweg 14, 76456 Kuppenheim", phone: "", email: "anfrage@weber-metallbau.info", employees: "", distanceKm: 1 },
+            { id: "lead-dad-metallbau", name: "DAD-Metallbau D'Onofrio GmbH & Co. KG", category: "firma", contactPerson: "Donato Antonio D'Onofrio", address: "Eichetstr. 8, 76456 Kuppenheim", phone: "07222 409073", email: "", employees: "", distanceKm: 1 },
+            { id: "lead-boehmer-brezel", name: "Böhmer Brezel GmbH & Co. KG (Bäckerei)", category: "firma", contactPerson: "", address: "Bahnhofstr. 4, 76456 Kuppenheim", phone: "07222 41764", email: "", employees: "", distanceKm: 1 },
+            { id: "lead-cutrona-bau", name: "Cutrona Bau GmbH", category: "firma", contactPerson: "", address: "Löwengasse 18, 76456 Kuppenheim", phone: "07222 49640", email: "", employees: "", distanceKm: 1 },
+            { id: "lead-eis-agnello-test", name: "Eis Agnello · EisFavorite (Test-Eintrag)", category: "firma", contactPerson: "Agnello", address: "Favoritenstrasse 11, 76456 Kuppenheim", phone: "+49 176 56813172", email: "eisfavorit@gmail.com", employees: "", distanceKm: 0 },
+            { id: "lead-mercedes-werk-rastatt", name: "Mercedes-Benz Werk Rastatt", category: "firma", contactPerson: "", address: "Mercedesstraße 1, 76437 Rastatt", phone: "", email: "", employees: "~6.500", distanceKm: 7 },
+            { id: "lead-getinge-rastatt", name: "Getinge Deutschland GmbH (Medizintechnik)", category: "firma", contactPerson: "", address: "Kehler Str. 31, 76437 Rastatt", phone: "07222 9320", email: "info.vertrieb@getinge.com", employees: "~1.300", distanceKm: 7 },
+            { id: "lead-reif-bauunternehmung", name: "Reif Bauunternehmung GmbH & Co. KG", category: "firma", contactPerson: "", address: "Hohlohstraße 9, 76437 Rastatt", phone: "07222 508-0", email: "info@reif-bau.de", employees: "~630", distanceKm: 7 },
+            { id: "lead-schoeck-bauteile", name: "Schöck Bauteile GmbH", category: "firma", contactPerson: "", address: "Schöckstraße 1, 76534 Baden-Baden", phone: "07223 9670", email: "schoeck-de@schoeck.com", employees: "~1.100 (Firmengruppe gesamt)", distanceKm: 9.5 },
+            { id: "lead-rauch-landmaschinen", name: "Rauch Landmaschinenfabrik GmbH", category: "firma", contactPerson: "", address: "Victoria Boulevard E 200, 77836 Rheinmünster (Baden-Airpark)", phone: "07221 9850", email: "", employees: "", distanceKm: 16 },
+            { id: "lead-tv-kuppenheim", name: "Turnverein Kuppenheim 1898 e.V.", category: "verein", contactPerson: "Frank Megow / Timo Pfistner", address: "Murgtalstr. 8, 76456 Kuppenheim", phone: "07222 409843", email: "geschaeftsstelle@tv-kuppenheim.de", employees: "", distanceKm: 0 },
+            { id: "lead-musikverein-kuppenheim", name: "Musikverein Stadtkapelle 1902 e.V. Kuppenheim", category: "verein", contactPerson: "Philine Rady (1. Vorsitzende)", address: "76456 Kuppenheim", phone: "07221 7029552", email: "", employees: "", distanceKm: 0 },
+            { id: "lead-feuerwehr-kuppenheim", name: "Freiwillige Feuerwehr Kuppenheim", category: "verein", contactPerson: "", address: "Adlerstr. 2, 76456 Kuppenheim", phone: "", email: "", employees: "", distanceKm: 0 },
+            { id: "lead-tv-muggensturm", name: "Turnverein Muggensturm e.V.", category: "verein", contactPerson: "Bettina Haas (Vorsitzende)", address: "Ahornweg 15, 76461 Muggensturm", phone: "07222 9053576", email: "info@tv-muggensturm.de", employees: "", distanceKm: 4 },
+            { id: "lead-fv-oetigheim", name: "FV 1919 Ötigheim e.V.", category: "verein", contactPerson: "Matthias Schmidt (stellv. Vorsitzender)", address: "Mühlstraße 1d, 76470 Ötigheim", phone: "0160 96644485", email: "foerderverein@fv-oetigheim.de", employees: "", distanceKm: 6 },
+            { id: "lead-tg-oetigheim", name: "Turn-Gemeinde Ötigheim TGÖ e.V.", category: "verein", contactPerson: "", address: "Schulstr. 5, 76470 Ötigheim", phone: "07222 916276", email: "", employees: "", distanceKm: 6 },
+            { id: "lead-foerderverein-gs-oetigheim", name: "Förderverein Freunde der Grundschule Ötigheim e.V.", category: "foerderverein", contactPerson: "", address: "Schulstraße 2, 76470 Ötigheim", phone: "07222 153761", email: "info@gs-oetigheim.de", employees: "", distanceKm: 6 },
+            { id: "lead-foerderverein-hand-in-hand-oetigheim", name: "Förderverein Hand in Hand e.V. (Kitas Ötigheim)", category: "kindergarten", contactPerson: "Alexandra Engelmann", address: "Schulstraße 3, 76470 Ötigheim", phone: "07222 9197-18", email: "alexandra.engelmann@oetigheim.de", employees: "", distanceKm: 6 },
+            { id: "lead-mv-steinmauern", name: "Musikverein 1951 Steinmauern e.V.", category: "verein", contactPerson: "Daniel Klein (1. Vorsitzender)", address: "Korbmacherweg 4, 76479 Steinmauern", phone: "", email: "vorstandschaft@musikverein-steinmauern.de", employees: "", distanceKm: 10 },
+            { id: "lead-sc-elchesheim-illingen", name: "SC Elchesheim-Illingen 2023 e.V.", category: "verein", contactPerson: "Angelo Atria (1. Vorstand)", address: "Rheinstr. 57, 76477 Elchesheim-Illingen", phone: "+49 163 7378205", email: "scelchesheim-illingen@mail.de", employees: "", distanceKm: 12 },
+            { id: "lead-tv-au-am-rhein", name: "Turnverein 1919 Au am Rhein e.V.", category: "verein", contactPerson: "Dieter Pfirrmann (1. Vorstand)", address: "Wehrstraße 40, 76474 Au am Rhein", phone: "", email: "", employees: "", distanceKm: 13 },
+            { id: "lead-sc-au-am-rhein", name: "SC Au am Rhein 1928 e.V.", category: "verein", contactPerson: "", address: "Oberwaldstr. 8, 76474 Au am Rhein", phone: "", email: "", employees: "", distanceKm: 13 },
+            { id: "lead-mv-malsch", name: "Musikverein Malsch e.V.", category: "verein", contactPerson: "Matthias Hitscherich (1. Vorsitzender)", address: "76310 Malsch", phone: "", email: "vorstand@musikvereinmalsch.de", employees: "", distanceKm: 17 },
+            { id: "lead-albert-schweitzer-schule-muggensturm", name: "Albert-Schweitzer-Schule Muggensturm (Grundschule)", category: "schule", contactPerson: "Johannes Hermann (Rektor)", address: "Bahnhofstraße 16, 76461 Muggensturm", phone: "07222 90350", email: "", employees: "", distanceKm: 4 },
+            { id: "lead-grundschule-oetigheim", name: "Grundschule Ötigheim", category: "schule", contactPerson: "", address: "Schulstraße 2, 76470 Ötigheim", phone: "07222 153761", email: "info@gs-oetigheim.de", employees: "", distanceKm: 6 },
+            { id: "lead-rheinwaldschule-elchesheim-illingen", name: "Rheinwaldschule Elchesheim-Illingen (Grundschule)", category: "schule", contactPerson: "Felix Ludwig (Rektor)", address: "Goethestraße 2, 76477 Elchesheim-Illingen", phone: "07245 930130", email: "poststelle@04143170.schule.bwl.de", employees: "", distanceKm: 12 },
+            { id: "lead-kiga-villa-kunterbunt-kuppenheim", name: "Städt. Kindergarten Villa Kunterbunt Kuppenheim", category: "kindergarten", contactPerson: "", address: "Jahnstraße 5, 76456 Kuppenheim", phone: "", email: "", employees: "", distanceKm: 0 },
+            { id: "lead-kiga-kleine-riesen-kuppenheim", name: "Kindergarten \"Kleine Riesen – Little Giants\" Kuppenheim", category: "kindergarten", contactPerson: "", address: "In der Kleinau 3, 76456 Kuppenheim", phone: "", email: "", employees: "", distanceKm: 0 },
+            { id: "lead-kiga-edith-stein-muggensturm", name: "Kath. Kindergarten Edith Stein Muggensturm", category: "kindergarten", contactPerson: "", address: "76461 Muggensturm", phone: "", email: "", employees: "", distanceKm: 4 },
+            { id: "lead-kiga-st-michael-oetigheim", name: "Kindergarten St. Michael Ötigheim", category: "kindergarten", contactPerson: "Simone Schindele (Leitung)", address: "Händelstr. 1, 76470 Ötigheim", phone: "07222 60767", email: "kiga-St.Michael@oetigheim.de", employees: "", distanceKm: 6 },
+            { id: "lead-kiga-villa-kunterbunt-durmersheim", name: "Kindergarten Villa Kunterbunt Durmersheim", category: "kindergarten", contactPerson: "", address: "76199 Durmersheim", phone: "", email: "", employees: "", distanceKm: 9 },
+            { id: "lead-kiga-st-bernhard-durmersheim", name: "Kath. Kindergarten St. Bernhard Durmersheim", category: "kindergarten", contactPerson: "", address: "76199 Durmersheim", phone: "", email: "", employees: "", distanceKm: 9 },
+            { id: "lead-kiga-greffern", name: "Kindergarten Greffern (Rheinmünster)", category: "kindergarten", contactPerson: "", address: "Pappelweg, 77836 Rheinmünster-Greffern", phone: "07227 1436", email: "", employees: "", distanceKm: 15 },
+            { id: "lead-precitec-gaggenau", name: "Precitec GmbH & Co. KG", category: "firma", contactPerson: "Matthias Strebel (Geschäftsführer)", address: "Draisstr. 1, 76571 Gaggenau", phone: "07225 684-0", email: "", employees: "", distanceKm: 12 },
+            { id: "lead-kohlbecker-gaggenau", name: "Kohlbecker Gesamtplan GmbH", category: "firma", contactPerson: "", address: "Hildastr. 20, 76571 Gaggenau", phone: "07225 66-0", email: "info@kohlbecker.de", employees: "", distanceKm: 12 },
+            { id: "lead-fc-rastatt-04", name: "FC Rastatt 04 e.V.", category: "verein", contactPerson: "Matthias Berner (1. Vorsitzender)", address: "Postfach 1442, 76404 Rastatt", phone: "0170 5504812", email: "", employees: "", distanceKm: 6 },
+            { id: "lead-sv-niederbuehl", name: "SV Niederbühl e.V.", category: "verein", contactPerson: "Frederik Selzer (1. Vorsitzender)", address: "Murgtalstr. 1, 76437 Rastatt", phone: "0176 96187171", email: "1-vorsitzender@sv-niederbuehl.de", employees: "", distanceKm: 7 },
+            { id: "lead-bv-rastatt-1980", name: "Badminton Verein Rastatt 1980 e.V.", category: "verein", contactPerson: "Pierre Schmidt (1. Vorsitzender)", address: "Joseph-von-Eichendorff-Weg 22, 76437 Rastatt", phone: "+49 1636 407993", email: "vorstand@bv-rastatt.de", employees: "", distanceKm: 6 },
+            { id: "lead-mv-ottersdorf", name: "Musikverein Ottersdorf e.V.", category: "verein", contactPerson: "Benjamin Fink (1. Vorsitzender)", address: "Stockäckerstraße 14, 76437 Rastatt", phone: "07222 5951275", email: "1vorsitzender@mvottersdorf.de", employees: "", distanceKm: 7 },
+            { id: "lead-foerderverein-paul-gerhard-haus-rastatt", name: "Förderverein \"Freunde und Förderer des Paul-Gerhard-Haus\" Rastatt e.V.", category: "foerderverein", contactPerson: "", address: "Wilhelm-Busch-Str. 8, 76437 Rastatt", phone: "", email: "info@freunde-pgh-rastatt.de", employees: "", distanceKm: 6 },
+            { id: "lead-foerderverein-pestalozzi-schule-rastatt", name: "Förderverein der Pestalozzi-Schule e.V. (Rastatt)", category: "foerderverein", contactPerson: "Daniela Schreiber (1. Vorsitzende)", address: "Herrenstraße 19/22, 76437 Rastatt", phone: "07222 774120", email: "poststelle@04110498.schule.bwl.de", employees: "", distanceKm: 6 },
+            { id: "lead-ltg-rastatt", name: "LTG Rastatt GmbH", category: "firma", contactPerson: "", address: "Lochfeldstraße 30, 76437 Rastatt", phone: "+49 7222 1001 0", email: "", employees: "", distanceKm: 6 },
+            { id: "lead-fv-baden-oos", name: "FV Baden-Oos e.V.", category: "verein", contactPerson: "", address: "Im Ried 1, 76532 Baden-Baden", phone: "0176 73500308", email: "fvoos@gmx.de", employees: "", distanceKm: 10 },
+            { id: "lead-mv-lichtenthal", name: "Musikverein Lichtenthal e.V.", category: "verein", contactPerson: "Sebastian Frick (1. Vorsitzender)", address: "Beuerner Straße 147, 76534 Baden-Baden", phone: "0160 97707878", email: "vorsitzender@musikverein-lichtenthal.de", employees: "", distanceKm: 12 },
+            { id: "lead-foerderverein-feuerwehr-lichtental", name: "Förderverein Freiwillige Feuerwehr Baden-Baden, Abt. Lichtental e.V.", category: "foerderverein", contactPerson: "Christian Falk (1. Vorsitzender)", address: "Geroldsauer Straße 28A, 76534 Baden-Baden", phone: "", email: "foerderverein@ffw-lichtental.de", employees: "", distanceKm: 12 },
+            { id: "lead-foerderverein-grundschule-baden-oos", name: "Förderverein der Grundschule Baden-Oos", category: "foerderverein", contactPerson: "Albert Schück", address: "Ooser Hauptstraße 55a, 76532 Baden-Baden", phone: "07221 63095", email: "albert.schueck@web.de", employees: "", distanceKm: 10 },
+            { id: "lead-kiga-le-petit-prince-baden-baden", name: "Deutsch-Französischer Kindergarten \"Le Petit Prince\" (AWO Baden-Baden gGmbH)", category: "kindergarten", contactPerson: "", address: "Schwarzwaldstraße 101, 76532 Baden-Baden", phone: "07221 801819", email: "lepetitprince@awo-baden-baden.de", employees: "", distanceKm: 10 },
+            { id: "lead-robert-mitzel-baden-baden", name: "Robert Mitzel GmbH", category: "firma", contactPerson: "Simon Ernst, Phil Stalla (Geschäftsführer)", address: "Hermannstr. 2, 76532 Baden-Baden", phone: "07221 97960", email: "info@robertmitzel.de", employees: "", distanceKm: 10 },
+            { id: "lead-vfb-buehl", name: "VfB Bühl 1909 e.V.", category: "verein", contactPerson: "Prof. Edgar Bohn (Vorsitzender)", address: "Hauptstr. 120b, 77815 Bühl", phone: "07223 26151", email: "info@vfb-buehl.de", employees: "", distanceKm: 17 },
+            { id: "lead-mv-altschweier", name: "Musikverein Altschweier e.V.", category: "verein", contactPerson: "Björn Dresel (1. Vorsitzender)", address: "Winzerkellerstraße 16, 77815 Bühl", phone: "+49 7223 27105", email: "erster-vorstand@musikverein-altschweier.de", employees: "", distanceKm: 18 },
+            { id: "lead-foerderverein-gs-buehlbusch", name: "Förderverein Grundschule am Bühlbusch e.V.", category: "foerderverein", contactPerson: "", address: "77815 Bühl", phone: "", email: "info@fvbuehlbusch.de", employees: "", distanceKm: 17 },
+            { id: "lead-weststadt-grundschule-buehl", name: "Weststadt-Grundschule Bühl", category: "schule", contactPerson: "", address: "Leopoldstr. 2, 77815 Bühl", phone: "07223 944454", email: "poststelle@04165633.schule.bwl.de", employees: "", distanceKm: 17 },
+            { id: "lead-autohaus-grethel-buehl", name: "Autohaus Grethel GmbH & Co. KG", category: "firma", contactPerson: "Carl Grethel (Geschäftsführer)", address: "Hauptstraße 129, 77815 Bühl", phone: "07223 98750", email: "autohaus@grethel.de", employees: "", distanceKm: 17 },
+            { id: "lead-ssv-ettlingen", name: "SSV Ettlingen 1847 e.V.", category: "verein", contactPerson: "Friedhold Geißler (1. Vorsitzender)", address: "Kronenstraße 2, 76275 Ettlingen", phone: "07243 77690", email: "", employees: "", distanceKm: 21 },
+            { id: "lead-mv-bruchhausen", name: "Musikverein Bruchhausen e.V.", category: "verein", contactPerson: "Bernhard Klein (1. Vorsitzender)", address: "Luitfriedstr. 6, 76275 Ettlingen", phone: "07243 99391", email: "", employees: "", distanceKm: 22 },
+            { id: "lead-freier-kindergarten-ettlingen", name: "Freier Kindergarten Ettlingen e.V.", category: "kindergarten", contactPerson: "", address: "76275 Ettlingen", phone: "07243 78685", email: "leitung@freier-kindergarten-ettlingen.de", employees: "", distanceKm: 21 },
+            { id: "lead-foerderverein-pestalozzischule-ettlingen", name: "Förderverein der Pestalozzischule Ettlingen e.V.", category: "foerderverein", contactPerson: "", address: "Lindenweg 6, 76275 Ettlingen", phone: "", email: "", employees: "", distanceKm: 21 },
+            { id: "lead-stadtwerke-ettlingen", name: "Stadtwerke Ettlingen GmbH", category: "firma", contactPerson: "Steffen Neumeister (Geschäftsführer)", address: "Hertzstraße 33, 76275 Ettlingen", phone: "07243 101-02", email: "info@sw-ettlingen.de", employees: "", distanceKm: 21 },
+            { id: "lead-sg-karlsruhe", name: "Sportgemeinschaft Karlsruhe e.V.", category: "verein", contactPerson: "", address: "Hertzstraße 23, 76187 Karlsruhe", phone: "0721 5966657", email: "info@sg-ka.de", employees: "", distanceKm: 29 },
+            { id: "lead-fssv-karlsruhe", name: "Freie Spiel- und Sportvereinigung (FSSV) Karlsruhe e.V.", category: "verein", contactPerson: "", address: "Adenauerring 36, 76131 Karlsruhe", phone: "", email: "info@fssv-karlsruhe.de", employees: "", distanceKm: 30 },
+            { id: "lead-kinderhaus-kunterbunt-karlsruhe", name: "Kinderhaus Kunterbunt e.V. (Kita, Karlsruhe)", category: "kindergarten", contactPerson: "", address: "Karlsruhe", phone: "0721 843335", email: "info@kinderhaus-kunterbunt.org", employees: "", distanceKm: 29 },
+            { id: "lead-federbachschule-karlsruhe", name: "Federbachschule Karlsruhe", category: "schule", contactPerson: "", address: "Pfarrstraße 51, 76189 Karlsruhe", phone: "0721 1334778", email: "poststelle@federbachschule-ka.schule.bwl.de", employees: "", distanceKm: 29 },
+            { id: "lead-init-karlsruhe", name: "INIT Innovation in Traffic Systems SE", category: "firma", contactPerson: "", address: "Käppelestraße 4-10, 76131 Karlsruhe", phone: "+49 721 6100 0", email: "", employees: "", distanceKm: 30 },
+            { id: "lead-sc-offenburg", name: "Sport Club Offenburg 1929/50 e.V.", category: "verein", contactPerson: "", address: "Fasanenweg 20, 77656 Offenburg", phone: "0781 9904238", email: "info@sport-club-offenburg.de", employees: "", distanceKm: 45 },
+            { id: "lead-etsv-jahn-offenburg", name: "ETSV 1846 Jahn Offenburg e.V.", category: "verein", contactPerson: "", address: "Freiburger Straße 22, 77652 Offenburg", phone: "", email: "", employees: "", distanceKm: 45 },
+            { id: "lead-mv-rammersweier", name: "Musikverein Rammersweier", category: "verein", contactPerson: "Alfred Scharmann (1. Vorsitzender)", address: "Waldstraße 3, 77654 Offenburg", phone: "0781 31841", email: "info@mv-rammersweier.de", employees: "", distanceKm: 45 },
+            { id: "lead-foerderverein-astrid-lindgren-schule-offenburg", name: "Astrid-Lindgren-Schule Offenburg, Förderverein", category: "foerderverein", contactPerson: "Sarah Karsten (1. Vorsitzende)", address: "77654 Offenburg", phone: "0781 92140", email: "", employees: "", distanceKm: 45 },
+            { id: "lead-waldorfkindergarten-offenburg", name: "Waldorfkindergarten Offenburg e.V.", category: "kindergarten", contactPerson: "", address: "Vogesenstr. 12, 77652 Offenburg", phone: "0781 72469", email: "info@waldorfkindergarten-offenburg.de", employees: "", distanceKm: 45 },
+            { id: "lead-kiga-am-waldbach-offenburg", name: "Kindergarten Am Waldbach (kath., Offenburg)", category: "kindergarten", contactPerson: "Pfr. Matthias Bürkle", address: "Am Waldbach 14, 77654 Offenburg", phone: "0781-96909-421", email: "", employees: "", distanceKm: 45 },
+            { id: "lead-mildenberger-verlag-offenburg", name: "Mildenberger Verlag GmbH", category: "firma", contactPerson: "Frank Mildenberger, Markus Singler (Geschäftsführer)", address: "Moltkestr. 4a, 77654 Offenburg", phone: "", email: "", employees: "", distanceKm: 45 },
+            { id: "lead-sv-oberachern", name: "Sportverein Oberachern e.V.", category: "verein", contactPerson: "Ralf Lorenz (1. Vorsitzender)", address: "Waldstraße 3, 77855 Achern-Oberachern", phone: "+49 175 9533292", email: "info@svoberachern.de", employees: "", distanceKm: 27 },
+            { id: "lead-foerderverein-gymnasium-achern", name: "Förderverein Gymnasium Achern e.V.", category: "foerderverein", contactPerson: "Manuel Spang (Vorsitzender)", address: "Berliner Straße 30, 77855 Achern", phone: "", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-foerderverein-gms-achern", name: "Förderverein GMS Achern", category: "foerderverein", contactPerson: "", address: "Kirchstraße 15-19, 77855 Achern", phone: "", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-kinderhaus-rollerbau-achern", name: "Städt. Kinderhaus Im Rollerbau", category: "kindergarten", contactPerson: "", address: "Karl-Hergt-Straße 16, 77855 Achern", phone: "07841 6421840", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-mv-gamshurst", name: "Musikverein Gamshurst e.V.", category: "verein", contactPerson: "Miriam Fessler (Vorsitzende)", address: "Lange Straße 189, 77855 Achern-Gamshurst", phone: "07844 5396248", email: "mv-gamshurst@web.de", employees: "", distanceKm: 27 },
+            { id: "lead-feuerwehr-gamshurst", name: "Freiwillige Feuerwehr Gamshurst", category: "verein", contactPerson: "Patrick Schuh", address: "77855 Achern-Gamshurst", phone: "0170 6193729", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-euro-rastpark-achern", name: "Euro Rastpark Achern", category: "firma", contactPerson: "Björn Lang (Geschäftsführer)", address: "Am Achernsee 1, 77855 Achern", phone: "", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-huber-spezialtransporte-achern", name: "Huber Spezialtransporte und Spedition", category: "firma", contactPerson: "Thomas Huber, Matthias Huber (Geschäftsführer)", address: "Fabrikstraße 8, 77855 Achern-Oberachern", phone: "", email: "", employees: "", distanceKm: 27 },
+            { id: "lead-sv-gengenbach", name: "SV Gengenbach 1920 e.V.", category: "verein", contactPerson: "Elmar Klawonn (Vorsitzender)", address: "Im Fischerfeld 34, 77723 Gengenbach", phone: "0171 3085349", email: "info@sv-gengenbach.de", employees: "", distanceKm: 52 },
+            { id: "lead-foerderverein-wrrs-gengenbach", name: "Förderverein der Gengenbacher Schulen (WRRS)", category: "foerderverein", contactPerson: "Ralf Müller (stellv. Vorsitzender)", address: "77723 Gengenbach", phone: "", email: "", employees: "", distanceKm: 52 },
+            { id: "lead-foerderverein-foerderschule-gengenbach", name: "Förderverein Förderschule Gengenbach e.V.", category: "foerderverein", contactPerson: "", address: "77723 Gengenbach", phone: "", email: "", employees: "", distanceKm: 52 },
+            { id: "lead-geschwister-scholl-schule-gengenbach", name: "Geschwister-Scholl-Schule Gengenbach", category: "schule", contactPerson: "", address: "Nollenstraße 15, 77723 Gengenbach", phone: "07803 930-5210", email: "", employees: "", distanceKm: 52 },
+            { id: "lead-kiga-kinzigvorstadt-gengenbach", name: "Städt. Kiga Kinzigvorstadt", category: "kindergarten", contactPerson: "", address: "Hansjakobstraße 32, 77723 Gengenbach", phone: "07803 6105", email: "", employees: "", distanceKm: 52 },
+            { id: "lead-kita-loewenbergpark-gengenbach", name: "Städt. Kita am Löwenbergpark", category: "kindergarten", contactPerson: "", address: "Leutkirchstraße 48, 77723 Gengenbach", phone: "07803 9289161", email: "", employees: "", distanceKm: 52 },
+            { id: "lead-foerderverein-muks-bruchsal", name: "Förderverein der Musik- und Kunstschule Bruchsal e.V.", category: "foerderverein", contactPerson: "Rebecca Liebrich (1. Vorsitzende)", address: "Durlacher Str. 3-7, 76646 Bruchsal", phone: "", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-foerderverein-hebelschule-bruchsal", name: "Förderverein der Johann-Peter-Hebel-Schule Bruchsal e.V.", category: "foerderverein", contactPerson: "", address: "76646 Bruchsal", phone: "", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-djk-bruchsal", name: "DJK Bruchsal", category: "verein", contactPerson: "K.-H. Bötsch (1. Vorsitzender)", address: "Marchinistr. 21, 76646 Bruchsal", phone: "", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-tsg-bruchsal-1846", name: "Turn- und Sportgemeinde Bruchsal 1846 e.V.", category: "verein", contactPerson: "", address: "Sportzentrum 4, 76646 Bruchsal", phone: "07251 2110", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-foerderverein-feuerwehr-bruchsal", name: "Förderverein der Feuerwehr Bruchsal e.V.", category: "foerderverein", contactPerson: "", address: "76646 Bruchsal", phone: "", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-kita-mosaik-bruchsal", name: "Kindertagesstätte Mosaik (AWO, Bruchsal)", category: "kindergarten", contactPerson: "", address: "Prinz-Wilhelm-Straße 5, 76646 Bruchsal", phone: "07251 3064520", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-kiga-st-michael-bruchsal", name: "Kath. Kindergarten St. Michael (Bruchsal)", category: "kindergarten", contactPerson: "", address: "Asamstraße 18, 76646 Bruchsal", phone: "07251 12656", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-bfb-bruchsal", name: "BFB Bruchsaler Flüssigboden GmbH & Co. KG", category: "firma", contactPerson: "Michael Kaltenbach, Steffen Moser (Geschäftsführer)", address: "76646 Bruchsal", phone: "", email: "", employees: "", distanceKm: 40 },
+            { id: "lead-kauselmann-pforzheim", name: "Bernhard Kauselmann GmbH & Co. KG", category: "firma", contactPerson: "Bernhard/Torsten/Carmen Kauselmann (Geschäftsführung)", address: "Am Hauptgüterbahnhof 9, 75177 Pforzheim", phone: "+49 7231 5870140", email: "info@kauselmann.com", employees: "", distanceKm: 31 },
+            { id: "lead-foerderverein-fritz-erler-schule-pforzheim", name: "Förderverein Fritz-Erler-Schule Pforzheim", category: "foerderverein", contactPerson: "Uwe Haller (1. Vorsitzender)", address: "Westl. Karl-Friedrich-Str. 215, 75172 Pforzheim", phone: "07231-39-2357", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-foerderverein-weiherbergschule-pforzheim", name: "Förderverein Weiherbergschule (Pforzheim)", category: "foerderverein", contactPerson: "Ferdinand Fox (1. Vorstand)", address: "Bergstraße 28, 75173 Pforzheim", phone: "", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-foerderverein-alfons-kern-schule-pforzheim", name: "Förderverein der Alfons-Kern-Schule (Pforzheim)", category: "foerderverein", contactPerson: "", address: "Theaterstraße 8, 75175 Pforzheim", phone: "07231 392354", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-tv-pforzheim-1834", name: "Turnverein Pforzheim 1834 e.V.", category: "verein", contactPerson: "", address: "75172 Pforzheim", phone: "", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-mv-dillweissenstein-pforzheim", name: "Musikverein Dillweißenstein e.V.", category: "verein", contactPerson: "Oliver Hiller (1. Vorsitzender)", address: "75173 Pforzheim", phone: "+49 7231 101816", email: "oliver.hiller@musikverein-dillweissenstein.de", employees: "", distanceKm: 31 },
+            { id: "lead-kiga-schulstrasse-wuerm-pforzheim", name: "Ev. Kita Schulstraße (Pforzheim-Würm)", category: "kindergarten", contactPerson: "Angelika Bauer (Leitung)", address: "Schulstraße, 75177 Pforzheim-Würm", phone: "07231 79144", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-kiga-hochkopfstrasse-arlinger-pforzheim", name: "Ev. Kita Hochkopfstraße (Pforzheim-Arlinger)", category: "kindergarten", contactPerson: "Carmen Treftz (Leitung)", address: "Hochkopfstraße, 75175 Pforzheim-Arlinger", phone: "07231 441994", email: "", employees: "", distanceKm: 31 },
+            { id: "lead-api-schmidt-bretten", name: "API Schmidt-Bretten GmbH & Co. KG", category: "firma", contactPerson: "Hans Traas (Geschäftsführer)", address: "Langenmorgen 4, 75015 Bretten", phone: "+49 7252 53-0", email: "info@apiheattransfer.de", employees: "", distanceKm: 38 },
+            { id: "lead-foerderverein-melanchthon-gymnasium-bretten", name: "Förderverein Melanchthon-Gymnasium Bretten e.V.", category: "foerderverein", contactPerson: "", address: "Weißhofer Str. 48, 75015 Bretten", phone: "", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-foerderverein-max-planck-realschule-bretten", name: "Förderverein der Max-Planck-Realschule Bretten e.V.", category: "foerderverein", contactPerson: "", address: "Max-Planck-Straße 5, 75015 Bretten", phone: "07252 94400", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-foerderverein-berufliche-schulen-bretten", name: "Förderverein der Beruflichen Schulen Bretten", category: "foerderverein", contactPerson: "Ute Thumm (1. Vorsitzende)", address: "75015 Bretten", phone: "", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-stadtkapelle-bretten", name: "Musikverein/Stadtkapelle Bretten e.V.", category: "verein", contactPerson: "Andreas Frank (1. Vorsitzender)", address: "Erasmusweg 1, 75015 Bretten", phone: "07252-7799672", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-kiga-drachenburg-bretten", name: "Städt. Kindergarten \"Drachenburg\" (Bretten)", category: "kindergarten", contactPerson: "", address: "Anne-Frank-Straße 38, 75015 Bretten", phone: "07252 972597", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-awo-zwergenstube-bretten", name: "AWO Zwergenstube Bretten", category: "kindergarten", contactPerson: "", address: "Lortzingstraße 27, 75015 Bretten", phone: "07252 9734709", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-feuerwehr-foerderverein-bretten", name: "Feuerwehr-Förderverein Bretten e.V.", category: "foerderverein", contactPerson: "", address: "75015 Bretten", phone: "", email: "", employees: "", distanceKm: 38 },
+            { id: "lead-foerderverein-eichendorffschule-heidelberg", name: "Förderverein der Eichendorffschule Heidelberg-Rohrbach e.V.", category: "foerderverein", contactPerson: "Philipp Hauck (Vorsitzender)", address: "Karlsruher Straße 54, 69126 Heidelberg", phone: "", email: "", employees: "", distanceKm: 70 },
+            { id: "lead-tsv-heidelberg-wieblingen", name: "TSV 1887 Heidelberg-Wieblingen e.V.", category: "verein", contactPerson: "Jürgen Treiber (1. Vorsitzender)", address: "Ludwig-Guttmann-Straße 10, 69123 Heidelberg", phone: "+49 6221 833388", email: "Info@TSV-Wieblingen.de", employees: "", distanceKm: 70 },
+            { id: "lead-esv-rot-weiss-heidelberg", name: "ESV Rot-Weiß Heidelberg e.V.", category: "verein", contactPerson: "", address: "Speyerer Schnauz 10, 69124 Heidelberg", phone: "06221/184588", email: "verein@esv-heidelberg.de", employees: "", distanceKm: 70 },
+            { id: "lead-mv-heidelberg-pfaffengrund", name: "Musikverein 1956 Heidelberg-Pfaffengrund e.V.", category: "verein", contactPerson: "Johannes Häfner (1. Vorsitzender)", address: "Schulplatz 4, 69123 Heidelberg", phone: "", email: "musik@hd-bm.de", employees: "", distanceKm: 70 },
+            { id: "lead-kiga-zollhofgarten-heidelberg", name: "Kindergarten Zollhofgarten (Heidelberg-Bahnstadt)", category: "kindergarten", contactPerson: "", address: "Zollhofgarten 2, 69115 Heidelberg", phone: "06221-6523900", email: "Leitung.Zollhofgarten@paed-aktiv.de", employees: "", distanceKm: 70 },
+            { id: "lead-alldrink-heidelberg", name: "alldrink GmbH", category: "firma", contactPerson: "", address: "Im Breitspiel 5, 69126 Heidelberg", phone: "", email: "", employees: "", distanceKm: 70 },
+            { id: "lead-foerderverein-seckenheimschule-mannheim", name: "Förderverein der Seckenheimschule Mannheim-Seckenheim e.V.", category: "foerderverein", contactPerson: "", address: "Mannheim-Seckenheim", phone: "", email: "", employees: "", distanceKm: 74 },
+            { id: "lead-vfr-mannheim", name: "VfR Mannheim 1896 e.V.", category: "verein", contactPerson: "", address: "Theodor-Heuss-Anlage 19, 68165 Mannheim", phone: "+49 (0)621 415430", email: "kontakt@vfr-mannheim.de", employees: "", distanceKm: 74 },
+            { id: "lead-tsv-mannheim-1846", name: "TSV Mannheim v. 1846 e.V.", category: "verein", contactPerson: "", address: "Hans-Reschke-Ufer 4a, 68165 Mannheim", phone: "(0621) 762118-0", email: "", employees: "", distanceKm: 74 },
+            { id: "lead-mv-mannheim-friedrichsfeld", name: "Musikverein Mannheim-Friedrichsfeld e.V.", category: "verein", contactPerson: "", address: "Neudorfstraße 60, 68229 Mannheim", phone: "0621/472327", email: "", employees: "", distanceKm: 74 },
+            { id: "lead-familienzentrum-st-bernhard-mannheim", name: "Kath. Familienzentrum St. Bernhard (Mannheim)", category: "kindergarten", contactPerson: "", address: "Max-Joseph-Straße 42, 68167 Mannheim", phone: "0621/30085-240", email: "kita-St.Bernhard@kath-ma-neckarstadt.de", employees: "", distanceKm: 74 },
+            { id: "lead-vr-bank-rhein-neckar-mannheim", name: "VR Bank Rhein-Neckar eG", category: "firma", contactPerson: "", address: "Augustaanlage 61, 68165 Mannheim", phone: "", email: "", employees: "", distanceKm: 74 },
+            { id: "lead-foerderverein-grundschule-landau-sued", name: "Förderverein der Grundschule Landau-Süd e.V.", category: "foerderverein", contactPerson: "Peter Heß (Vorsitzender)", address: "Raimund-Huber-Straße 14, 76829 Landau in der Pfalz", phone: "06341/347763", email: "", employees: "", distanceKm: 43 },
+            { id: "lead-mv-landau-1860", name: "Musikverein Landau 1860 e.V.", category: "verein", contactPerson: "Michael Jost (Vorsitzender)", address: "Im Schallschen Garten 8, 76829 Landau in der Pfalz", phone: "06341/34612", email: "", employees: "", distanceKm: 43 },
+            { id: "lead-kita-queichheimer-hauptstrasse-landau", name: "Kita Queichheimer Hauptstraße (Landau)", category: "kindergarten", contactPerson: "Melanie Butz (Leitung)", address: "Queichheimer Hauptstraße 235, 76829 Landau in der Pfalz", phone: "06341/599130", email: "", employees: "", distanceKm: 43 },
+            { id: "lead-kita-st-albert-landau", name: "Kath. Kita \"St. Albert\" (Landau)", category: "kindergarten", contactPerson: "Eva-Maria Will (Leitung)", address: "Drachenfelsstraße 2b, 76829 Landau in der Pfalz", phone: "06341/31806", email: "", employees: "", distanceKm: 43 },
+            { id: "lead-wickert-maschinenbau-landau", name: "Wickert Maschinenbau GmbH", category: "firma", contactPerson: "Stefan Herzinger, Stephanie Wickert (Geschäftsführung)", address: "Wollmesheimer Höhe 2, 76829 Landau in der Pfalz", phone: "06341-9343-0", email: "", employees: "", distanceKm: 43 },
+            { id: "lead-foerderverein-salierschule-speyer", name: "Förderverein der Salierschule Speyer e.V.", category: "foerderverein", contactPerson: "Rebecca Körnig-Pich (1. Vorsitzende)", address: "Mausbergweg 144, 67346 Speyer", phone: "", email: "", employees: "", distanceKm: 55 },
+            { id: "lead-foerderverein-zeppelinschule-speyer", name: "Förderverein Zeppelinschule Speyer", category: "foerderverein", contactPerson: "", address: "Neufferstraße 1, 67346 Speyer", phone: "06232/141980", email: "foerderverein@zeppelinschule-speyer.de", employees: "", distanceKm: 55 },
+            { id: "lead-tsv-speyer-1847", name: "TSV Speyer e.V. (Turn- u. Sportverein 1847)", category: "verein", contactPerson: "Angelika Wöhlert (Vertretung)", address: "Eselsdamm 64, 67346 Speyer", phone: "06232-629990", email: "", employees: "", distanceKm: 55 },
+            { id: "lead-rc-vorwaerts-speyer", name: "RC Vorwärts Speyer e.V.", category: "verein", contactPerson: "Thomas Zürker (1. Vorsitzender)", address: "Hinterm Esel 8, 67346 Speyer", phone: "", email: "", employees: "", distanceKm: 55 },
+            { id: "lead-kita-villa-kunterbunt-speyer", name: "Prot. Kita Villa Kunterbunt (Speyer)", category: "kindergarten", contactPerson: "", address: "67346 Speyer", phone: "06232/621836", email: "kita.villa-kunterbunt.speyer@evkirchepfalz.de", employees: "", distanceKm: 55 },
+            { id: "lead-c-dupre-bau-speyer", name: "C. Dupré Bau GmbH & Co. KG", category: "firma", contactPerson: "", address: "Stockholmerstr. 2, 67346 Speyer", phone: "", email: "", employees: "", distanceKm: 55 },
+            { id: "lead-foerderverein-hartranft-grundschule-freudenstadt", name: "Verein der Freunde und Förderer der Hartranft-Grundschule Freudenstadt e.V.", category: "foerderverein", contactPerson: "", address: "Bahnhofstr. 10, 72250 Freudenstadt", phone: "", email: "", employees: "", distanceKm: 41 },
+            { id: "lead-tsv-freudenstadt-1862", name: "TSV Freudenstadt e.V. (1862)", category: "verein", contactPerson: "Harald Türk (1. Vorsitzender)", address: "Ludwig-Jahn-Straße 25, 72250 Freudenstadt", phone: "07441-8607503", email: "vorstand@freudenstadtsport.de", employees: "", distanceKm: 41 },
+            { id: "lead-kiga-goethestrasse-freudenstadt", name: "Evangelischer Kindergarten Goethestraße (Freudenstadt)", category: "kindergarten", contactPerson: "Anne Doerfer (Leitung)", address: "Goethestraße 4, 72250 Freudenstadt", phone: "07441 81366", email: "kita-goethestrasse@ev-kibez-fds.de", employees: "", distanceKm: 41 },
+            { id: "lead-kiga-gruental-frutenhof-freudenstadt", name: "Kindergarten Grüntal-Frutenhof (Freudenstadt)", category: "kindergarten", contactPerson: "Sonja Braun (Leitung)", address: "Reichenbacher Straße 33, 72250 Freudenstadt", phone: "07443 8880", email: "kindergarten-frutenhof@freudenstadt.de", employees: "", distanceKm: 41 },
+            { id: "lead-oest-holding-freudenstadt", name: "Oest Holding GmbH", category: "firma", contactPerson: "Alexander Klein (Geschäftsführer)", address: "Georg-Oest-Str. 4, 72250 Freudenstadt", phone: "", email: "", employees: "", distanceKm: 41 },
+            { id: "lead-kreisfeuerwehrverband-freudenstadt", name: "Kreisfeuerwehrverband Freudenstadt e.V.", category: "verein", contactPerson: "", address: "Landkreis Freudenstadt", phone: "", email: "", employees: "", distanceKm: 41 }
+        ];
+
+        let flyerQueue = [];
+        let flyerQueueTotal = 0;
+
+        function buildFlyerGreeting(lead) {
+            const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
+            const firstPerson = cp ? cp.split(',')[0].trim() : '';
+            return firstPerson ? ('Hallo ' + firstPerson + ',') : 'Sehr geehrte Damen und Herren,';
+        }
+
+        function buildFlyerUrl(lead) {
+            const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
+            const firstPerson = cp ? cp.split(',')[0].trim() : '';
+            let url = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
+            if (firstPerson) url += '&name=' + encodeURIComponent(firstPerson);
+            return url;
+        }
+
+        // Baut dieselbe HTML-E-Mail wie der n8n-Workflow
+        // "EisFavorite: Personalisierte Flyer-HTML-E-Mail" - dient hier nur der
+        // 1:1-Vorschau im Browser, bevor der eigentliche Versand über den
+        // Webhook (und damit über Gmail) ausgelöst wird.
+        function buildFlyerEmail(lead) {
+            const greeting = buildFlyerGreeting(lead);
+            const flyerUrl = buildFlyerUrl(lead);
+            const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
+            const html = `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width:600px; margin:0 auto; background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eee;">
+  <img src="https://maileisfavorite.vercel.app/images/eiswagen.jpg" alt="EisFavorite Eiswagen" style="width:100%; display:block;">
+  <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); background-color:#667eea; color:#ffffff; text-align:center; padding:32px 20px 40px;">
+    <div style="font-size:2.4em; line-height:1;">🍦</div>
+    <div style="font-weight:700; letter-spacing:0.5px; margin-top:6px;">EisFavorite</div>
+    <h1 style="font-size:1.5em; margin:16px 0 8px;">Eine süße Überraschung für das Team von ${lead.name}</h1>
+    <p style="font-size:1.05em; opacity:0.95; margin:0;">Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.</p>
+  </div>
+  <div style="padding:28px 26px;">
+    <p style="color:#333; font-size:1.05em; margin:0 0 16px;">${greeting}</p>
+    <p style="color:#555; line-height:1.7; font-size:1.02em; margin:0 0 18px;">
+      ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön für den
+      Einsatz Ihres Teams bei <strong>${lead.name}</strong> - EisFavorite kommt mit dem Eiswagen zu Ihnen
+      und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.
+    </p>
+    <table role="presentation" width="100%" style="border-collapse:collapse; margin:20px 0;">
+      <tr>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🚚<br><span style="font-size:0.85em; font-weight:600; color:#333;">Wir kommen zu Ihnen</span></td>
+        <td style="width:4%;"></td>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🍨<br><span style="font-size:0.85em; font-weight:600; color:#333;">Frisches Eis vor Ort</span></td>
+        <td style="width:4%;"></td>
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">😊<br><span style="font-size:0.85em; font-weight:600; color:#333;">Freude fürs Team</span></td>
+      </tr>
+    </table>
+    <div style="text-align:center; margin:26px 0 10px;">
+      <a href="${flyerUrl}" target="_blank" style="display:inline-block; background:linear-gradient(135deg, #ff9800 0%, #f57c00 100%); background-color:#f57c00; color:#ffffff; text-decoration:none; font-weight:700; font-size:1.1em; padding:15px 38px; border-radius:50px;">🍦 Jetzt unverbindlich anfragen</a>
+      <p style="margin-top:10px; color:#888; font-size:0.85em;">Klicken Sie hier für mehr Infos und um direkt anzufragen</p>
+    </div>
+  </div>
+  <div style="background:#f8f9fa; padding:22px 26px; text-align:center; color:#666; font-size:0.85em; line-height:1.8; border-top:1px solid #eee;">
+    <strong style="color:#333;">Eis Agnello · EisFavorite</strong><br>
+    Favoritenstrasse 11 · 76456 Kuppenheim<br>
+    Tel: +49 176 56813172 · eisfavorit@gmail.com<br><br>
+    Kein Interesse? Einfach mit "Kein Interesse" antworten.
+  </div>
+</div>`;
+            return { subject, html };
+        }
+
+        function sendFlyerToSelected() {
+            const selected = allLeads.filter(l => selectedLeadIds.has(l.id));
+            if (selected.length === 0) {
+                alert('Bitte zuerst mindestens eine Firma/Schule mit Häkchen markieren.');
+                return;
+            }
+
+            const withEmail = selected.filter(l => l.email);
+            const withoutEmail = selected.filter(l => !l.email);
+
+            if (withEmail.length === 0) {
+                alert('Keine der ' + selected.length + ' ausgewählten Einträge hat eine E-Mail-Adresse hinterlegt.');
+                return;
+            }
+
+            let warning = '';
+            if (withoutEmail.length > 0) {
+                warning = '\n\n⚠️ Ohne E-Mail-Adresse (werden übersprungen):\n' + withoutEmail.map(l => '- ' + l.name).join('\n');
+            }
+
+            if (!confirm(`Jede der ${withEmail.length} ausgewählten Firmen/Schulen bekommt eine eigene, persönlich gestaltete HTML-E-Mail (Anrede + Firma, Design wie der Flyer) über Gmail (eisfavorit@gmail.com).\n\nBeim ersten Versand musst du dich einmalig bei Google anmelden und den Versand erlauben. Du gehst die Auswahl im nächsten Fenster einzeln durch und bestätigst jede E-Mail nach Vorschau.${warning}`)) return;
+
+            flyerQueue = withEmail.slice();
+            flyerQueueTotal = flyerQueue.length;
+            document.getElementById('flyerQueueModal').style.display = 'flex';
+            renderFlyerQueueModal();
+        }
+
+        function renderFlyerQueueModal() {
+            const info = document.getElementById('flyerQueueInfo');
+            if (flyerQueue.length === 0) {
+                closeFlyerQueueModal();
+                alert('✅ Alle ausgewählten E-Mails wurden durchgegangen!');
+                return;
+            }
+            const lead = flyerQueue[0];
+            const position = flyerQueueTotal - flyerQueue.length + 1;
+            info.innerHTML = 'E-Mail <strong>' + position + ' von ' + flyerQueueTotal + '</strong><br>' +
+                'An: <strong>' + lead.name + '</strong> (' + lead.email + ')' +
+                (lead.contactPerson ? '<br>Ansprechpartner: ' + lead.contactPerson : '');
+
+            const { subject, html } = buildFlyerEmail(lead);
+            document.getElementById('flyerPreviewSubject').textContent = subject;
+            document.getElementById('flyerPreviewFrame').srcdoc =
+                '<body style="margin:0; padding:16px; background:#f0f0f0;">' + html + '</body>';
+        }
+
+        // Echter Versand der gestalteten HTML-E-Mail über die Gmail-API.
+        // Nutzt die gemeinsame Anbindung aus js/gmail-api.js (dort auch die
+        // einmalig einzurichtende GMAIL_OAUTH_CLIENT_ID, siehe ANLEITUNG-WERBUNG.md).
+        function sendCurrentFlyerEmail() {
+            const lead = flyerQueue[0];
+            if (!lead) return;
+
+            const { subject, html } = buildFlyerEmail(lead);
+            sendGmailApiHtmlMessage(lead.email, subject, html, function() {
+                const now = Date.now();
+                db.collection('marketingLeads').doc(lead.id).set({
+                    status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
+                    lastContactedAt: now,
+                    lastModifiedMs: now
+                }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+
+                flyerQueue.shift();
+                renderFlyerQueueModal();
+            }, function(err) {
+                alert('❌ E-Mail konnte nicht gesendet werden: ' + err.message);
+            });
+        }
+
+        function skipCurrent() {
+            flyerQueue.shift();
+            renderFlyerQueueModal();
+        }
+
+        function closeFlyerQueueModal() {
+            document.getElementById('flyerQueueModal').style.display = 'none';
+            flyerQueue = [];
+        }
+
+        function importRecherchierteLeads() {
+            if (!confirm(`${RECHERCHIERTE_LEADS_KUPPENHEIM.length} recherchierte Firmen/Schulen (Kuppenheim + größere Arbeitgeber der Region) jetzt in die Liste importieren?\n\nBereits vorhandene Einträge mit gleichem Namen werden nur ergänzt, nicht überschrieben (Status bleibt erhalten).`)) return;
+
+            let done = 0;
+            RECHERCHIERTE_LEADS_KUPPENHEIM.forEach(lead => {
+                db.collection('marketingLeads').doc(lead.id).set({
+                    name: lead.name,
+                    category: lead.category,
+                    contactPerson: lead.contactPerson,
+                    address: lead.address,
+                    phone: lead.phone,
+                    email: lead.email,
+                    employees: lead.employees,
+                    distanceKm: lead.distanceKm,
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).then(() => {
+                    done++;
+                    if (done === RECHERCHIERTE_LEADS_KUPPENHEIM.length) {
+                        alert('✅ Import abgeschlossen: ' + done + ' Einträge.');
+                    }
+                }).catch(err => {
+                    console.error('Fehler beim Import von', lead.name, err);
+                    alert('❌ Fehler beim Import von "' + lead.name + '": ' + err.message);
+                });
+            });
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>

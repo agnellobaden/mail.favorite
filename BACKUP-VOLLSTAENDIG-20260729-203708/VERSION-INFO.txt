@@ -1,0 +1,132 @@
+====================================================================
+KOMPLETTES BACKUP: Werbung/Firmen-Akquise stark ausgebaut,
+E-Mail-Import robuster, diverse Rechnungs-/UI-Fixes
+====================================================================
+Erstellt am: 29.07.2026 20:37:18
+Git Commit: eb57bd7
+
+====================================================================
+NEUE FEATURES / FIXES SEIT DEM LETZTEN BACKUP (27.07.2026, 13:48 Uhr)
+====================================================================
+
+1. WERBUNG / FIRMEN-AKQUISE (werbung.html) - GROSSER AUSBAU
+   - Eiswagen-Foto oben in die Flyer-Kampagnen-E-Mail eingebunden
+   - Rund 150 Vereine, Fördervereine, Schulen, Kindergärten/Kitas und
+     Firmen im 100km-Umkreis um Kuppenheim recherchiert und importierbar
+     gemacht (Button "Recherchierte Leads importieren") - deckt jetzt
+     Rastatt, Baden-Baden, Bühl, Ettlingen, Karlsruhe, Offenburg, Achern,
+     Gengenbach, Bruchsal, Pforzheim, Bretten, Heidelberg, Mannheim,
+     Landau, Speyer und Freudenstadt ab
+   - Neue Kategorie-Einteilung: 🏢 Firma, 🏫 Schule, 🧸 Kindergarten/Kita,
+     🎗️ Förderverein, 🤝 Verein, 🏛️ Verwaltung - eigene Spalte, eigener
+     Filter, eigene Sortierung in der Tabelle
+   - Button "Kategorien neu zuordnen" leitet die Kategorie nachträglich
+     aus dem Namen ab (für Alt-Einträge ohne category-Feld)
+   - Liste zeigt jetzt nur noch Einträge MIT E-Mail-Adresse an - alles
+     ohne E-Mail gilt als archiviert (bleibt in Firestore erhalten,
+     eigener Filter "Archiviert" zeigt sie bei Bedarf weiterhin)
+   - n8n-Workflow "Firmensuche" (n8n-workflow-werbung-firmensuche.json)
+     ordnet neu gefundenen Leads jetzt ebenfalls automatisch eine
+     Kategorie zu
+
+2. AUTOMATISCHER E-MAIL-IMPORT (email-import-service/)
+   - Umgestellt auf Firebase Admin SDK (Service-Account-Schlüssel statt
+     öffentlichem API-Key) - Vorbereitung für schärfere Firestore-Regeln,
+     erfordert einmalig firebase-service-account.json (siehe README.md)
+   - Absturz-Bug behoben: Bei "keine neuen E-Mails" wurde die
+     IMAP-Verbindung nicht sauber geschlossen (client.logout() wurde
+     übersprungen) - führte zu einem Crash (ECONNRESET) beim nächsten
+     automatischen Lauf. Zusätzlich jetzt ein Error-Handler auf der
+     IMAP-Verbindung als Absicherung
+
+3. RECHNUNGEN (buchungen-uebersicht.html / rechnung-erstellen.html)
+   - Karten-Menüpunkt zeigt "Rechnung anschauen und bearbeiten" statt
+     "Rechnung erstellen", sobald für die Buchung schon eine
+     Rechnungsnummer existiert - die gespeicherten Rechnungsdaten
+     bleiben dabei unangetastet, bis explizit "Änderungen speichern"
+     geklickt wird
+   - Button "Rechnung öffnen" im Bearbeiten-Formular für offene
+     Rechnungen
+
+4. DIVERSE UI-FIXES (buchungen-uebersicht.html)
+   - Karten-Buttons als 2x2-Raster statt 4 nebeneinander (voller Text
+     lesbar)
+   - "Chat-Verlauf"-Button-Text brach nicht mehr um
+   - Wochentag hinter dem Datum auf Buchungskarten (z.B. "29.07.2026 (Mi)")
+   - Firebase-Status auf einen kleinen Punkt reduziert
+   - "Nächster Termin"-Kachel: zeigt keine bereits abgelaufenen
+     Termine von heute mehr an, Klick springt zur passenden Karte
+   - Termine-am-Tag-Popup zeigt jetzt echte Buchungskarten (3-Punkte-Menü
+     funktioniert dort jetzt auch, Bearbeiten öffnet nicht mehr
+     automatisch/unsichtbar hinter dem Popup)
+   - Chat-Verlauf-Fenster: WhatsApp-Style Eingabefeld statt separatem
+     Formular, sendet immer echte E-Mail statt nur lokalem Eintrag
+   - "+"-Button (neue Buchung) fing keine Klicks auf den
+     Chat-Verlauf-Button mehr ab
+
+5. GMAIL-VERSAND
+   - E-Mail-Versand (Flyer, Rechnung, Zahlungserinnerung, Chat) läuft
+     automatisch im Hintergrund über die Gmail-API statt über ein
+     Compose-Fenster - Google-OAuth-Client-ID ist eingetragen
+     (js/gmail-api.js)
+   - Rechnung/Zahlungserinnerung am Handy: mailto: statt
+     googlegmail://-Schema (zuverlässiger geräteübergreifend)
+
+====================================================================
+VERCEL / HOSTING - WICHTIGER HINWEIS
+====================================================================
+
+⚠️ Am 29.07.2026 war https://maileisfavorite.vercel.app zeitweise NICHT
+   erreichbar (404 DEPLOYMENT_NOT_FOUND, danach Vercel-SSO-Sperre).
+   Ursachen behoben:
+   - Der Alias "maileisfavorite.vercel.app" fehlte im Vercel-Account
+     und wurde neu gesetzt (zeigt auf die jeweils aktuelle
+     Produktions-Deployment)
+   - Projekteinstellung "Deployment Protection" (ssoProtection) war
+     auf "all_except_custom_domains" gestellt und hat JEDEN Zugriff
+     auf *.vercel.app-Adressen hinter einen Vercel-Login gesperrt -
+     wurde deaktiviert (Zugriffsschutz läuft über den eigenen
+     Firebase-Login der App)
+   Falls die Seite künftig wieder nicht erreichbar ist: als Erstes in
+   der Vercel-Projekteinstellung unter "Deployment Protection" prüfen,
+   ob diese versehentlich wieder aktiviert wurde.
+
+====================================================================
+WICHTIG: NICHT IM BACKUP ENTHALTEN (bewusst, aus Sicherheitsgründen)
+====================================================================
+
+⚠️ email-import-service/config.json (Gmail-App-Passwort)
+⚠️ email-import-service/state.json (Verarbeitungsstand)
+⚠️ email-import-service/firebase-service-account.json (Admin-SDK-Schlüssel,
+   gewährt vollen Datenbank-Zugriff - niemals weitergeben)
+⚠️ email-import-service/node_modules/ (per "npm install" wiederherstellbar)
+⚠️ email-import-service/import-log.txt (Laufzeit-Protokoll)
+⚠️ node_modules/ generell sowie alle .gitignore-Dateien (z.B. .env)
+
+Bei Wiederherstellung müssen diese Dateien neu angelegt werden (siehe
+email-import-service/README.md) bzw. "npm install" ausgeführt werden.
+
+====================================================================
+BEKANNTE OFFENE PUNKTE
+====================================================================
+
+⚠️ Firestore-Regeln waren zuletzt bewusst offen (siehe
+   ANLEITUNG-SICHERHEIT.md) - Status vor Wiederherstellung prüfen
+⚠️ Firestore-Tageskontingent (kostenloser Spark-Plan) kann bei
+   intensiver Nutzung (z.B. große Lead-Importe) ausgeschöpft werden -
+   Blaze-Upgrade in der Firebase Console würde das harte Limit
+   aufheben (bislang nicht umgesetzt, Entscheidung offen)
+⚠️ n8n-Workflow "Firmensuche" ist vorbereitet (inkl. Kategorie-Logik),
+   aber die Einrichtung (Google Places API-Key, Workflow-Import,
+   Webhook-Verbindung mit werbung.html) war zuletzt noch nicht
+   abgeschlossen
+
+====================================================================
+WIEDERHERSTELLUNG
+====================================================================
+
+Dateien aus diesem Backup-Ordner ins Hauptverzeichnis kopieren
+(überschreiben), dann committen und pushen (git push origin master).
+Für email-import-service zusätzlich: config.json und
+firebase-service-account.json neu anlegen (siehe README.md) und
+"npm install" ausführen.

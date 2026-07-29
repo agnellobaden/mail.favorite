@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Angebot erstellen - EisFavorite</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .top-bar {
+        max-width: 900px;
+        margin: 0 auto 15px auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .back-link { color: white; text-decoration: none; font-weight: 600; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 0.95em;
+    }
+    .btn-pdf { background: #667eea; color: white; }
+    .btn-email { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; }
+
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 40px;
+    }
+    .loading, .error { text-align: center; padding: 60px 20px; color: #888; font-size: 1.1em; }
+
+    .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .invoice-table th { background: #333; color: white; padding: 12px; text-align: left; }
+    .invoice-table td { padding: 12px; border-bottom: 1px solid #eee; }
+
+    @media (max-width: 700px) {
+        .container { padding: 20px; }
+        .invoice-header { flex-direction: column; gap: 15px; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="top-bar">
+        <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        <div class="actions" id="actionButtons" style="display:none;">
+            <button class="btn btn-pdf" onclick="downloadOfferPDF()">📄 Als PDF speichern</button>
+            <button class="btn btn-email" onclick="sendOfferByEmail()">📧 Per E-Mail senden</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="loadingState" class="loading">Lade Buchung...</div>
+        <div id="errorState" class="error" style="display:none;"></div>
+        <div id="offerContent"></div>
+    </div>
+
+    <script>
+        const DEFAULT_PRICES = {
+            kugel: 1.80, spaghetti: 7.50, schokobecher: 7.50, sahne: 1.80,
+            eiskaffee: 7.50, milchshake: 6.00, streussel: 0.50, toppings: 1.00
+        };
+
+        function loadPrices() {
+            try {
+                const saved = localStorage.getItem('productPrices');
+                if (saved) return JSON.parse(saved);
+            } catch (e) {}
+            return { ...DEFAULT_PRICES };
+        }
+
+        function calculateTravelCost(distance) {
+            const km = parseFloat(distance) || 0;
+            if (km < 6) return 0;
+            if (km < 10) return 45;
+            const additionalKm = km - 10;
+            const additionalCost = Math.floor(additionalKm / 10) * 10;
+            return 55 + additionalCost;
+        }
+
+        let currentBooking = null;
+        const db = firebase.firestore();
+
+        // Trägt ein Ereignis (Angebot erstellt/versendet) als Systemmeldung in
+        // den Chat-Verlauf der Buchung ein - erscheint dort zusammen mit
+        // Rechnungen und normalen Nachrichten in einem gemeinsamen,
+        // chronologischen Verlauf (buchungen-uebersicht.html -> "💬 Chat-Verlauf").
+        function logToBookingHistory(message) {
+            if (!currentBooking) return;
+            const entry = { message, direction: 'sent', type: 'system', timestamp: new Date().toISOString() };
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === currentBooking.id);
+            if (bookingIndex !== -1) {
+                if (!bookings[bookingIndex].emailHistory) bookings[bookingIndex].emailHistory = [];
+                bookings[bookingIndex].emailHistory.push(entry);
+                bookings[bookingIndex].lastModified = new Date().toISOString();
+                bookings[bookingIndex].lastModifiedMs = Date.now();
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+            }
+
+            if (db) {
+                db.collection('buchungen').doc(currentBooking.id).set({
+                    emailHistory: firebase.firestore.FieldValue.arrayUnion(entry),
+                    lastModified: new Date().toISOString(),
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Konnte Ereignis nicht in Firestore protokollieren:', err);
+                });
+            }
+        }
+
+        function generateOfferHTML(booking) {
+            const prices = loadPrices();
+            const today = new Date();
+            const offerNumber = `ANG-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+
+            const formatDate = (date) => date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            const guests = parseInt(booking.guests) || 50;
+            const kugelPerGuest = parseInt(booking.kugelPerGuest) || 2;
+            const totalKugeln = guests * kugelPerGuest;
+            const kugelPrice = prices.kugel || 1.80;
+            const kugelTotal = totalKugeln * kugelPrice;
+
+            const distance = parseFloat(booking.distance) || 0;
+            const travelCost = calculateTravelCost(distance);
+
+            const customerAddress = [
+                booking.street,
+                `${booking.plz || ''} ${booking.city || ''}`.trim()
+            ].filter(x => x).join('<br>');
+
+            return `
+                <div class="invoice-preview" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                    <div class="invoice-header" style="border-bottom: 3px solid #667eea; padding-bottom: 20px; margin-bottom: 30px;">
+                        <div>
+                            <div style="font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">🍦 EisFavorite</div>
+                            <div style="margin-top: 15px; font-size: 13px; line-height: 1.7; color: #555;">
+                                <strong style="color: #333; font-size: 15px;">Eis Agnello</strong><br>
+                                Favoritenstrasse 11<br>
+                                76456 Kuppenheim<br>
+                                Deutschland<br>
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                                    <strong>Tel:</strong> 017656813172<br>
+                                    <strong>E-Mail:</strong> eisfavorit@gmail.com
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); font-weight: 800; font-size: 20px;">ANGEBOT</div>
+                    </div>
+
+                    <div style="display: flex; margin-bottom: 35px;">
+                        <div style="flex: 1;">
+                            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                                <strong style="font-size: 18px; color: #667eea; display: block; margin-bottom: 15px;">${booking.company || booking.name || 'Kunde'}</strong>
+                                <div style="color: #555; line-height: 1.7; font-size: 14px;">
+                                    ${customerAddress || 'Adresse nicht angegeben'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex: 0 0 280px; margin-left: 30px;">
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e0e0e0;">
+                                <table style="width: 100%; font-size: 14px; line-height: 2;">
+                                    <tr>
+                                        <td style="color: #666;"><strong>Angebotsnummer:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${offerNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Datum:</strong></td>
+                                        <td style="text-align: right; color: #333; font-weight: 600;">${formatDate(today)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666;"><strong>Veranstaltung:</strong></td>
+                                        <td style="text-align: right; color: #667eea; font-weight: 600;">${booking.date || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #666; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Gültig bis:</strong></td>
+                                        <td style="text-align: right; color: #e74c3c; font-weight: 600; padding-top: 10px; border-top: 1px solid #ddd;">${formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 35px 0 25px 0; padding: 15px 20px; background: linear-gradient(to right, #f8f9fa, white); border-left: 4px solid #667eea; border-radius: 4px;">
+                        <p style="font-size: 15px; line-height: 1.8; color: #555; margin: 0;">Vielen Dank für Ihre Anfrage! Gerne unterbreiten wir Ihnen folgendes <strong style="color: #667eea;">maßgeschneidertes Angebot</strong> für Ihre Veranstaltung:</p>
+                    </div>
+
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Position</th>
+                                <th style="text-align: center;">Menge</th>
+                                <th style="text-align: right;">Einzelpreis</th>
+                                <th style="text-align: right;">Gesamt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Kugel Eis</strong><br>
+                                    <small>${guests} Gäste × ${kugelPerGuest} Kugeln = ${totalKugeln} Kugeln</small><br>
+                                    <small style="color: #666;">inkl. 7% MwSt.</small>
+                                </td>
+                                <td style="text-align: center;">${totalKugeln}</td>
+                                <td style="text-align: right;">${kugelPrice.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${kugelTotal.toFixed(2)} €</strong></td>
+                            </tr>
+                            ${travelCost > 0 ? `
+                            <tr>
+                                <td><strong>Anfahrt & Service Pauschale</strong><br>
+                                    <small>Entfernung: ${distance.toFixed(0)} km</small><br>
+                                    <small style="color: #666;">zzgl. 7% MwSt.</small>
+                                </td>
+                                <td style="text-align: center;">1</td>
+                                <td style="text-align: right;">${travelCost.toFixed(2)} €</td>
+                                <td style="text-align: right;"><strong>${travelCost.toFixed(2)} €</strong></td>
+                            </tr>
+                            ` : ''}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 35px; padding: 25px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+                        <h3 style="margin-bottom: 20px; color: #667eea; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">🌟</span>
+                            <span>Zusätzliche Spezialitäten</span>
+                        </h3>
+                        <p style="margin-bottom: 20px; font-size: 15px; color: #555; line-height: 1.7;">Gerne können Sie Ihr Angebot mit folgenden köstlichen Produkten erweitern:</p>
+
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600;">Produkt</th>
+                                <th style="padding: 12px; text-align: right; font-weight: 600;">Preis</th>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍝 Spaghetti Eis</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.spaghetti || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍫 Schoko Becher</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.schokobecher || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>☕ Eiskaffee</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.eiskaffee || 7.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥤 Milchshake</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.milchshake || 6.00).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🥛 Sahne (Extra)</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.sahne || 1.80).toFixed(2)} €</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 12px; font-size: 14px;"><strong>🎨 Streussel</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.streussel || 0.50).toFixed(2)} €</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px; font-size: 14px;"><strong>🍓 Toppings</strong></td>
+                                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: #667eea;">${(prices.toppings || 1.00).toFixed(2)} €</td>
+                            </tr>
+                        </table>
+
+                        <p style="margin-top: 18px; font-size: 13px; color: #888; font-style: italic;">
+                            * Alle Preise verstehen sich inklusive 7% MwSt.
+                        </p>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 35px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);">
+                        <div style="font-size: 17px; margin-bottom: 8px; opacity: 0.95; font-weight: 500;">Gesamtpreis (Hauptangebot):</div>
+                        <div style="font-size: 42px; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: -1px;">${(kugelTotal + (travelCost * 1.07)).toFixed(2)} €</div>
+                        <div style="font-size: 15px; margin-top: 8px; opacity: 0.9; font-weight: 500;">inkl. MwSt. | Gültig 7 Tage</div>
+                    </div>
+
+                    <div style="margin-top: 40px; padding: 25px; background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); border-left: 5px solid #ffc107; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <p style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #856404;">📝 Wichtige Hinweise:</p>
+                        <ul style="margin-left: 20px; line-height: 2; font-size: 14px; color: #555;">
+                            <li><strong>Gültigkeit:</strong> Dieses Angebot ist 7 Tage gültig</li>
+                            <li><strong style="color: #e74c3c;">Mindestumsatz:</strong> <span style="color: #e74c3c; font-weight: 600;">200,00 € pro Veranstaltung</span></li>
+                            <li><strong>Mindestabnahme:</strong> 50 Gäste bei Veranstaltungen</li>
+                            <li><strong>Flexibilität:</strong> Zusätzliche Spezialitäten können jederzeit dazugebucht werden</li>
+                            <li><strong>Änderungen:</strong> Gästezahl kann bis 3 Tage vor Veranstaltung angepasst werden</li>
+                            <li><strong>Anfahrt:</strong> Berechnet ab Favoritenstrasse 11, 76456 Kuppenheim (zzgl. 7% MwSt.)</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-top: 40px; text-align: center; padding: 30px; background: linear-gradient(to bottom, white, #f8f9fa); border-top: 3px solid #667eea; border-radius: 8px;">
+                        <p style="font-size: 18px; color: #667eea; font-weight: 700; margin-bottom: 12px;">
+                            Wir freuen uns auf Ihre Veranstaltung! 🍦
+                        </p>
+                        <p style="font-size: 14px; color: #666; line-height: 1.7;">
+                            Bei Fragen oder individuellen Wünschen stehen wir Ihnen jederzeit gerne zur Verfügung.<br>
+                            <strong style="color: #667eea;">Kontaktieren Sie uns einfach!</strong>
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function downloadOfferPDF() {
+            const element = document.getElementById('offerContent');
+            const customerName = currentBooking.company || currentBooking.name || 'Kunde';
+
+            html2pdf().set({
+                margin: 10,
+                filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(element).save();
+
+            logToBookingHistory('📋 Angebot erstellt (PDF heruntergeladen)');
+        }
+
+        function sendOfferByEmail() {
+            if (!currentBooking.email) {
+                alert('❌ Keine E-Mail-Adresse für diese Buchung hinterlegt!');
+                return;
+            }
+
+            const customerName = currentBooking.company || currentBooking.name || 'Kunde';
+            const email = currentBooking.email;
+            const element = document.getElementById('offerContent');
+
+            html2pdf().set({
+                margin: 10,
+                filename: `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(element).output('blob').then(function(blob) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`;
+                link.click();
+
+                setTimeout(() => {
+                    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    const subject = encodeURIComponent('Angebot für Ihre Veranstaltung - EisFavorite');
+                    const body = encodeURIComponent(
+                        `Hallo ${currentBooking.name || ''},\n\n` +
+                        `vielen Dank für Ihre Anfrage!\n\n` +
+                        `Im Anhang finden Sie unser Angebot für Ihre Veranstaltung.\n\n` +
+                        `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
+                        `Mit freundlichen Grüßen\nIhr EisFavorite Team`
+                    );
+
+                    if (isMobile) {
+                        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                    } else {
+                        window.open(`https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(email)}&su=${subject}&body=${body}`, '_blank');
+                    }
+
+                    alert('✓ PDF wurde heruntergeladen!\n\n📧 E-Mail-Programm wird geöffnet...\n\nBitte hänge das heruntergeladene PDF manuell an die E-Mail an.');
+                    logToBookingHistory(`📋 Angebot per E-Mail an ${email} versendet`);
+                }, 500);
+            });
+        }
+
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (!bookingId) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                document.getElementById('errorState').textContent = '❌ Keine Buchung angegeben. Bitte über das Kartenmenü öffnen.';
+                return;
+            }
+
+            let bookings = [];
+            try {
+                bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            } catch (e) {}
+
+            const booking = bookings.find(b => b.id === bookingId);
+
+            if (!booking) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                document.getElementById('errorState').textContent = '❌ Buchung nicht gefunden (ID: ' + bookingId + ')';
+                return;
+            }
+
+            currentBooking = booking;
+            document.getElementById('offerContent').innerHTML = generateOfferHTML(booking);
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('actionButtons').style.display = 'flex';
+        }
+
+        init();
+    </script>
+</body>
+</html>

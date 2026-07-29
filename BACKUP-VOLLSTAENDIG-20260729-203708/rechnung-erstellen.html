@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rechnung erstellen - EisFavorite</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .no-print {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .search-section {
+            margin-bottom: 15px;
+        }
+
+        #bookingSearch {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        #bookingSelect {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            color: white;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        /* Rechnung Layout */
+        .invoice-container {
+            background: white;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20mm;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: 297mm;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .company-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .company-logo {
+            font-size: 60px;
+        }
+
+        .company-details h1 {
+            font-size: 36px;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .company-details p {
+            margin: 3px 0;
+            font-size: 15px;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .invoice-title {
+            text-align: right;
+        }
+
+        .invoice-title h2 {
+            font-size: 56px;
+            font-weight: bold;
+            margin: 0;
+            color: #333;
+            letter-spacing: 2px;
+        }
+
+        .invoice-addresses {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            gap: 30px;
+        }
+
+        .customer-address {
+            border: 3px solid #333;
+            padding: 25px;
+            border-radius: 8px;
+            min-width: 300px;
+            background: #f9f9f9;
+        }
+
+        .customer-address h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .customer-address p {
+            margin: 6px 0;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .invoice-details {
+            text-align: right;
+            flex-grow: 1;
+        }
+
+        .invoice-details p {
+            margin: 12px 0;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .invoice-details strong {
+            display: inline-block;
+            min-width: 160px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .invoice-details span {
+            font-weight: normal;
+        }
+
+        .invoice-intro {
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .invoice-table thead {
+            background: #333;
+            color: white;
+        }
+
+        .invoice-table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .invoice-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        .invoice-table input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+
+        .invoice-table .desc-col {
+            width: 35%;
+        }
+
+        .invoice-table .qty-col {
+            width: 10%;
+            text-align: right;
+        }
+
+        .invoice-table .price-col {
+            width: 18%;
+            text-align: right;
+        }
+
+        .invoice-table .tax-col {
+            width: 15%;
+            text-align: right;
+        }
+
+        .invoice-table .total-col {
+            width: 18%;
+            text-align: right;
+        }
+
+        .invoice-table .action-col {
+            width: 4%;
+            text-align: center;
+        }
+
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-item-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .invoice-totals {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .totals-table {
+            width: 400px;
+        }
+
+        .totals-table tr td {
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .totals-table tr:last-child td {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #333;
+            padding-top: 12px;
+        }
+
+        .final-amount {
+            margin-top: 40px;
+            padding: 25px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .final-amount .label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .final-amount .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .totals-table .label {
+            text-align: right;
+            padding-right: 20px;
+        }
+
+        .totals-table .value {
+            text-align: right;
+        }
+
+        .invoice-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            font-size: 13px;
+        }
+
+        .footer-section {
+            margin-bottom: 20px;
+        }
+
+        .footer-section h4 {
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .footer-section p {
+            margin: 4px 0;
+            line-height: 1.6;
+        }
+
+        .editable-field {
+            border: 1px dashed #ccc;
+            padding: 2px 5px;
+            min-width: 80px;
+            display: inline-block;
+            cursor: text;
+        }
+
+        .editable-field:hover {
+            background: #f9f9f9;
+        }
+
+        .status-banner {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 15mm;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .invoice-container {
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+                min-height: auto;
+            }
+
+            .editable-field {
+                border: none !important;
+                padding: 0 !important;
+                background: transparent !important;
+            }
+
+            [contenteditable] {
+                border: none !important;
+                background: transparent !important;
+            }
+
+            input {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+
+            .remove-btn {
+                display: none !important;
+            }
+
+            .add-item-btn {
+                display: none !important;
+            }
+
+            .invoice-header {
+                page-break-after: avoid;
+            }
+
+            .invoice-table {
+                page-break-inside: avoid;
+            }
+
+            .invoice-footer {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .invoice-header {
+                flex-direction: column;
+            }
+            .invoice-title {
+                text-align: left;
+                margin-top: 20px;
+            }
+            .invoice-addresses {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .invoice-details {
+                text-align: left;
+            }
+            .invoice-table {
+                font-size: 12px;
+            }
+            .invoice-table th,
+            .invoice-table td {
+                padding: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <!-- Steuerungsbereich (nicht drucken) -->
+    <div class="no-print">
+        <button onclick="goBack()" class="back-button" style="border: none; cursor: pointer;">← Zurück</button>
+
+        <div id="invoiceStatusBanner" class="status-banner" style="display: none;">
+            <strong>✅ Rechnung bereits versendet</strong>
+            <p id="invoiceStatusDetails"></p>
+        </div>
+
+        <div class="search-section">
+            <label><strong>Buchung suchen:</strong></label>
+            <input type="text" id="bookingSearch" placeholder="Name, Datum oder Ort eingeben...">
+            <select id="bookingSelect" size="5" style="display: none;">
+            </select>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="saveInvoiceNow()" style="background: #667eea; font-weight: 700;">💾 Änderungen speichern</button>
+            <button class="btn btn-secondary" onclick="resetForm()">Formular zurücksetzen</button>
+            <button class="btn btn-primary" onclick="window.print()">🖨️ Drucken</button>
+            <button class="btn btn-primary" onclick="generatePDF()">📄 PDF herunterladen</button>
+            <button class="btn btn-success" onclick="sendInvoiceByEmail()">📧 Per E-Mail senden</button>
+            <button class="btn btn-warning" onclick="markInvoiceAsSent()">✅ Als versendet markieren</button>
+            <button class="btn btn-success" onclick="markInvoiceAsPaid()" style="background: #28a745;">💰 Als bezahlt markieren</button>
+            <button class="btn btn-warning" onclick="sendPaymentReminder()" style="background: #ff9800; display: none;" id="reminderBtn">⏰ Zahlungserinnerung senden</button>
+        </div>
+        <p id="saveStatus" style="font-size: 0.85em; color: #888; margin-top: 6px;"></p>
+    </div>
+
+    <!-- Rechnung -->
+    <div class="invoice-container" id="invoice">
+        <!-- Header -->
+        <div class="invoice-header">
+            <div class="company-info">
+                <div class="company-logo">🍦</div>
+                <div class="company-details">
+                    <h1>EisFavorite</h1>
+                    <p><strong contenteditable="true" class="editable-field" id="senderName">Eis Agnello</strong></p>
+                    <p contenteditable="true" class="editable-field" id="senderStreet">Favoritenstrasse 11</p>
+                    <p contenteditable="true" class="editable-field" id="senderCity">76456 Kuppenheim</p>
+                    <p>Deutschland</p>
+                </div>
+            </div>
+            <div class="invoice-title">
+                <h2>RECHNUNG</h2>
+            </div>
+        </div>
+
+        <!-- Adressen und Details -->
+        <div class="invoice-addresses">
+            <div class="customer-address">
+                <h3 contenteditable="true" id="customerCompany">Kundenname</h3>
+                <p contenteditable="true" id="customerContact"></p>
+                <p contenteditable="true" id="customerStreet">Straße Hausnummer</p>
+                <p><span contenteditable="true" id="customerPostalCode">PLZ</span> <span contenteditable="true" id="customerCity">Ort</span></p>
+            </div>
+            <div class="invoice-details">
+                <p><strong>Rechnungsnummer:</strong> <span contenteditable="true" id="invoiceNumber">2026075205</span></p>
+                <p><strong>Ausgestellt:</strong> <span contenteditable="true" id="invoiceDate"></span></p>
+                <p><strong>Leistung erbracht am:</strong> <span contenteditable="true" id="serviceDate"></span></p>
+                <p><strong>Zahlungsziel:</strong> <span contenteditable="true" id="paymentDue"></span></p>
+            </div>
+        </div>
+
+        <!-- Intro Text -->
+        <div class="invoice-intro">
+            <p>Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:</p>
+        </div>
+
+        <!-- Tabelle -->
+        <table class="invoice-table" id="invoiceTable">
+            <thead>
+                <tr>
+                    <th class="no-print" style="width: 12%;">PRODUKT</th>
+                    <th class="desc-col">BESCHREIBUNG</th>
+                    <th class="qty-col">MENGE</th>
+                    <th class="price-col">EINZELPREIS<br>(BRUTTO)</th>
+                    <th class="price-col">PREIS<br>(NETTO)</th>
+                    <th class="tax-col">MWST</th>
+                    <th class="total-col">GESAMT<br>(BRUTTO)</th>
+                    <th class="action-col no-print"></th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody">
+            </tbody>
+        </table>
+
+        <button class="add-item-btn no-print" onclick="addItem()">+ Position hinzufügen</button>
+
+        <!-- Summen -->
+        <div class="invoice-totals">
+            <table class="totals-table">
+                <tr>
+                    <td class="label">SUMME NETTO</td>
+                    <td class="value" id="totalNetto">0,00 €</td>
+                </tr>
+                <tr>
+                    <td class="label">zzgl. 7% MwSt</td>
+                    <td class="value" id="totalMwst">0,00 €</td>
+                </tr>
+                <tr>
+                    <td class="label">GESAMT (BRUTTO)</td>
+                    <td class="value" id="totalBrutto">0,00 €</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Finaler Gesamtbetrag -->
+        <div class="final-amount">
+            <div class="label">GESAMTBETRAG<br>ZU BEZAHLEN</div>
+            <div class="value" id="finalTotal">0,00 €</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="invoice-footer">
+            <div class="footer-section">
+                <h4>INHABER</h4>
+                <p><span contenteditable="true" id="ownerName">Eis Agnello</span></p>
+                <p><span contenteditable="true" id="ownerStreet">Favoritenstrasse 11</span></p>
+                <p><span contenteditable="true" id="ownerCity">76456 Kuppenheim</span></p>
+            </div>
+
+            <div class="footer-section">
+                <h4>KONTAKT</h4>
+                <p>St-Nr.: <span contenteditable="true" id="taxId">39102/26343</span></p>
+                <p>Handy: <span contenteditable="true" id="phone">+49 176 56813172</span></p>
+            </div>
+
+            <div class="footer-section">
+                <h4>BANKVERBINDUNG</h4>
+                <p>Empfänger: <span contenteditable="true" id="bankRecipient">Andrea Agnello</span></p>
+                <p>Bank: <span contenteditable="true" id="bankName">Sparkasse Baden Baden</span></p>
+                <p>IBAN: <span contenteditable="true" id="iban">DE72 6625 0030 0030 4713 20</span></p>
+                <p>BIC/SWIFT: <span contenteditable="true" id="bic">SOLADES1BAD</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allBookings = [];
+        const db = firebase.firestore();
+
+        // ==========================================
+        // AUTO-SAVE & SCROLL-POSITION SYSTEM
+        // ==========================================
+        (function initAutoSave() {
+            const PAGE_KEY = 'rechnung_autosave';
+
+            // Scroll-Position wiederherstellen
+            window.addEventListener('DOMContentLoaded', function() {
+                const savedScrollPos = sessionStorage.getItem(PAGE_KEY + '_scroll');
+                if (savedScrollPos) {
+                    setTimeout(() => {
+                        window.scrollTo(0, parseInt(savedScrollPos));
+                        console.log('✅ Scroll-Position wiederhergestellt:', savedScrollPos);
+                    }, 100);
+                }
+
+                // Suchfeld wiederherstellen (nur wenn keine bookingId in URL)
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.get('bookingId')) {
+                    const savedSearch = sessionStorage.getItem(PAGE_KEY + '_bookingSearch');
+                    if (savedSearch) {
+                        const searchInput = document.getElementById('bookingSearch');
+                        if (searchInput) {
+                            searchInput.value = savedSearch;
+                            console.log('✅ Suchfeld wiederhergestellt:', savedSearch);
+                        }
+                    }
+                }
+            });
+
+            // Scroll-Position speichern
+            let scrollTimeout;
+            window.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    sessionStorage.setItem(PAGE_KEY + '_scroll', window.scrollY);
+                }, 150);
+            });
+
+            // Suchfeld speichern
+            setTimeout(() => {
+                const searchInput = document.getElementById('bookingSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        sessionStorage.setItem(PAGE_KEY + '_bookingSearch', this.value);
+                    });
+                }
+            }, 500);
+
+            // Beim Verlassen speichern
+            window.addEventListener('beforeunload', function() {
+                sessionStorage.setItem(PAGE_KEY + '_scroll', window.scrollY);
+            });
+        })();
+
+        // Zurück-Funktion: Immer einen Schritt zurück im Verlauf
+        function goBack() {
+            console.log('🔙 Gehe einen Schritt zurück im Browser-Verlauf');
+            window.history.back();
+        }
+
+        // Produktliste (wie in buchungen-uebersicht.html)
+        const PRODUCTS_LIST = [
+            { id: 'kugel', name: 'Kugel Eis', emoji: '🍨' },
+            { id: 'spaghetti', name: 'Spaghetti Eis', emoji: '🍝' },
+            { id: 'schokobecher', name: 'Schoko Becher', emoji: '🍫' },
+            { id: 'sahne', name: 'Sahne', emoji: '🥛' },
+            { id: 'eiskaffee', name: 'Eiskaffee', emoji: '☕' },
+            { id: 'milchshake', name: 'Milchshake', emoji: '🥤' },
+            { id: 'streussel', name: 'Streussel', emoji: '🎨' },
+            { id: 'toppings', name: 'Toppings', emoji: '🍓' }
+        ];
+
+        // Standard-Preise
+        const DEFAULT_PRICES = {
+            kugel: 1.80,
+            spaghetti: 7.50,
+            schokobecher: 7.50,
+            sahne: 1.80,
+            eiskaffee: 7.50,
+            milchshake: 6.00,
+            streussel: 0.50,
+            toppings: 1.00
+        };
+
+        // Preise laden
+        function loadPrices() {
+            const saved = localStorage.getItem('productPrices');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            return { ...DEFAULT_PRICES };
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Datum setzen
+            const today = new Date();
+            const invoiceDate = formatDate(today);
+            document.getElementById('invoiceDate').textContent = invoiceDate;
+
+            // Zahlungsziel (7 Tage)
+            const paymentDueDate = new Date(today);
+            paymentDueDate.setDate(paymentDueDate.getDate() + 7);
+            document.getElementById('paymentDue').textContent = formatDate(paymentDueDate);
+
+            // Rechnungsnummer generieren
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            const invoiceNumber = `${year}${month}${day}${random}`;
+            document.getElementById('invoiceNumber').textContent = invoiceNumber;
+
+            // URL-Parameter prüfen
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            console.log('🔍 URL bookingId:', bookingId);
+
+            if (bookingId) {
+                // Buchung direkt aus localStorage laden (nicht auf loadBookings() warten)
+                console.log('📋 Lade Buchung mit ID:', bookingId);
+                document.querySelector('.search-section').style.display = 'none';
+
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                console.log('📦 Verfügbare Buchungen:', bookings.length);
+
+                const booking = bookings.find(b => b.id === bookingId);
+
+                if (booking) {
+                    console.log('✅ Buchung gefunden:', booking.name);
+                    loadBookingData(booking);
+                } else {
+                    console.error('❌ Buchung nicht gefunden für ID:', bookingId);
+                    alert('Buchung konnte nicht gefunden werden!');
+                }
+            } else {
+                console.log('ℹ️ Keine bookingId in URL - zeige Suchfeld');
+                addItem();
+            }
+
+            // Buchungen für Suche laden
+            loadBookings();
+        });
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        function loadBookings() {
+            allBookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+
+            // Sortiere nach Datum (deutsches Format DD.MM.YYYY)
+            allBookings.sort((a, b) => {
+                const dateA = a.date ? a.date.split('.').reverse().join('-') : '';
+                const dateB = b.date ? b.date.split('.').reverse().join('-') : '';
+                return new Date(dateA) - new Date(dateB);
+            });
+
+            const searchInput = document.getElementById('bookingSearch');
+            const select = document.getElementById('bookingSelect');
+
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+
+                if (searchTerm === '') {
+                    select.style.display = 'none';
+                    select.innerHTML = '';
+                    return;
+                }
+
+                const filtered = allBookings.filter(booking => {
+                    const name = (booking.name || '').toLowerCase();
+                    const date = (booking.date || '').toLowerCase();
+                    const city = (booking.city || '').toLowerCase();
+                    const street = (booking.street || '').toLowerCase();
+
+                    return name.includes(searchTerm) ||
+                           date.includes(searchTerm) ||
+                           city.includes(searchTerm) ||
+                           street.includes(searchTerm);
+                });
+
+                select.innerHTML = '';
+
+                if (filtered.length > 0) {
+                    select.style.display = 'block';
+
+                    filtered.forEach((booking) => {
+                        const option = document.createElement('option');
+                        option.value = allBookings.indexOf(booking);
+
+                        let statusText = '';
+                        if (booking.invoiceSent) {
+                            statusText = ' ✅';
+                        } else if (booking.tally && Object.keys(booking.tally).length > 0) {
+                            statusText = ' 📋';
+                        }
+
+                        const location = booking.city || booking.street || '';
+                        const displayText = location ?
+                            `${booking.name} - ${booking.date} - ${location}${statusText}` :
+                            `${booking.name} - ${booking.date}${statusText}`;
+                        option.textContent = displayText;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.style.display = 'block';
+                    const option = document.createElement('option');
+                    option.textContent = 'Keine Buchungen gefunden';
+                    option.disabled = true;
+                    select.appendChild(option);
+                }
+            });
+
+            select.addEventListener('change', function() {
+                if (this.value !== '' && !isNaN(this.value)) {
+                    loadBookingData(allBookings[this.value]);
+                    searchInput.value = '';
+                    select.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !select.contains(e.target)) {
+                    select.style.display = 'none';
+                }
+            });
+        }
+
+        function formatDateFromString(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return formatDate(date);
+        }
+
+        function loadBookingData(booking) {
+            // Status-Banner
+            const statusBanner = document.getElementById('invoiceStatusBanner');
+            const statusDetails = document.getElementById('invoiceStatusDetails');
+            const reminderBtn = document.getElementById('reminderBtn');
+
+            if (booking.invoicePaid) {
+                // BEZAHLT hat höchste Priorität
+                statusBanner.style.display = 'block';
+                statusBanner.style.background = '#d4edda';
+                statusBanner.style.border = '2px solid #28a745';
+                const paidDate = booking.invoicePaidDate ? new Date(booking.invoicePaidDate).toLocaleString('de-DE') : 'Unbekannt';
+                const invoiceNum = booking.invoiceNumber || 'N/A';
+                const amount = booking.invoiceAmount || '0,00 €';
+                statusDetails.innerHTML = `<strong>✅ Rechnung BEZAHLT</strong><br>Rechnungsnummer: ${invoiceNum} | Betrag: ${amount} | Bezahlt am: ${paidDate}`;
+
+                // Erinnerungs-Button verstecken (bereits bezahlt)
+                if (reminderBtn) reminderBtn.style.display = 'none';
+            } else if (booking.invoiceSent) {
+                // VERSENDET aber NICHT BEZAHLT
+                statusBanner.style.display = 'block';
+                statusBanner.style.background = '#d4edda';
+                statusBanner.style.border = '2px solid #28a745';
+                const sentDate = booking.invoiceSentDate ? new Date(booking.invoiceSentDate).toLocaleString('de-DE') : 'Unbekannt';
+                const invoiceNum = booking.invoiceNumber || 'N/A';
+                statusDetails.innerHTML = `<strong>✅ Rechnung versendet</strong><br>Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+
+                // Erinnerungs-Button ANZEIGEN (versendet, aber nicht bezahlt)
+                if (reminderBtn) reminderBtn.style.display = 'inline-block';
+            } else {
+                statusBanner.style.display = 'none';
+                // Erinnerungs-Button verstecken (noch nicht versendet)
+                if (reminderBtn) reminderBtn.style.display = 'none';
+            }
+
+            // Kundendaten
+            // Wenn keine Firma angegeben: Name als Firmenname verwenden
+            let companyName = '';
+            let contactPerson = '';
+
+            if (booking.company) {
+                // Firma vorhanden: Firma anzeigen
+                companyName = booking.company;
+                // Ansprechpartner: entweder contactPerson oder name (falls unterschiedlich)
+                if (booking.contactPerson) {
+                    contactPerson = `z. Hd. ${booking.contactPerson}`;
+                } else if (booking.name) {
+                    contactPerson = booking.name;
+                }
+            } else {
+                // Keine Firma: Name als Firmenname verwenden
+                companyName = booking.name || 'Kundenname';
+                // contactPerson bleibt leer, da Name schon als Firma angezeigt wird
+                if (booking.contactPerson) {
+                    contactPerson = `z. Hd. ${booking.contactPerson}`;
+                }
+            }
+
+            const street = booking.street || 'Straße Hausnummer';
+            const postalCode = booking.plz || 'PLZ';
+            const city = booking.city || 'Ort';
+
+            document.getElementById('customerCompany').textContent = companyName;
+            document.getElementById('customerContact').textContent = contactPerson;
+            document.getElementById('customerStreet').textContent = street;
+            document.getElementById('customerPostalCode').textContent = postalCode;
+            document.getElementById('customerCity').textContent = city;
+
+            // Datum, an dem die Leistung (das Event) tatsächlich erbracht wurde -
+            // wichtig für Kunden, die das auf der Rechnung sehen wollen (z.B. für
+            // ihre eigene Buchhaltung/Spesenabrechnung).
+            document.getElementById('serviceDate').textContent = booking.date || '';
+
+            // Wenn für diese Buchung schon einmal eine Rechnung bearbeitet/erzeugt
+            // wurde, den damaligen Stand (Rechnungsnummer, Daten, Kundendaten wie
+            // auf der Rechnung, Positionen) wiederherstellen statt bei jedem
+            // erneuten Öffnen wieder bei den Standardwerten anzufangen.
+            if (booking.invoiceData) {
+                const inv = booking.invoiceData;
+                if (inv.invoiceNumber) document.getElementById('invoiceNumber').textContent = inv.invoiceNumber;
+                if (inv.invoiceDate) document.getElementById('invoiceDate').textContent = inv.invoiceDate;
+                if (inv.serviceDate) document.getElementById('serviceDate').textContent = inv.serviceDate;
+                if (inv.paymentDue) document.getElementById('paymentDue').textContent = inv.paymentDue;
+                if (inv.customerCompany) document.getElementById('customerCompany').textContent = inv.customerCompany;
+                if (inv.customerContact) document.getElementById('customerContact').textContent = inv.customerContact;
+                if (inv.customerStreet) document.getElementById('customerStreet').textContent = inv.customerStreet;
+                if (inv.customerPostalCode) document.getElementById('customerPostalCode').textContent = inv.customerPostalCode;
+                if (inv.customerCity) document.getElementById('customerCity').textContent = inv.customerCity;
+
+                if (inv.items && inv.items.length > 0) {
+                    document.getElementById('itemsBody').innerHTML = '';
+                    inv.items.forEach(item => addItem(item.description, item.quantity, item.bruttoPrice));
+                }
+            }
+
+            console.log('Booking geladen:', {
+                company: booking.company,
+                name: booking.name,
+                street: booking.street,
+                plz: booking.plz,
+                city: booking.city
+            });
+
+            // Positionen nur automatisch aus Strichliste/Gästezahl/Anfahrt
+            // erzeugen, wenn noch KEIN gespeicherter Rechnungsstand für diese
+            // Buchung existiert - sonst würden die oben aus invoiceData
+            // wiederhergestellten (ggf. manuell bearbeiteten) Positionen sofort
+            // wieder überschrieben.
+            const hasSavedItems = booking.invoiceData && booking.invoiceData.items && booking.invoiceData.items.length > 0;
+
+            if (!hasSavedItems) {
+                // Items löschen
+                document.getElementById('itemsBody').innerHTML = '';
+
+                // Preise laden
+                const prices = loadPrices();
+
+                // Strichliste laden
+                let tallyData = null;
+
+                if (booking.tally && typeof booking.tally === 'object') {
+                    tallyData = booking.tally;
+                } else {
+                    const tallyKey = `tally_${booking.date}_${booking.name}`;
+                    tallyData = JSON.parse(localStorage.getItem(tallyKey) || '{}');
+                }
+
+                // Strichliste: Alle Produkte mit ihren echten Namen und Preisen
+                if (tallyData && Object.keys(tallyData).length > 0) {
+                    console.log('📋 Lade Strichliste:', tallyData);
+
+                    PRODUCTS_LIST.forEach(product => {
+                        const count = tallyData[product.id] || 0;
+                        if (count > 0) {
+                            const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                            const productName = product.name;
+                            addItem(`${productName} inkl. 7% Umsatzsteuer`, count, price.toFixed(2));
+                            console.log(`  ✓ ${productName}: ${count}x à ${price.toFixed(2)} €`);
+                        }
+                    });
+                } else if (booking.gaeste && booking.kugeln) {
+                    // Fallback: Wenn keine Strichliste vorhanden, nutze Gäste × Kugeln
+                    const totalKugeln = booking.gaeste * booking.kugeln;
+                    const kugelPrice = prices.kugel || DEFAULT_PRICES.kugel;
+                    addItem('Kugel Eis inkl. 7% Umsatzsteuer', totalKugeln, kugelPrice.toFixed(2));
+                }
+
+                // Anfahrtskosten berechnen und hinzufügen
+                const distance = parseFloat(booking.distance) || 0;
+                let anfahrtskosten = 0;
+
+                if (distance >= 6) {
+                    anfahrtskosten = 45;
+                    if (distance >= 10) {
+                        anfahrtskosten = 55;
+                        const additionalKm = Math.floor((distance - 10) / 10);
+                        anfahrtskosten += additionalKm * 10;
+                    }
+                }
+
+                if (anfahrtskosten > 0) {
+                    console.log(`🚗 Anfahrtskosten: ${distance} km → ${anfahrtskosten.toFixed(2)} €`);
+                    addItem(`Anfahrtskosten (${distance} km) inkl. 7% Umsatzsteuer`, 1, anfahrtskosten.toFixed(2));
+                }
+            }
+
+            calculateTotals();
+        }
+
+        function addItem(description = '', quantity = '', bruttoPrice = '') {
+            const tbody = document.getElementById('itemsBody');
+            const row = tbody.insertRow();
+            const rowIndex = row.rowIndex;
+
+            // Erstelle Produkt-Dropdown
+            const prices = loadPrices();
+            let productOptions = '<option value="">-- Produkt wählen --</option>';
+            PRODUCTS_LIST.forEach(product => {
+                const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                productOptions += `<option value="${product.id}" data-price="${price.toFixed(2)}">${product.emoji} ${product.name}</option>`;
+            });
+            productOptions += '<option value="custom">✏️ Eigene Position</option>';
+
+            row.innerHTML = `
+                <td class="no-print">
+                    <select class="product-select" onchange="fillProductData(this)" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 14px;">
+                        ${productOptions}
+                    </select>
+                </td>
+                <td class="desc-col">
+                    <input type="text" class="item-description" value="${description}" oninput="scheduleAutoSaveInvoice()" ${description ? '' : 'placeholder="Beschreibung eingeben..."'}>
+                </td>
+                <td class="qty-col">
+                    <input type="number" class="item-quantity" value="${quantity || 1}" min="0" step="1" onchange="calculateTotals()">
+                </td>
+                <td class="price-col">
+                    <input type="number" class="item-brutto-single" value="${bruttoPrice}" min="0" step="0.01" onchange="calculateTotals()" style="text-align: right;" ${bruttoPrice ? '' : 'placeholder="0.00"'}>
+                </td>
+                <td class="price-col">
+                    <input type="text" class="item-netto" readonly style="background: #f5f5f5; text-align: right;">
+                </td>
+                <td class="tax-col">
+                    <input type="text" class="item-mwst" readonly style="background: #f5f5f5; text-align: right;">
+                </td>
+                <td class="total-col">
+                    <input type="text" class="item-brutto-total" readonly style="background: #f5f5f5; text-align: right;">
+                </td>
+                <td class="action-col no-print">
+                    <button class="remove-btn" onclick="removeItem(this)">×</button>
+                </td>
+            `;
+
+            calculateTotals();
+        }
+
+        // Produkt-Daten automatisch ausfüllen
+        function fillProductData(selectElement) {
+            const row = selectElement.closest('tr');
+            const selectedValue = selectElement.value;
+
+            if (selectedValue === '' || selectedValue === 'custom') {
+                // Leere Felder für eigene Position
+                row.querySelector('.item-description').value = '';
+                row.querySelector('.item-brutto-single').value = '';
+                row.querySelector('.item-quantity').value = 1;
+                calculateTotals();
+                return;
+            }
+
+            const prices = loadPrices();
+            const product = PRODUCTS_LIST.find(p => p.id === selectedValue);
+
+            if (product) {
+                const price = prices[product.id] || DEFAULT_PRICES[product.id];
+                const productName = product.name;
+
+                row.querySelector('.item-description').value = `${productName} inkl. 7% Umsatzsteuer`;
+                row.querySelector('.item-brutto-single').value = price.toFixed(2);
+                row.querySelector('.item-quantity').value = 1;
+
+                console.log(`✅ Produkt gewählt: ${productName} - ${price.toFixed(2)} €`);
+                calculateTotals();
+            }
+        }
+
+        function removeItem(button) {
+            const row = button.closest('tr');
+            row.remove();
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            const rows = document.querySelectorAll('#itemsBody tr');
+            let totalNetto = 0;
+            let totalMwst = 0;
+            let totalBrutto = 0;
+
+            rows.forEach(row => {
+                const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+                const bruttoSingle = parseFloat(row.querySelector('.item-brutto-single').value) || 0;
+
+                // Berechnung: Brutto enthält bereits 7% MwSt.
+                const netto = bruttoSingle / 1.07;
+                const mwst = bruttoSingle - netto;
+
+                // Einzelwerte (Menge × Stückpreis)
+                const totalItemBrutto = quantity * bruttoSingle;
+                const totalItemNetto = quantity * netto;
+                const totalItemMwst = quantity * mwst;
+
+                // In Felder eintragen
+                row.querySelector('.item-netto').value = formatCurrency(totalItemNetto);
+                row.querySelector('.item-mwst').value = formatCurrency(totalItemMwst);
+                row.querySelector('.item-brutto-total').value = formatCurrency(totalItemBrutto);
+
+                // Zu Gesamtsummen addieren
+                totalNetto += totalItemNetto;
+                totalMwst += totalItemMwst;
+                totalBrutto += totalItemBrutto;
+            });
+
+            // Gesamtsummen anzeigen
+            document.getElementById('totalNetto').textContent = formatCurrency(totalNetto);
+            document.getElementById('totalMwst').textContent = formatCurrency(totalMwst);
+            document.getElementById('totalBrutto').textContent = formatCurrency(totalBrutto);
+            document.getElementById('finalTotal').textContent = formatCurrency(totalBrutto);
+
+            scheduleAutoSaveInvoice();
+        }
+
+        function formatCurrency(amount) {
+            return amount.toFixed(2).replace('.', ',') + ' €';
+        }
+
+        function resetForm() {
+            if (confirm('Möchten Sie wirklich alle Felder zurücksetzen?')) {
+                location.reload();
+            }
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Header
+            let y = 20;
+            doc.setFontSize(24);
+            doc.setFont(undefined, 'bold');
+            doc.text('EisFavorite', 20, y);
+            doc.setFontSize(18);
+            doc.text('RECHNUNG', 190, y, { align: 'right' });
+
+            y += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(document.getElementById('senderName').textContent, 20, y);
+            doc.text(document.getElementById('senderStreet').textContent, 20, y + 5);
+            doc.text(document.getElementById('senderCity').textContent, 20, y + 10);
+
+            // Kunde
+            y = 50;
+            doc.setFont(undefined, 'bold');
+            doc.text(document.getElementById('customerCompany').textContent, 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            const contact = document.getElementById('customerContact').textContent;
+            if (contact) {
+                doc.text(contact, 20, y);
+                y += 5;
+            }
+            doc.text(document.getElementById('customerStreet').textContent, 20, y);
+            y += 5;
+            doc.text(`${document.getElementById('customerPostalCode').textContent} ${document.getElementById('customerCity').textContent}`, 20, y);
+
+            // Details
+            y = 50;
+            doc.text(`Rechnungsnummer: ${document.getElementById('invoiceNumber').textContent}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Ausgestellt: ${document.getElementById('invoiceDate').textContent}`, 190, y, { align: 'right' });
+            y += 5;
+            const serviceDateText = document.getElementById('serviceDate').textContent;
+            if (serviceDateText) {
+                doc.text(`Leistung erbracht am: ${serviceDateText}`, 190, y, { align: 'right' });
+                y += 5;
+            }
+            doc.text(`Zahlungsziel: ${document.getElementById('paymentDue').textContent}`, 190, y, { align: 'right' });
+
+            // Intro
+            y = 85;
+            doc.text('Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:', 20, y);
+
+            // Tabelle
+            y = 95;
+            doc.setFont(undefined, 'bold');
+            doc.setFillColor(51, 51, 51);
+            doc.rect(20, y - 5, 170, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('Beschreibung', 22, y);
+            doc.text('Menge', 110, y, { align: 'right' });
+            doc.text('Netto', 135, y, { align: 'right' });
+            doc.text('MwSt.', 160, y, { align: 'right' });
+            doc.text('Brutto', 185, y, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+
+            y += 8;
+            doc.setFont(undefined, 'normal');
+
+            const rows = document.querySelectorAll('#itemsBody tr');
+            rows.forEach(row => {
+                let description = row.querySelector('.item-description').value;
+                const quantity = row.querySelector('.item-quantity').value;
+                const netto = row.querySelector('.item-netto').value;
+                const mwst = row.querySelector('.item-mwst').value;
+                const bruttoTotal = row.querySelector('.item-brutto-total').value;
+
+                // Emojis und Zeilenumbrüche entfernen für bessere PDF-Lesbarkeit
+                description = description
+                    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Emojis entfernen
+                    .replace(/\n/g, ' ')                     // Zeilenumbrüche durch Leerzeichen ersetzen
+                    .trim();                                  // Leerzeichen am Anfang/Ende entfernen
+
+                // Beschreibung in mehrere Zeilen umbrechen, falls zu lang
+                const maxWidth = 80;
+                const lines = doc.splitTextToSize(description, maxWidth);
+
+                doc.text(lines, 22, y);
+                doc.text(quantity, 110, y, { align: 'right' });
+                doc.text(netto, 135, y, { align: 'right' });
+                doc.text(mwst, 160, y, { align: 'right' });
+                doc.text(bruttoTotal, 185, y, { align: 'right' });
+
+                // Erhöhe y basierend auf Anzahl der Zeilen
+                y += (lines.length * 5) + 2;
+            });
+
+            // Summen
+            y += 5;
+            doc.line(20, y, 190, y);
+            y += 8;
+
+            doc.text('Gesamtnetto:', 135, y);
+            doc.text(document.getElementById('totalNetto').textContent, 185, y, { align: 'right' });
+            y += 6;
+
+            doc.text('Gesamte MwSt. (7%):', 135, y);
+            doc.text(document.getElementById('totalMwst').textContent, 185, y, { align: 'right' });
+            y += 6;
+
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(12);
+            doc.text('Gesamtbetrag:', 135, y);
+            doc.text(document.getElementById('totalBrutto').textContent, 185, y, { align: 'right' });
+
+            // Finaler Betrag
+            y += 15;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('GESAMTBETRAG ZU BEZAHLEN', 20, y);
+            doc.text(document.getElementById('finalTotal').textContent, 185, y, { align: 'right' });
+
+            // Footer
+            y += 15;
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            doc.text('INHABER', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(document.getElementById('ownerName').textContent, 20, y);
+            y += 4;
+            doc.text(document.getElementById('ownerStreet').textContent, 20, y);
+            y += 4;
+            doc.text(document.getElementById('ownerCity').textContent, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('KONTAKT', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`St-Nr.: ${document.getElementById('taxId').textContent}`, 20, y);
+            y += 4;
+            doc.text(`Handy: ${document.getElementById('phone').textContent}`, 20, y);
+
+            y += 8;
+            doc.setFont(undefined, 'bold');
+            doc.text('BANKVERBINDUNG', 20, y);
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text(`Empfänger: ${document.getElementById('bankRecipient').textContent}`, 20, y);
+            y += 4;
+            doc.text(`Bank: ${document.getElementById('bankName').textContent}`, 20, y);
+            y += 4;
+            doc.text(`IBAN: ${document.getElementById('iban').textContent}`, 20, y);
+            y += 4;
+            doc.text(`BIC/SWIFT: ${document.getElementById('bic').textContent}`, 20, y);
+
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerName = document.getElementById('customerCompany').textContent;
+            const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
+            doc.save(filename);
+            archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
+            autoSaveInvoiceData();
+            logToBookingHistory(`📄 Rechnung ${invoiceNumber} erstellt (PDF heruntergeladen)`);
+        }
+
+        // Speichert Rechnungsnummer/Ausgestellt-Datum/Zahlungsziel einmalig in
+        // der Buchung, damit sie beim nächsten Öffnen von "Rechnung erstellen"
+        // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
+        // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
+
+        // Öffnet eine E-Mail: Am PC über die Gmail-Weboberfläche (fester
+        // Geschäfts-Account eisfavorit@gmail.com). Am Handy über mailto: -
+        // das öffnet zuverlässig die Mail-App direkt mit komplett
+        // vorausgefülltem Betreff/Text (nur der PDF-Anhang muss manuell
+        // hinzugefügt werden). Der googlegmail://-App-Link wurde verworfen,
+        // da er in der Praxis den Text nicht zuverlässig übernommen hat.
+        function openGmailCompose(to, subject, body) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } else {
+                const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
+                    '&authuser=eisfavorit@gmail.com' +
+                    '&to=' + encodeURIComponent(to) +
+                    '&su=' + encodeURIComponent(subject) +
+                    '&body=' + encodeURIComponent(body);
+                window.location.href = webUrl;
+            }
+        }
+
+        // Sammelt den aktuellen Stand der Rechnung (Kopfdaten + Positionen) und
+        // speichert ihn in booking.invoiceData - dadurch bleibt jede Änderung
+        // (Rechnungsnummer, Datum, Kundendaten, Positionen) erhalten, wenn man
+        // die Seite später für dieselbe Buchung erneut öffnet.
+        function collectCurrentItems() {
+            return [...document.querySelectorAll('#itemsBody tr')].map(row => ({
+                description: row.querySelector('.item-description').value,
+                quantity: row.querySelector('.item-quantity').value,
+                bruttoPrice: row.querySelector('.item-brutto-single').value
+            }));
+        }
+
+        // Trägt ein Ereignis (Rechnung erstellt/versendet, Zahlungserinnerung,
+        // bezahlt markiert...) als Systemmeldung in den Chat-Verlauf der
+        // Buchung ein - erscheint dort zusammen mit Angeboten und normalen
+        // Nachrichten in einem gemeinsamen, chronologischen Verlauf
+        // (buchungen-uebersicht.html -> "💬 Chat-Verlauf").
+        function logToBookingHistory(message) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+            if (!bookingId) return;
+
+            const entry = { message, direction: 'sent', type: 'system', timestamp: new Date().toISOString() };
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex !== -1) {
+                if (!bookings[bookingIndex].emailHistory) bookings[bookingIndex].emailHistory = [];
+                bookings[bookingIndex].emailHistory.push(entry);
+                bookings[bookingIndex].lastModified = new Date().toISOString();
+                bookings[bookingIndex].lastModifiedMs = Date.now();
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+            }
+
+            // Zusätzlich direkt in Firestore schreiben (arrayUnion), damit es
+            // den nächsten Sync der Buchungsübersicht übersteht - siehe
+            // autoSaveInvoiceData() weiter unten für denselben Hintergrund.
+            if (db) {
+                db.collection('buchungen').doc(bookingId).set({
+                    emailHistory: firebase.firestore.FieldValue.arrayUnion(entry),
+                    lastModified: new Date().toISOString(),
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Konnte Ereignis nicht in Firestore protokollieren:', err);
+                });
+            }
+        }
+
+        function autoSaveInvoiceData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+            if (!bookingId) return false;
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex === -1) return false;
+
+            bookings[bookingIndex].invoiceData = {
+                invoiceNumber: document.getElementById('invoiceNumber').textContent,
+                invoiceDate: document.getElementById('invoiceDate').textContent,
+                serviceDate: document.getElementById('serviceDate').textContent,
+                paymentDue: document.getElementById('paymentDue').textContent,
+                customerCompany: document.getElementById('customerCompany').textContent,
+                customerContact: document.getElementById('customerContact').textContent,
+                customerStreet: document.getElementById('customerStreet').textContent,
+                customerPostalCode: document.getElementById('customerPostalCode').textContent,
+                customerCity: document.getElementById('customerCity').textContent,
+                items: collectCurrentItems()
+            };
+            // Rechnungsnummer weiterhin zusätzlich direkt auf der Buchung
+            // spiegeln (wird an anderen Stellen wie dem Status-Banner gelesen).
+            bookings[bookingIndex].invoiceNumber = document.getElementById('invoiceNumber').textContent;
+
+            localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+            // WICHTIG: Zusätzlich direkt in Firestore schreiben. Nur lokal im
+            // Browser zu speichern reicht nicht - die Buchungsübersicht
+            // synchronisiert ständig mit Firestore und überschreibt sonst
+            // diesen lokalen Stand wieder mit der (älteren) Firestore-Version,
+            // sobald sie im Hintergrund/in einem anderen Tab aktualisiert.
+            if (db) {
+                db.collection('buchungen').doc(bookingId).set({
+                    invoiceData: bookings[bookingIndex].invoiceData,
+                    invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                    lastModified: new Date().toISOString(),
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Firestore-Speicherung fehlgeschlagen:', err);
+                    const statusEl = document.getElementById('saveStatus');
+                    if (statusEl) statusEl.textContent = '⚠️ Nur lokal gespeichert, Firestore-Fehler: ' + err.message;
+                });
+            }
+
+            const statusEl = document.getElementById('saveStatus');
+            if (statusEl) {
+                const now = new Date();
+                statusEl.textContent = '✓ Gespeichert um ' + now.toLocaleTimeString('de-DE');
+            }
+            return true;
+        }
+
+        // Manuelles, sofortiges Speichern (kein Debounce) über den
+        // "Änderungen speichern"-Button - mit deutlicher Rückmeldung.
+        function saveInvoiceNow() {
+            clearTimeout(autoSaveInvoiceTimeout);
+            const ok = autoSaveInvoiceData();
+            const statusEl = document.getElementById('saveStatus');
+            if (!ok) {
+                alert('⚠️ Konnte nicht gespeichert werden: Diese Rechnung ist keiner Buchung zugeordnet (kein bookingId in der URL).');
+                return;
+            }
+            if (statusEl) {
+                statusEl.style.color = '#28a745';
+                statusEl.style.fontWeight = '700';
+                setTimeout(() => {
+                    statusEl.style.color = '#888';
+                    statusEl.style.fontWeight = 'normal';
+                }, 2000);
+            }
+        }
+
+        let autoSaveInvoiceTimeout = null;
+        function scheduleAutoSaveInvoice() {
+            clearTimeout(autoSaveInvoiceTimeout);
+            autoSaveInvoiceTimeout = setTimeout(autoSaveInvoiceData, 500);
+        }
+
+        // Jede Änderung an editierbaren Kopf-/Kundendaten-Feldern automatisch
+        // speichern (per Event-Delegation, damit es auch für später
+        // hinzugefügte Felder funktioniert).
+        document.addEventListener('input', function(e) {
+            if (e.target.hasAttribute && e.target.hasAttribute('contenteditable')) {
+                scheduleAutoSaveInvoice();
+            }
+        });
+
+        // Speichert das PDF zusätzlich im Rechnungsarchiv (Firestore), damit es
+        // später jederzeit wieder geöffnet/gedruckt werden kann - unabhängig
+        // vom lokalen Downloads-Ordner.
+        function archiveInvoicePDF(doc, invoiceNumber, customerName, filename) {
+            try {
+                const pdfDataUri = doc.output('datauristring');
+                const urlParams = new URLSearchParams(window.location.search);
+                const bookingId = urlParams.get('bookingId') || '';
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const docId = 'rechnung-' + (invoiceNumber || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, '-');
+
+                // Alle Positionen mitspeichern (Beschreibung, Menge, Brutto-Preis/Stk.),
+                // damit im Rechnungsarchiv später die kompletten, echten Daten dieser
+                // Rechnung zu sehen sind statt nur Rechnungsnummer/Betrag.
+                const items = [...document.querySelectorAll('#itemsBody tr')].map(row => ({
+                    description: row.querySelector('.item-description').value || '',
+                    quantity: parseFloat(row.querySelector('.item-quantity').value) || 0,
+                    priceBrutto: parseFloat(row.querySelector('.item-brutto-single').value) || 0
+                })).filter(item => item.description || item.quantity || item.priceBrutto);
+
+                db.collection('rechnungsarchiv').doc(docId).set({
+                    invoiceNumber: invoiceNumber || '',
+                    customerName: customerName || '',
+                    customerContact: document.getElementById('customerContact').textContent || '',
+                    customerStreet: document.getElementById('customerStreet').textContent || '',
+                    customerPostalCode: document.getElementById('customerPostalCode').textContent || '',
+                    customerCity: document.getElementById('customerCity').textContent || '',
+                    invoiceDate: document.getElementById('invoiceDate').textContent || '',
+                    serviceDate: document.getElementById('serviceDate').textContent || '',
+                    paymentDue: document.getElementById('paymentDue').textContent || '',
+                    items: items,
+                    bookingId: bookingId,
+                    date: dateStr,
+                    amount: document.getElementById('totalBrutto').textContent || '',
+                    filename: filename,
+                    pdfDataUri: pdfDataUri,
+                    createdAtMs: Date.now()
+                }, { merge: true }).then(() => {
+                    console.log('✅ Rechnung im Archiv gespeichert:', docId);
+                }).catch(err => {
+                    console.error('❌ Fehler beim Archivieren der Rechnung:', err);
+                });
+            } catch (e) {
+                console.error('❌ PDF-Archivierung fehlgeschlagen:', e);
+            }
+        }
+
+        function sendInvoiceByEmail() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
+
+            // E-Mail aus Buchungsdaten laden
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            let customerEmail = '';
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const booking = bookings.find(b => b.id === bookingId);
+                if (booking && booking.email) {
+                    customerEmail = booking.email;
+                }
+            }
+
+            // Falls keine E-Mail in Buchung: Nachfragen
+            if (!customerEmail) {
+                customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
+                if (!customerEmail) return;
+            }
+
+            try {
+                // Buchungsstatus aktualisieren
+                if (bookingId) {
+                    const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                    if (bookingIndex !== -1) {
+                        const totalBrutto = document.getElementById('totalBrutto').textContent;
+                        bookings[bookingIndex].invoiceSent = true;
+                        bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                        bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                        bookings[bookingIndex].invoiceAmount = totalBrutto;
+                        bookings[bookingIndex].status = 'Rechnung versendet';
+
+                        // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                        bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        bookings[bookingIndex].lastModified = new Date().toISOString();
+                        bookings[bookingIndex].lastModifiedMs = Date.now();
+
+                        localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                        if (db) {
+                            db.collection('buchungen').doc(bookingId).set({
+                                invoiceSent: bookings[bookingIndex].invoiceSent,
+                                invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                                invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                                invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                                status: 'Rechnung versendet',
+                                aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                                lastModified: bookings[bookingIndex].lastModified,
+                                lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                            }, { merge: true }).catch(err => {
+                                console.error('❌ Firestore-Speicherung (versendet) fehlgeschlagen:', err);
+                            });
+                        }
+                    }
+                }
+
+                // E-Mail-Text vorbereiten
+                const recipient = customerContact || customerCompany;
+                const reviewLink = 'https://g.page/r/CZvXH5Pj-Y0yEB0/review';
+                const emailBody = `Liebe/r ${recipient},
+
+herzlichen Dank für Ihren Auftrag und das entgegengebrachte Vertrauen!
+
+Es hat uns große Freude bereitet, Ihre Veranstaltung mit unserem Eis zu bereichern. Wir hoffen sehr, dass alles zu Ihrer vollsten Zufriedenheit verlaufen ist und alle Gäste einen schönen Tag hatten.
+
+Anbei erhalten Sie die Rechnung ${invoiceNumber} im Anhang.
+
+⭐⭐⭐⭐⭐ BEWERTEN SIE UNS AUF GOOGLE ⭐⭐⭐⭐⭐
+
+Falls Sie mit unserem Service zufrieden waren, würden wir uns sehr über eine positive Bewertung freuen!
+
+Hier können Sie uns direkt bewerten:
+${reviewLink}
+
+Besuchen Sie unsere Homepage:
+www.eisfavorite.de
+
+Ihr Feedback hilft uns, unseren Service stetig zu verbessern und anderen Kunden bei ihrer Entscheidung zu helfen.
+
+Bei Fragen zur Rechnung oder für zukünftige Veranstaltungen stehen wir Ihnen jederzeit gerne zur Verfügung.
+
+Nochmals vielen Dank und bis hoffentlich bald!
+
+Mit herzlichen Grüßen
+Ihr Eis Agnello Team
+
+---
+Eis Agnello
+Favoritenstrasse 11
+76456 Kuppenheim
+Tel: +49 176 56813172`;
+
+                // PDF automatisch herunterladen (spart Zeit!)
+                console.log('📄 Lade PDF automatisch herunter...');
+                generatePDF();
+
+                console.log('📧 Öffne Gmail für:', customerEmail);
+
+                // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
+                // Handy, sonst Weboberfläche - siehe openGmailCompose()).
+                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                openGmailCompose(customerEmail, `Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
+                logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
+
+            } catch (error) {
+                console.error('Fehler beim Erstellen der E-Mail:', error);
+                alert('Fehler beim Erstellen der E-Mail.\n\nDetails: ' + error.message + '\n\nBitte versuchen Sie es erneut oder verwenden Sie "Als versendet markieren".');
+            }
+        }
+
+        function markInvoiceAsSent() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
+
+            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany}\nBetrag: ${totalBrutto}\n\nals versendet markieren?`)) {
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    // WICHTIG: Alle Felder setzen + Timestamps aktualisieren
+                    bookings[bookingIndex].invoiceSent = true;
+                    bookings[bookingIndex].invoiceSentDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
+                    bookings[bookingIndex].status = 'Rechnung versendet';
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    if (db) {
+                        db.collection('buchungen').doc(bookingId).set({
+                            invoiceSent: bookings[bookingIndex].invoiceSent,
+                            invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                            invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                            invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                            status: 'Rechnung versendet',
+                            aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                            lastModified: bookings[bookingIndex].lastModified,
+                            lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                        }, { merge: true }).catch(err => {
+                            console.error('❌ Firestore-Speicherung (versendet) fehlgeschlagen:', err);
+                        });
+                    }
+
+                    logToBookingHistory(`✅ Rechnung ${invoiceNumber} als versendet markiert (Betrag: ${totalBrutto})`);
+
+                    alert('✅ Rechnung wurde als versendet markiert!\n✅ Status wurde auf "Rechnung versendet" geändert!\n💰 Betrag: ' + totalBrutto);
+
+                    // Seite neu laden, um Status-Banner anzuzeigen
+                    location.reload();
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
+                }
+            } else {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+            }
+        }
+
+        function markInvoiceAsPaid() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
+
+            if (!confirm(`Möchten Sie die Rechnung ${invoiceNumber} für ${customerCompany}\nBetrag: ${totalBrutto}\n\nals BEZAHLT markieren?`)) {
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (bookingId) {
+                const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    // WICHTIG: Alle Felder setzen + Timestamps aktualisieren
+                    bookings[bookingIndex].invoicePaid = true;
+                    bookings[bookingIndex].invoicePaidDate = new Date().toISOString();
+                    bookings[bookingIndex].invoiceNumber = invoiceNumber;
+                    bookings[bookingIndex].invoiceAmount = totalBrutto;
+                    bookings[bookingIndex].status = 'Bezahlte Rechnung';
+
+                    // Wenn noch nicht als "versendet" markiert, jetzt setzen
+                    if (!bookings[bookingIndex].invoiceSent) {
+                        bookings[bookingIndex].invoiceSent = true;
+                        bookings[bookingIndex].invoiceSentDate = bookings[bookingIndex].invoicePaidDate;
+                    }
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    // WICHTIG: Zusätzlich direkt in Firestore schreiben - sonst
+                    // überschreibt die Buchungsübersicht (die ständig mit
+                    // Firestore synchronisiert) diesen Stand wieder mit der
+                    // alten "unbezahlt"-Version, und die Rechnung taucht
+                    // weiterhin in den offenen Listen auf.
+                    if (db) {
+                        db.collection('buchungen').doc(bookingId).set({
+                            invoicePaid: true,
+                            invoicePaidDate: bookings[bookingIndex].invoicePaidDate,
+                            invoiceNumber: bookings[bookingIndex].invoiceNumber,
+                            invoiceAmount: bookings[bookingIndex].invoiceAmount,
+                            invoiceSent: bookings[bookingIndex].invoiceSent,
+                            invoiceSentDate: bookings[bookingIndex].invoiceSentDate,
+                            status: 'Bezahlte Rechnung',
+                            aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                            lastModified: bookings[bookingIndex].lastModified,
+                            lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                        }, { merge: true }).catch(err => {
+                            console.error('❌ Firestore-Speicherung (bezahlt) fehlgeschlagen:', err);
+                        });
+                    }
+
+                    logToBookingHistory(`💰 Rechnung ${invoiceNumber} als bezahlt markiert (Betrag: ${totalBrutto})`);
+
+                    alert('✅ Rechnung wurde als BEZAHLT markiert!\n✅ Status: "Bezahlte Rechnung"\n💰 Betrag: ' + totalBrutto + '\n📅 Zahlungsdatum: ' + new Date().toLocaleDateString('de-DE'));
+
+                    // Seite neu laden, um Status-Banner anzuzeigen
+                    location.reload();
+                } else {
+                    alert('❌ Fehler: Buchung nicht gefunden.');
+                }
+            } else {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+            }
+        }
+
+        // Protokolliert jede versendete Zahlungserinnerung in Firestore, damit
+        // sich später nachvollziehen lässt, wann/wie oft erinnert wurde
+        // (sichtbar im Rechnungsarchiv als "Erinnerungen"-Spalte).
+        function archivePaymentReminder(data) {
+            try {
+                const docId = 'erinnerung-' + (data.invoiceNumber || 'ohne-nummer') + '-' + Date.now();
+                db.collection('zahlungserinnerungen').doc(docId).set({
+                    invoiceNumber: data.invoiceNumber || '',
+                    customerName: data.customerCompany || '',
+                    email: data.customerEmail || '',
+                    amount: data.totalBrutto || '',
+                    paymentDue: data.paymentDue || '',
+                    reminderCount: data.reminderCount || 1,
+                    isOverdue: !!data.isOverdue,
+                    daysOverdue: data.daysOverdue || 0,
+                    bookingId: data.bookingId || '',
+                    sentAt: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                    sentAtMs: Date.now()
+                }).then(() => {
+                    console.log('✅ Zahlungserinnerung archiviert:', docId);
+                }).catch(err => {
+                    console.error('❌ Fehler beim Archivieren der Zahlungserinnerung:', err);
+                });
+            } catch (e) {
+                console.error('❌ Archivierung der Zahlungserinnerung fehlgeschlagen:', e);
+            }
+        }
+
+        function sendPaymentReminder() {
+            const invoiceNumber = document.getElementById('invoiceNumber').textContent;
+            const customerCompany = document.getElementById('customerCompany').textContent;
+            const customerContact = document.getElementById('customerContact').textContent.replace('z. Hd. ', '');
+            const totalBrutto = document.getElementById('totalBrutto').textContent;
+            const paymentDue = document.getElementById('paymentDue').textContent;
+
+            // E-Mail aus Buchungsdaten laden
+            const urlParams = new URLSearchParams(window.location.search);
+            const bookingId = urlParams.get('bookingId');
+
+            if (!bookingId) {
+                alert('❌ Diese Funktion ist nur verfügbar, wenn Sie direkt von einer Buchung zur Rechnung navigieren.');
+                return;
+            }
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const booking = bookings.find(b => b.id === bookingId);
+
+            if (!booking) {
+                alert('❌ Fehler: Buchung nicht gefunden.');
+                return;
+            }
+
+            let customerEmail = booking.email;
+
+            // Falls keine E-Mail: Nachfragen
+            if (!customerEmail) {
+                customerEmail = prompt('Bitte E-Mail-Adresse des Kunden eingeben:');
+                if (!customerEmail) return;
+            }
+
+            // Überfälligkeitsprüfung
+            const dueDateParts = paymentDue.split('.');
+            const dueDate = new Date(dueDateParts[2], dueDateParts[1] - 1, dueDateParts[0]);
+            const today = new Date();
+            const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+            const isOverdue = daysOverdue > 0;
+
+            let overdueInfo = '';
+            if (isOverdue) {
+                overdueInfo = `⚠️ Die Rechnung ist ${daysOverdue} Tag(e) überfällig.\n\n`;
+            }
+
+            if (!confirm(`${overdueInfo}Zahlungserinnerung für Rechnung ${invoiceNumber} senden?\n\nKunde: ${customerCompany}\nBetrag: ${totalBrutto}\nFällig am: ${paymentDue}\nE-Mail: ${customerEmail}`)) {
+                return;
+            }
+
+            try {
+                // Erinnerungs-Zähler erhöhen
+                const reminderCount = (booking.paymentReminderCount || 0) + 1;
+                const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+
+                if (bookingIndex !== -1) {
+                    bookings[bookingIndex].paymentReminderSent = true;
+                    bookings[bookingIndex].paymentReminderDate = new Date().toISOString();
+                    bookings[bookingIndex].paymentReminderCount = reminderCount;
+
+                    // Timestamps aktualisieren (wichtig für Firebase-Sync!)
+                    bookings[bookingIndex].aktualisiertAm = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    bookings[bookingIndex].lastModified = new Date().toISOString();
+                    bookings[bookingIndex].lastModifiedMs = Date.now();
+
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+                }
+
+                // E-Mail-Text vorbereiten
+                const recipient = customerContact || customerCompany;
+                const emailBody = `Liebe/r ${recipient},
+
+wir danken Ihnen nochmals für Ihren Auftrag und die schöne Veranstaltung.
+
+Diese E-Mail ist eine freundliche Erinnerung bezüglich unserer Rechnung:
+
+Rechnungsnummer: ${invoiceNumber}
+Rechnungsbetrag: ${totalBrutto}
+Zahlungsziel: ${paymentDue}
+
+Sollten Sie die Rechnung bereits beglichen haben, betrachten Sie diese E-Mail bitte als gegenstandslos. Falls Sie die Zahlung noch nicht veranlasst haben, bitten wir Sie, den offenen Betrag zeitnah zu überweisen.
+
+Unsere Bankverbindung:
+Empfänger: Andrea Agnello
+Bank: Sparkasse Baden Baden
+IBAN: DE72 6625 0030 0030 4713 20
+BIC/SWIFT: SOLADES1BAD
+Verwendungszweck: Rechnung ${invoiceNumber}
+
+Bei Fragen zur Rechnung oder falls es Probleme gibt, stehen wir Ihnen jederzeit gerne zur Verfügung.
+
+Mit freundlichen Grüßen
+Ihr Eis Agnello Team
+
+---
+Eis Agnello
+Favoritenstrasse 11
+76456 Kuppenheim
+Tel: +49 176 56813172`;
+
+                console.log('📧 Öffne Gmail für Zahlungserinnerung:', customerEmail);
+
+                archivePaymentReminder({
+                    invoiceNumber, customerCompany, customerEmail, totalBrutto, paymentDue,
+                    reminderCount, isOverdue, daysOverdue, bookingId
+                });
+
+                // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
+                // Handy, sonst Weboberfläche - siehe openGmailCompose()).
+                alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);
+                openGmailCompose(customerEmail, `Zahlungserinnerung - Rechnung ${invoiceNumber}`, emailBody);
+                logToBookingHistory(`⏰ Zahlungserinnerung #${reminderCount} für Rechnung ${invoiceNumber} versendet${isOverdue ? ' (' + daysOverdue + ' Tage überfällig)' : ''}`);
+
+            } catch (error) {
+                console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
+                alert('Fehler beim Erstellen der Zahlungserinnerung.\n\nDetails: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

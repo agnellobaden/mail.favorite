@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reparatur - Alte Rechnungen</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #log {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reparatur: Alte Rechnungen</h1>
+
+        <div class="info-box">
+            <h3>Was macht dieses Tool?</h3>
+            <p>Dieses Tool repariert alle Rechnungen, die <strong>vor dem Update</strong> erstellt wurden und bei denen der Rechnungsbetrag fehlt.</p>
+            <p>Es berechnet den Betrag automatisch aus:</p>
+            <ul>
+                <li>Anzahl Gäste × Kugeln pro Gast × 1,80 €</li>
+                <li>+ Anfahrtskosten</li>
+            </ul>
+        </div>
+
+        <div class="warning-box">
+            <h3>Wichtig!</h3>
+            <p>Dieses Tool sollte nur <strong>einmal</strong> ausgeführt werden. Es aktualisiert alle Rechnungen ohne gespeicherten Betrag.</p>
+        </div>
+
+        <button id="repairBtn" onclick="repairInvoices()">Alte Rechnungen reparieren</button>
+
+        <div id="log"></div>
+
+        <div class="success-box" id="successBox">
+            <h3>Reparatur abgeschlossen!</h3>
+            <p>Alle Rechnungen wurden erfolgreich aktualisiert. Das Dashboard zeigt jetzt alle Beträge korrekt an.</p>
+            <a href="dashboard.html" class="back-link">→ Zum Dashboard</a>
+        </div>
+
+        <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Buchungsübersicht</a>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.textContent += message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function calculateInvoiceAmount(booking) {
+            // Eisumsatz berechnen
+            let eisUmsatz = 0;
+            if (booking.gaeste && booking.kugeln) {
+                eisUmsatz = booking.gaeste * booking.kugeln * 1.80;
+            }
+
+            // Anfahrtskosten berechnen
+            let anfahrtskosten = 0;
+            const distance = parseFloat(booking.distance) || 0;
+
+            if (distance >= 6) {
+                anfahrtskosten = 45;
+                if (distance >= 10) {
+                    anfahrtskosten = 55;
+                    const additionalKm = Math.floor((distance - 10) / 10);
+                    anfahrtskosten += additionalKm * 10;
+                }
+            }
+
+            // Gesamtbetrag
+            const total = eisUmsatz + anfahrtskosten;
+
+            // Format: "123,45 €"
+            return total.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+        }
+
+        function repairInvoices() {
+            const btn = document.getElementById('repairBtn');
+            btn.disabled = true;
+            btn.textContent = 'Reparatur läuft...';
+
+            log('🔧 Starte Reparatur...\n');
+
+            // Buchungen laden
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            log(`📊 Geladene Buchungen: ${bookings.length}\n`);
+
+            // Finde Rechnungen ohne Betrag
+            let repaired = 0;
+            let skipped = 0;
+
+            bookings.forEach((booking, index) => {
+                // Prüfe: Rechnung versendet ABER kein Betrag gespeichert
+                if (booking.invoiceSent && !booking.invoiceAmount) {
+                    const calculatedAmount = calculateInvoiceAmount(booking);
+                    bookings[index].invoiceAmount = calculatedAmount;
+
+                    log(`✅ Repariert: ${booking.company || booking.name}`);
+                    log(`   Rechnung: ${booking.invoiceNumber || 'N/A'}`);
+                    log(`   Betrag: ${calculatedAmount}\n`);
+
+                    repaired++;
+                } else if (booking.invoiceSent && booking.invoiceAmount) {
+                    skipped++;
+                }
+            });
+
+            // Speichern
+            localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+            log(`\n📈 Zusammenfassung:`);
+            log(`   Repariert: ${repaired}`);
+            log(`   Übersprungen (bereits OK): ${skipped}`);
+            log(`\n✅ Reparatur abgeschlossen!`);
+
+            // Success-Box anzeigen
+            document.getElementById('successBox').style.display = 'block';
+
+            btn.textContent = 'Reparatur abgeschlossen';
+        }
+    </script>
+</body>
+</html>
