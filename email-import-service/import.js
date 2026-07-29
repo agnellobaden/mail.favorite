@@ -207,6 +207,10 @@ async function run() {
         auth: { user: EMAIL, pass: config.gmailAppPassword },
         logger: false,
     });
+    // Ohne diesen Handler wirft ImapFlow bei einem Verbindungsabbruch (z.B.
+    // ECONNRESET nach getaner Arbeit, bevor logout() sauber durchläuft) ein
+    // unhandled 'error'-Event, das den ganzen Node-Prozess crasht.
+    client.on('error', err => console.error('⚠️ IMAP-Verbindungsfehler (ignoriert):', err.message));
 
     await client.connect();
     console.log('✅ Mit Gmail verbunden.');
@@ -222,9 +226,8 @@ async function run() {
 
         if (newUids.length === 0) {
             console.log('Keine neuen E-Mails seit dem letzten Lauf.');
-            return;
         }
-        console.log(`${newUids.length} neue E-Mail(s) seit dem letzten Lauf gefunden.`);
+        if (newUids.length > 0) console.log(`${newUids.length} neue E-Mail(s) seit dem letzten Lauf gefunden.`);
 
         for (const uid of newUids) {
             const msg = await client.fetchOne(uid, { source: true }, { uid: true });
