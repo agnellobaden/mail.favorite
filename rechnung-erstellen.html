@@ -1974,6 +1974,23 @@ Tel: +49 176 56813172`;
                     bookings[bookingIndex].lastModifiedMs = Date.now();
 
                     localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+
+                    // WICHTIG: Auch in Firestore schreiben - sonst überschreibt
+                    // der nächste Sync der Buchungsübersicht dieses Flag wieder
+                    // mit dem alten Stand und die Karte wird nie rot markiert
+                    // (siehe autoSaveInvoiceData() weiter oben für denselben Hintergrund).
+                    if (db) {
+                        db.collection('buchungen').doc(bookingId).set({
+                            paymentReminderSent: true,
+                            paymentReminderDate: bookings[bookingIndex].paymentReminderDate,
+                            paymentReminderCount: reminderCount,
+                            aktualisiertAm: bookings[bookingIndex].aktualisiertAm,
+                            lastModified: bookings[bookingIndex].lastModified,
+                            lastModifiedMs: bookings[bookingIndex].lastModifiedMs
+                        }, { merge: true }).catch(err => {
+                            console.error('❌ Firestore-Speicherung (Zahlungserinnerung) fehlgeschlagen:', err);
+                        });
+                    }
                 }
 
                 // E-Mail-Text vorbereiten
