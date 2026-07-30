@@ -2003,6 +2003,16 @@
                 appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
                 measurementId: "G-WGRT5L3NCX"
             };
+            // Lokal (file:// oder localhost) keine Anmeldung verlangen, damit
+            // Änderungen schnell im Browser getestet werden können - auf Vercel
+            // (echte Domain) bleibt die Anmeldepflicht bestehen.
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+
             if (!firebase.apps.length) firebase.initializeApp(__cfg);
             var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
             firebase.auth().onAuthStateChanged(function(user) {
