@@ -970,7 +970,13 @@
                 statusBanner.style.border = '2px solid #28a745';
                 const sentDate = booking.invoiceSentDate ? new Date(booking.invoiceSentDate).toLocaleString('de-DE') : 'Unbekannt';
                 const invoiceNum = booking.invoiceNumber || 'N/A';
-                statusDetails.innerHTML = `<strong>✅ Rechnung versendet</strong><br>Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+                let statusHtml = `<strong>✅ Rechnung versendet</strong><br>Rechnungsnummer: ${invoiceNum} | Versendet am: ${sentDate}`;
+                if (booking.paymentReminderSent) {
+                    const reminderDate = booking.paymentReminderDate ? new Date(booking.paymentReminderDate).toLocaleString('de-DE') : 'Unbekannt';
+                    const reminderCount = booking.paymentReminderCount || 1;
+                    statusHtml += `<br><strong style="color:#c0392b;">⏰ Zahlungserinnerung versendet</strong> (${reminderCount}×) | Zuletzt am: ${reminderDate}`;
+                }
+                statusDetails.innerHTML = statusHtml;
 
                 // Erinnerungs-Button ANZEIGEN (versendet, aber nicht bezahlt)
                 if (reminderBtn) reminderBtn.style.display = 'inline-block';
@@ -2037,6 +2043,11 @@ Tel: +49 176 56813172`;
                 alert(`✓ Zahlungserinnerung wird in Gmail (eisfavorit@gmail.com) geöffnet!\n✓ Erinnerung #${reminderCount}\n${isOverdue ? '⚠️ Rechnung ist ' + daysOverdue + ' Tag(e) überfällig\n' : ''}`);
                 openGmailCompose(customerEmail, `Zahlungserinnerung - Rechnung ${invoiceNumber}`, emailBody);
                 logToBookingHistory(`⏰ Zahlungserinnerung #${reminderCount} für Rechnung ${invoiceNumber} versendet${isOverdue ? ' (' + daysOverdue + ' Tage überfällig)' : ''}`);
+
+                // Seite neu laden, damit der Status-Banner oben sofort die
+                // versendete Zahlungserinnerung anzeigt (wie bei "Als versendet
+                // markieren"/"Als bezahlt markieren").
+                setTimeout(() => location.reload(), 300);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der Zahlungserinnerung:', error);
