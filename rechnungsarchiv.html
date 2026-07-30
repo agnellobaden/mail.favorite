@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Rechnungsarchiv - EisFavorite</title>
 
 <!-- Firebase SDK -->
@@ -253,6 +256,13 @@
                         <label>Zahlungsziel</label>
                         <input type="text" id="editPaymentDue" placeholder="TT.MM.JJJJ">
                     </div>
+                    <div>
+                        <label>Zahlungsart</label>
+                        <select id="editPaymentMethod">
+                            <option value="ueberweisung">Überweisung</option>
+                            <option value="bar">Bar</option>
+                        </select>
+                    </div>
                 </div>
 
                 <h4>Kunde</h4>
@@ -421,6 +431,7 @@
             document.getElementById('editInvoiceDate').value = inv.invoiceDate || inv.date || '';
             document.getElementById('editServiceDate').value = inv.serviceDate || '';
             document.getElementById('editPaymentDue').value = inv.paymentDue || '';
+            document.getElementById('editPaymentMethod').value = inv.paymentMethod === 'bar' ? 'bar' : 'ueberweisung';
             document.getElementById('editCustomerName').value = inv.customerName || '';
             document.getElementById('editCustomerContact').value = inv.customerContact || '';
             document.getElementById('editCustomerStreet').value = inv.customerStreet || '';
@@ -493,6 +504,7 @@
                 invoiceDate: document.getElementById('editInvoiceDate').value.trim(),
                 serviceDate: document.getElementById('editServiceDate').value.trim(),
                 paymentDue: document.getElementById('editPaymentDue').value.trim(),
+                paymentMethod: document.getElementById('editPaymentMethod').value,
                 customerName: document.getElementById('editCustomerName').value.trim(),
                 customerContact: document.getElementById('editCustomerContact').value.trim(),
                 customerStreet: document.getElementById('editCustomerStreet').value.trim(),
@@ -558,6 +570,8 @@
                 y += 5;
             }
             doc.text(`Zahlungsziel: ${f.paymentDue}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Zahlungsart: ${f.paymentMethod === 'bar' ? 'Bar' : 'Überweisung'}`, 190, y, { align: 'right' });
 
             y = 85;
             doc.text('Wir bedanken uns für Ihren Auftrag und stellen folgende Positionen in Rechnung:', 20, y);
@@ -636,17 +650,25 @@
             doc.text(`Handy: ${ARCHIV_SENDER.phone}`, 20, y);
 
             y += 8;
-            doc.setFont(undefined, 'bold');
-            doc.text('BANKVERBINDUNG', 20, y);
-            y += 5;
-            doc.setFont(undefined, 'normal');
-            doc.text(`Empfänger: ${ARCHIV_SENDER.bankRecipient}`, 20, y);
-            y += 4;
-            doc.text(`Bank: ${ARCHIV_SENDER.bankName}`, 20, y);
-            y += 4;
-            doc.text(`IBAN: ${ARCHIV_SENDER.iban}`, 20, y);
-            y += 4;
-            doc.text(`BIC/SWIFT: ${ARCHIV_SENDER.bic}`, 20, y);
+            if (f.paymentMethod === 'bar') {
+                doc.setFont(undefined, 'bold');
+                doc.text('ZAHLUNGSART', 20, y);
+                y += 5;
+                doc.setFont(undefined, 'normal');
+                doc.text('Betrag wurde bar bezahlt.', 20, y);
+            } else {
+                doc.setFont(undefined, 'bold');
+                doc.text('BANKVERBINDUNG', 20, y);
+                y += 5;
+                doc.setFont(undefined, 'normal');
+                doc.text(`Empfänger: ${ARCHIV_SENDER.bankRecipient}`, 20, y);
+                y += 4;
+                doc.text(`Bank: ${ARCHIV_SENDER.bankName}`, 20, y);
+                y += 4;
+                doc.text(`IBAN: ${ARCHIV_SENDER.iban}`, 20, y);
+                y += 4;
+                doc.text(`BIC/SWIFT: ${ARCHIV_SENDER.bic}`, 20, y);
+            }
 
             return doc;
         }
