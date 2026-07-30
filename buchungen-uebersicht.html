@@ -7950,8 +7950,25 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    // Sofort nach einer neueren Version fragen (nicht auf den
+                    // browserinternen ~24h-Update-Check warten), damit neue
+                    // Deploys ohne manuelles Cache-Löschen sichtbar werden.
+                    registration.update();
+                    setInterval(function() { registration.update(); }, 60 * 1000);
+                }).catch(function(err) {
                     console.error('Service Worker Registrierung fehlgeschlagen:', err);
+                });
+
+                // Sobald der neue Service Worker die Kontrolle übernimmt
+                // (skipWaiting/clients.claim im sw.js), Seite automatisch neu
+                // laden statt weiter die alte, im Speicher geladene Version
+                // anzuzeigen.
+                let __swRefreshed = false;
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (__swRefreshed) return;
+                    __swRefreshed = true;
+                    window.location.reload();
                 });
             });
         }
