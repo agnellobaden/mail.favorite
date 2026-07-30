@@ -155,6 +155,8 @@
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
     th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
     tr:hover { background: #f8f9fa; }
+    .reminder-sent-row { background: #fdecea; }
+    .reminder-sent-row:hover { background: #fbd9d5; }
 
     .table-wrap { overflow-x: auto; }
 
@@ -383,9 +385,9 @@
                 const reminders = remindersForInvoice(inv.invoiceNumber);
                 const remindersCell = reminders.length === 0
                     ? '-'
-                    : `<span title="${reminders.map(r => 'Erinnerung #' + r.reminderCount + ' am ' + r.sentAt + (r.isOverdue ? ' (' + r.daysOverdue + ' Tage überfällig)' : '')).join('\n')}">${reminders.length}× - zuletzt ${reminders[0].sentAt}</span>`;
+                    : `<span title="${reminders.map(r => 'Erinnerung #' + r.reminderCount + ' am ' + r.sentAt + (r.isOverdue ? ' (' + r.daysOverdue + ' Tage überfällig)' : '')).join('\n')}" style="color:#c0392b; font-weight:700;">⏰ ${reminders.length}× - zuletzt ${reminders[0].sentAt}</span>`;
                 return `
-                <tr>
+                <tr${reminders.length > 0 ? ' class="reminder-sent-row"' : ''}>
                     <td><strong>${inv.invoiceNumber || '-'}</strong></td>
                     <td>${inv.customerName || '-'}</td>
                     <td>${inv.date || '-'}</td>

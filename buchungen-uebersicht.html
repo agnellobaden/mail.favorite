@@ -343,6 +343,11 @@
             border-left: 4px solid #ffc107;
         }
 
+        tr.reminder-sent {
+            background-color: #fdecea !important;
+            border-left: 4px solid #e0574c;
+        }
+
         .loading {
             text-align: center;
             padding: 50px;
@@ -427,6 +432,11 @@
             border-color: #ffc107;
             border-width: 4px;
             box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+
+        .booking-card.reminder-sent {
+            background: #fdecea;
+            border-color: #e0574c;
         }
 
         .card-header {
@@ -1065,6 +1075,11 @@
 
         body.dark-mode .booking-card.next-booking {
             background: linear-gradient(135deg, #3d3520 0%, #4a4025 100%);
+        }
+
+        body.dark-mode .booking-card.reminder-sent {
+            background: #3a2323;
+            border-color: #e0574c;
         }
 
         body.dark-mode .card-title {
@@ -2124,6 +2139,7 @@
                             <option value="Neu">Neu</option>
                             <option value="Gebucht">Gebucht</option>
                             <option value="Rechnung versendet">Rechnung versendet</option>
+                            <option value="Zahlungserinnerung">Zahlungserinnerung</option>
                             <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
                             <option value="Event beendet">Event beendet</option>
                             <option value="Archiviert">Archiviert</option>
@@ -2352,6 +2368,7 @@
                             <option value="Neu">Neu</option>
                             <option value="Gebucht">Gebucht</option>
                             <option value="Rechnung versendet">Rechnung versendet</option>
+                            <option value="Zahlungserinnerung">Zahlungserinnerung</option>
                             <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
                             <option value="Event beendet">Event beendet</option>
                             <option value="Archiviert">Archiviert</option>
@@ -3651,7 +3668,12 @@
             }
 
             // Status-Filter
-            if (statusFilter !== 'alle') {
+            if (statusFilter === 'Zahlungserinnerung') {
+                // Kein echter Workflow-Status, sondern abgeleitet aus dem
+                // paymentReminderSent-Flag (gesetzt beim Versenden einer
+                // Zahlungserinnerung in rechnung-erstellen.html).
+                filtered = filtered.filter(b => !!b.paymentReminderSent);
+            } else if (statusFilter !== 'alle') {
                 filtered = filtered.filter(b => b.status === statusFilter);
             }
 
@@ -4252,6 +4274,7 @@
                 card.className = 'booking-card';
                 if (index % 2 === 1) card.classList.add('alternate');
                 if (isNext) card.classList.add('next-booking');
+                if (booking.paymentReminderSent) card.classList.add('reminder-sent');
 
                 // Adresse zusammensetzen
                 const address = [booking.street, booking.plz, booking.city].filter(x => x).join(', ');
@@ -4312,6 +4335,7 @@
                                 ${booking.isNewFromEmail ? '<span class="new-email-badge">📧 Neu eingetroffen!</span>' : ''}
                                 ${booking.invoicePaid ? '<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);" title="Rechnung bezahlt">💰 BEZAHLT</span>' : ''}
                                 ${booking.emailReminderSent || booking.smsReminderSent ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet via ${booking.emailReminderSent ? 'E-Mail' : 'SMS'}">${booking.emailReminderSent ? '📧' : '📱'} ERINNERUNG</span>` : ''}
+                                ${booking.paymentReminderSent ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #e0574c 0%, #ff8a75 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(224, 87, 76, 0.3);" title="Zahlungserinnerung versendet${booking.paymentReminderCount ? ' (' + booking.paymentReminderCount + '×)' : ''}">⏰ ZAHLUNGSERINNERUNG</span>` : ''}
                             </div>
                         </div>
                         <div class="card-date">
@@ -4414,6 +4438,7 @@
                 const row = document.createElement('tr');
                 const isNext = booking === nextBooking;
                 if (isNext) row.classList.add('next-booking');
+                if (booking.paymentReminderSent) row.classList.add('reminder-sent');
 
                 const dateClass = parseDate(booking.date) > now ? 'date-highlight' : '';
 
