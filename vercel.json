@@ -4,5 +4,16 @@
       "source": "/",
       "destination": "/buchungen-uebersicht.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        }
+      ]
+    }
   ]
 }
