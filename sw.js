@@ -30,7 +30,7 @@ self.addEventListener('notificationclick', function(event) {
   event.waitUntil(clients.openWindow(url));
 });
 
-const CACHE_NAME = 'eisfavorite-installable-20260726-v5';
+const CACHE_NAME = 'eisfavorite-installable-20260730-v6';
 const urlsToCache = [
   '/',
   '/buchungen-uebersicht.html',
@@ -72,8 +72,17 @@ self.addEventListener('activate', event => {
 
 // Fetch - Netzwerk zuerst, dann Cache
 self.addEventListener('fetch', event => {
+  // HTML-Navigationsanfragen immer am Browser-HTTP-Cache vorbei direkt vom
+  // Server holen, damit nach einem Deploy nie eine veraltete Version einer
+  // Seite (z.B. aus dem letzten Öffnen der installierten PWA) angezeigt wird.
+  const isHtmlRequest = event.request.mode === 'navigate' ||
+    (event.request.headers.get('accept') || '').includes('text/html');
+  const fetchRequest = isHtmlRequest
+    ? new Request(event.request.url, { cache: 'no-store' })
+    : event.request;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(fetchRequest)
       .then(response => {
         // Wenn die Anfrage erfolgreich ist, speichere sie im Cache
         if (response && response.status === 200) {
