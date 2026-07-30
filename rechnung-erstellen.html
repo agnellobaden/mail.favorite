@@ -286,6 +286,27 @@
             margin-bottom: 20px;
         }
 
+        .payment-method-toggle {
+            margin-top: 4px;
+        }
+
+        .payment-method-btn {
+            background: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+
+        .payment-method-btn.active {
+            background: #333;
+            color: white;
+            border-color: #333;
+        }
+
         .invoice-totals {
             display: flex;
             justify-content: flex-end;
@@ -564,6 +585,11 @@
                 <p><strong>Ausgestellt:</strong> <span contenteditable="true" id="invoiceDate"></span></p>
                 <p><strong>Leistung erbracht am:</strong> <span contenteditable="true" id="serviceDate"></span></p>
                 <p><strong>Zahlungsziel:</strong> <span contenteditable="true" id="paymentDue"></span></p>
+                <p><strong>Zahlungsart:</strong> <span id="paymentMethodDisplay">Überweisung</span></p>
+                <div class="payment-method-toggle no-print">
+                    <button type="button" class="payment-method-btn" id="paymentMethodBtnUeberweisung" onclick="setPaymentMethod('ueberweisung')">Überweisung</button>
+                    <button type="button" class="payment-method-btn" id="paymentMethodBtnBar" onclick="setPaymentMethod('bar')">Bar</button>
+                </div>
             </div>
         </div>
 
@@ -631,7 +657,7 @@
                 <p>Handy: <span contenteditable="true" id="phone">+49 176 56813172</span></p>
             </div>
 
-            <div class="footer-section">
+            <div class="footer-section" id="bankSection">
                 <h4>BANKVERBINDUNG</h4>
                 <p>Empfänger: <span contenteditable="true" id="bankRecipient">Andrea Agnello</span></p>
                 <p>Bank: <span contenteditable="true" id="bankName">Sparkasse Baden Baden</span></p>
@@ -739,11 +765,33 @@
             return { ...DEFAULT_PRICES };
         }
 
+        // ==========================================
+        // ZAHLUNGSART (Bar / Überweisung)
+        // ==========================================
+        let selectedPaymentMethod = 'ueberweisung';
+
+        function setPaymentMethod(method) {
+            selectedPaymentMethod = method;
+
+            document.getElementById('paymentMethodBtnUeberweisung').classList.toggle('active', method === 'ueberweisung');
+            document.getElementById('paymentMethodBtnBar').classList.toggle('active', method === 'bar');
+            document.getElementById('paymentMethodDisplay').textContent = method === 'bar' ? 'Bar' : 'Überweisung';
+
+            // Bei Barzahlung ist die Bankverbindung für den Kunden irrelevant -
+            // Sektion in Vorschau/Ausdruck ausblenden.
+            const bankSection = document.getElementById('bankSection');
+            if (bankSection) bankSection.style.display = (method === 'bar') ? 'none' : '';
+
+            scheduleAutoSaveInvoice();
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Datum setzen
             const today = new Date();
             const invoiceDate = formatDate(today);
             document.getElementById('invoiceDate').textContent = invoiceDate;
+
+            setPaymentMethod(selectedPaymentMethod);
 
             // Zahlungsziel (7 Tage)
             const paymentDueDate = new Date(today);
@@ -967,6 +1015,7 @@
                 if (inv.invoiceDate) document.getElementById('invoiceDate').textContent = inv.invoiceDate;
                 if (inv.serviceDate) document.getElementById('serviceDate').textContent = inv.serviceDate;
                 if (inv.paymentDue) document.getElementById('paymentDue').textContent = inv.paymentDue;
+                if (inv.paymentMethod) setPaymentMethod(inv.paymentMethod);
                 if (inv.customerCompany) document.getElementById('customerCompany').textContent = inv.customerCompany;
                 if (inv.customerContact) document.getElementById('customerContact').textContent = inv.customerContact;
                 if (inv.customerStreet) document.getElementById('customerStreet').textContent = inv.customerStreet;
@@ -1230,6 +1279,8 @@
                 y += 5;
             }
             doc.text(`Zahlungsziel: ${document.getElementById('paymentDue').textContent}`, 190, y, { align: 'right' });
+            y += 5;
+            doc.text(`Zahlungsart: ${document.getElementById('paymentMethodDisplay').textContent}`, 190, y, { align: 'right' });
 
             // Intro
             y = 85;
@@ -1327,17 +1378,25 @@
             doc.text(`Handy: ${document.getElementById('phone').textContent}`, 20, y);
 
             y += 8;
-            doc.setFont(undefined, 'bold');
-            doc.text('BANKVERBINDUNG', 20, y);
-            y += 5;
-            doc.setFont(undefined, 'normal');
-            doc.text(`Empfänger: ${document.getElementById('bankRecipient').textContent}`, 20, y);
-            y += 4;
-            doc.text(`Bank: ${document.getElementById('bankName').textContent}`, 20, y);
-            y += 4;
-            doc.text(`IBAN: ${document.getElementById('iban').textContent}`, 20, y);
-            y += 4;
-            doc.text(`BIC/SWIFT: ${document.getElementById('bic').textContent}`, 20, y);
+            if (selectedPaymentMethod === 'bar') {
+                doc.setFont(undefined, 'bold');
+                doc.text('ZAHLUNGSART', 20, y);
+                y += 5;
+                doc.setFont(undefined, 'normal');
+                doc.text('Betrag wurde bar bezahlt.', 20, y);
+            } else {
+                doc.setFont(undefined, 'bold');
+                doc.text('BANKVERBINDUNG', 20, y);
+                y += 5;
+                doc.setFont(undefined, 'normal');
+                doc.text(`Empfänger: ${document.getElementById('bankRecipient').textContent}`, 20, y);
+                y += 4;
+                doc.text(`Bank: ${document.getElementById('bankName').textContent}`, 20, y);
+                y += 4;
+                doc.text(`IBAN: ${document.getElementById('iban').textContent}`, 20, y);
+                y += 4;
+                doc.text(`BIC/SWIFT: ${document.getElementById('bic').textContent}`, 20, y);
+            }
 
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerName = document.getElementById('customerCompany').textContent;
@@ -1436,6 +1495,7 @@
                 invoiceDate: document.getElementById('invoiceDate').textContent,
                 serviceDate: document.getElementById('serviceDate').textContent,
                 paymentDue: document.getElementById('paymentDue').textContent,
+                paymentMethod: selectedPaymentMethod,
                 customerCompany: document.getElementById('customerCompany').textContent,
                 customerContact: document.getElementById('customerContact').textContent,
                 customerStreet: document.getElementById('customerStreet').textContent,
@@ -1541,6 +1601,7 @@
                     invoiceDate: document.getElementById('invoiceDate').textContent || '',
                     serviceDate: document.getElementById('serviceDate').textContent || '',
                     paymentDue: document.getElementById('paymentDue').textContent || '',
+                    paymentMethod: selectedPaymentMethod,
                     items: items,
                     bookingId: bookingId,
                     date: dateStr,
