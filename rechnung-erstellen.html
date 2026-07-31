@@ -1252,7 +1252,11 @@
             }
         }
 
-        function generatePDF() {
+        // Baut das Rechnungs-PDF und gibt es zurück, ohne es herunterzuladen
+        // oder zu archivieren - wird sowohl von generatePDF() (Download-Button)
+        // als auch von sendInvoiceByEmail() (Anhang fürs native Teilen-Menü auf
+        // dem Handy) verwendet, damit der Zeichen-Code nicht doppelt existiert.
+        function buildInvoicePdfDoc() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
@@ -1420,6 +1424,12 @@
             const invoiceNumber = document.getElementById('invoiceNumber').textContent;
             const customerName = document.getElementById('customerCompany').textContent;
             const filename = `Rechnung_${invoiceNumber}_${customerName.replace(/\s+/g, '_')}.pdf`;
+
+            return { doc, invoiceNumber, customerName, filename };
+        }
+
+        function generatePDF() {
+            const { doc, invoiceNumber, customerName, filename } = buildInvoicePdfDoc();
             doc.save(filename);
             archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
             autoSaveInvoiceData();
@@ -1737,17 +1747,50 @@ Favoritenstrasse 11
 76456 Kuppenheim
 Tel: +49 176 56813172`;
 
-                // PDF automatisch herunterladen (spart Zeit!)
-                console.log('📄 Lade PDF automatisch herunter...');
-                generatePDF();
+                const emailSubject = `EisFavorite Rechnung ${invoiceNumber} - Vielen Dank!`;
+                const { doc, customerName, filename } = buildInvoicePdfDoc();
+                archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
+                autoSaveInvoiceData();
 
-                console.log('📧 Öffne Gmail für:', customerEmail);
+                // Auf dem Handy: PDF über das native Teilen-Menü direkt als
+                // echten Anhang an die Mail-App übergeben (kein manuelles
+                // Anhängen mehr nötig). Funktioniert nur, wenn das Gerät/der
+                // Browser Datei-Teilen unterstützt (Web Share API Level 2) -
+                // sonst wie bisher: PDF herunterladen + Gmail/Mail-App öffnen.
+                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                const pdfFile = isMobile
+                    ? new File([doc.output('blob')], filename, { type: 'application/pdf' })
+                    : null;
 
-                // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
-                // Handy, sonst Weboberfläche - siehe openGmailCompose()).
-                alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
-                openGmailCompose(customerEmail, `EisFavorite Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
-                logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
+                if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                    navigator.share({
+                        files: [pdfFile],
+                        title: emailSubject,
+                        text: emailBody
+                    }).then(() => {
+                        logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet (PDF automatisch angehängt)`);
+                    }).catch(err => {
+                        // Nutzer hat das Teilen-Menü abgebrochen, oder es ist
+                        // fehlgeschlagen - dann wie gehabt auf mailto: zurückfallen.
+                        console.warn('Teilen abgebrochen/fehlgeschlagen, falle auf mailto: zurück:', err);
+                        doc.save(filename);
+                        openGmailCompose(customerEmail, emailSubject, emailBody);
+                        logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
+                    });
+                    alert(`✓ PDF ist bereits als Anhang dabei!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\n⚠️ Im Teilen-Menü bitte prüfen:\n• Konto: eisfavorit@gmail.com auswählen\n• Empfänger: ${customerEmail}`);
+                } else {
+                    // Desktop (oder Handy ohne Datei-Teilen-Unterstützung):
+                    // PDF herunterladen + Gmail/Mail-App öffnen, PDF muss
+                    // manuell angehängt werden (technische Grenze von
+                    // Gmail-Weboberfläche/mailto: - siehe openGmailCompose()).
+                    console.log('📄 Lade PDF automatisch herunter...');
+                    doc.save(filename);
+
+                    console.log('📧 Öffne Gmail für:', customerEmail);
+                    alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
+                    openGmailCompose(customerEmail, emailSubject, emailBody);
+                    logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
+                }
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
