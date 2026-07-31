@@ -6,11 +6,13 @@
   "main": "import.js",
   "scripts": {
     "start": "node import.js",
-    "test": "node import.js --once"
+    "test": "node import.js --once",
+    "send-reminders": "node send-payment-reminders.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
     "imapflow": "^1.0.0",
-    "mailparser": "^3.7.0"
+    "mailparser": "^3.7.0",
+    "nodemailer": "^9.0.3"
   }
 }
