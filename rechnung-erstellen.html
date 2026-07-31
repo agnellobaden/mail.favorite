@@ -1763,6 +1763,14 @@ Tel: +49 176 56813172`;
                     : null;
 
                 if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                    // Web Share kann kein "An"-Feld ausfüllen (nur Text/Titel/
+                    // Anhang) - deshalb die Kunden-E-Mail zusätzlich in die
+                    // Zwischenablage kopieren, damit sie im Compose-Fenster nur
+                    // noch ins "An"-Feld eingefügt werden muss.
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(customerEmail).catch(() => {});
+                    }
+
                     navigator.share({
                         files: [pdfFile],
                         title: emailSubject,
@@ -1777,7 +1785,7 @@ Tel: +49 176 56813172`;
                         openGmailCompose(customerEmail, emailSubject, emailBody);
                         logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
                     });
-                    alert(`✓ PDF ist bereits als Anhang dabei!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\n⚠️ Im Teilen-Menü bitte prüfen:\n• Konto: eisfavorit@gmail.com auswählen\n• Empfänger: ${customerEmail}`);
+                    alert(`✓ PDF ist bereits als Anhang dabei!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\n⚠️ Die Mail-App füllt das "An"-Feld NICHT automatisch aus (technische Grenze des Teilen-Menüs).\n\n📋 Empfänger wurde kopiert: ${customerEmail}\n→ Bitte im "An"-Feld einfügen (einfach reintippen/einfügen)\n→ Konto eisfavorit@gmail.com auswählen`);
                 } else {
                     // Desktop (oder Handy ohne Datei-Teilen-Unterstützung):
                     // PDF herunterladen + Gmail/Mail-App öffnen, PDF muss
