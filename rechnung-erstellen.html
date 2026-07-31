@@ -1746,7 +1746,7 @@ Tel: +49 176 56813172`;
                 // Erfolgsmeldung zuerst zeigen, danach Gmail öffnen (App auf dem
                 // Handy, sonst Weboberfläche - siehe openGmailCompose()).
                 alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
-                openGmailCompose(customerEmail, `Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
+                openGmailCompose(customerEmail, `EisFavorite Rechnung ${invoiceNumber} - Vielen Dank!`, emailBody);
                 logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
 
             } catch (error) {
