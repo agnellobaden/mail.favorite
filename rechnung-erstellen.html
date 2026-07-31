@@ -1441,25 +1441,20 @@
         // für dieselbe Buchung wiederverwendet werden, statt jedes Mal neu
         // (mit anderem Datum/anderer Nummer) erzeugt zu werden.
 
-        // Öffnet eine E-Mail: Am PC über die Gmail-Weboberfläche (fester
-        // Geschäfts-Account eisfavorit@gmail.com). Am Handy über mailto: -
-        // das öffnet zuverlässig die Mail-App direkt mit komplett
-        // vorausgefülltem Betreff/Text (nur der PDF-Anhang muss manuell
-        // hinzugefügt werden). Der googlegmail://-App-Link wurde verworfen,
-        // da er in der Praxis den Text nicht zuverlässig übernommen hat.
+        // Öffnet Gmail (Weboberfläche) mit fest eingetragenem Absender-Konto
+        // (eisfavorit@gmail.com) und vorausgefülltem Empfänger/Betreff/Text -
+        // auf PC UND Handy gleich, damit Absender und Empfänger nie von Hand
+        // im Teilen-/Kontoauswahl-Menü geprüft werden müssen. Dafür kann kein
+        // Anhang automatisch mitgegeben werden (Gmail-Weboberfläche erlaubt das
+        // grundsätzlich nicht per Link) - die PDF wird separat heruntergeladen
+        // und muss manuell angehängt werden.
         function openGmailCompose(to, subject, body) {
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-            if (isMobile) {
-                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            } else {
-                const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
-                    '&authuser=eisfavorit@gmail.com' +
-                    '&to=' + encodeURIComponent(to) +
-                    '&su=' + encodeURIComponent(subject) +
-                    '&body=' + encodeURIComponent(body);
-                window.location.href = webUrl;
-            }
+            const webUrl = 'https://mail.google.com/mail/?view=cm&fs=1&tf=1' +
+                '&authuser=eisfavorit@gmail.com' +
+                '&to=' + encodeURIComponent(to) +
+                '&su=' + encodeURIComponent(subject) +
+                '&body=' + encodeURIComponent(body);
+            window.location.href = webUrl;
         }
 
         // Sammelt den aktuellen Stand der Rechnung (Kopfdaten + Positionen) und
@@ -1752,45 +1747,18 @@ Tel: +49 176 56813172`;
                 archiveInvoicePDF(doc, invoiceNumber, customerName, filename);
                 autoSaveInvoiceData();
 
-                // Auf dem Handy: PDF über das native Teilen-Menü direkt als
-                // echten Anhang an die Mail-App übergeben (kein manuelles
-                // Anhängen mehr nötig). Funktioniert nur, wenn das Gerät/der
-                // Browser Datei-Teilen unterstützt (Web Share API Level 2) -
-                // sonst wie bisher: PDF herunterladen + Gmail/Mail-App öffnen.
-                const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-                const pdfFile = isMobile
-                    ? new File([doc.output('blob')], filename, { type: 'application/pdf' })
-                    : null;
+                // PDF herunterladen + Gmail (Weboberfläche, fester Absender
+                // eisfavorit@gmail.com + Empfänger aus der Buchung vorausgefüllt)
+                // öffnen - auf PC und Handy gleich. PDF muss manuell angehängt
+                // werden (Gmail-Weboberfläche erlaubt keinen Anhang per Link -
+                // siehe openGmailCompose()).
+                console.log('📄 Lade PDF automatisch herunter...');
+                doc.save(filename);
 
-                if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-                    navigator.share({
-                        files: [pdfFile],
-                        title: emailSubject,
-                        text: emailBody
-                    }).then(() => {
-                        logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet (PDF automatisch angehängt)`);
-                    }).catch(err => {
-                        // Nutzer hat das Teilen-Menü abgebrochen, oder es ist
-                        // fehlgeschlagen - dann wie gehabt auf mailto: zurückfallen.
-                        console.warn('Teilen abgebrochen/fehlgeschlagen, falle auf mailto: zurück:', err);
-                        doc.save(filename);
-                        openGmailCompose(customerEmail, emailSubject, emailBody);
-                        logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
-                    });
-                    alert(`✓ PDF ist bereits als Anhang dabei!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\n⚠️ Im Teilen-Menü bitte prüfen:\n• Konto: eisfavorit@gmail.com auswählen\n• Empfänger: ${customerEmail}`);
-                } else {
-                    // Desktop (oder Handy ohne Datei-Teilen-Unterstützung):
-                    // PDF herunterladen + Gmail/Mail-App öffnen, PDF muss
-                    // manuell angehängt werden (technische Grenze von
-                    // Gmail-Weboberfläche/mailto: - siehe openGmailCompose()).
-                    console.log('📄 Lade PDF automatisch herunter...');
-                    doc.save(filename);
-
-                    console.log('📧 Öffne Gmail für:', customerEmail);
-                    alert('✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet!\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.');
-                    openGmailCompose(customerEmail, emailSubject, emailBody);
-                    logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
-                }
+                console.log('📧 Öffne Gmail für:', customerEmail);
+                alert(`✓ PDF wird automatisch heruntergeladen!\n✓ Gmail (eisfavorit@gmail.com) wird jetzt geöffnet, Empfänger: ${customerEmail}\n✓ Status "Rechnung versendet" wurde gespeichert!\n\nHängen Sie das heruntergeladene PDF an die E-Mail an.`);
+                openGmailCompose(customerEmail, emailSubject, emailBody);
+                logToBookingHistory(`📧 Rechnung ${invoiceNumber} per E-Mail an ${customerEmail} versendet`);
 
             } catch (error) {
                 console.error('Fehler beim Erstellen der E-Mail:', error);
