@@ -22,6 +22,13 @@
  * sich auf den "ungelesen"-Status zu verlassen (der kann durch anderes
  * Öffnen des Postfachs verändert werden, z.B. auf dem Handy).
  *
+ * Durchsucht "[Gmail]/All Mail" statt nur "INBOX": eine alte Gmail-
+ * Filterregel (vermutlich aus der früheren n8n-Automatisierung) markiert
+ * "Contact Us:"-Mails als gesendet/markiert und überspringt dabei den
+ * Posteingang, wodurch sie im reinen INBOX-Scan nie ankamen (Test am
+ * 01.08.2026 hat das aufgedeckt). "All Mail" enthält alles außer Spam/
+ * Papierkorb und ist damit unabhängig von solchen Filterregeln.
+ *
  * Benötigt zwei lokale, NICHT eingecheckte Dateien in diesem Ordner:
  *   - config.json                    { "gmailAppPassword": "..." }
  *   - firebase-service-account.json  (siehe README.md, Abschnitt "Einrichtung")
@@ -215,7 +222,7 @@ async function run() {
     await client.connect();
     console.log('✅ Mit Gmail verbunden.');
 
-    const lock = await client.getMailboxLock('INBOX');
+    const lock = await client.getMailboxLock('[Gmail]/All Mail');
     let imported = 0;
     let replied = 0;
     let highestUid = state.lastUid;
