@@ -6,4 +6,6 @@ email-import-service/config.json
 email-import-service/firebase-service-account.json
 email-import-service/state.json
 email-import-service/import-log.txt
+email-import-service/backups/
+email-import-service/*-log.txt
 .env
