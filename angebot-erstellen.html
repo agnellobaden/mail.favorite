@@ -388,6 +388,7 @@
             }).from(element).save();
 
             logToBookingHistory('📋 Angebot erstellt (PDF heruntergeladen)');
+            markAngebotSent();
         }
 
         function sendOfferByEmail() {
