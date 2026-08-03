@@ -4338,7 +4338,7 @@
                             <button class="card-menu-item" onclick="send24hReminderSMS('${booking.id}'); closeCardMenu('${booking.id}')" style="color: #ff9800;">
                                 📱 24h Erinnerung (SMS)
                             </button>
-                            ${booking.status === 'Rechnung versendet' ? `
+                            ${booking.invoiceSent && !booking.invoicePaid ? `
                             <button class="card-menu-item paid" onclick="markAsPaid('${booking.id}'); closeCardMenu('${booking.id}')">
                                 💰 Als bezahlt markieren
                             </button>
