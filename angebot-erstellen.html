@@ -157,6 +157,36 @@
             }
         }
 
+        // Setzt das angebotSent-Flag, damit buchungen-uebersicht.html einen
+        // Badge auf der Karte anzeigen kann (analog zum ✅-Häkchen bei
+        // versendeten Rechnungen). Separat von logToBookingHistory(), weil
+        // dort nur der Chat-Verlauf aktualisiert wird, kein eigenes Feld.
+        function markAngebotSent() {
+            if (!currentBooking) return;
+            const nowIso = new Date().toISOString();
+
+            const bookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
+            const bookingIndex = bookings.findIndex(b => b.id === currentBooking.id);
+            if (bookingIndex !== -1) {
+                bookings[bookingIndex].angebotSent = true;
+                bookings[bookingIndex].angebotSentDate = nowIso;
+                bookings[bookingIndex].lastModified = nowIso;
+                bookings[bookingIndex].lastModifiedMs = Date.now();
+                localStorage.setItem('eisfavorite_bookings', JSON.stringify(bookings));
+            }
+
+            if (db) {
+                db.collection('buchungen').doc(currentBooking.id).set({
+                    angebotSent: true,
+                    angebotSentDate: nowIso,
+                    lastModified: nowIso,
+                    lastModifiedMs: Date.now()
+                }, { merge: true }).catch(err => {
+                    console.error('❌ Konnte angebotSent nicht in Firestore speichern:', err);
+                });
+            }
+        }
+
         function generateOfferHTML(booking) {
             const prices = loadPrices();
             const today = new Date();
@@ -401,6 +431,7 @@
 
                     alert('✓ PDF wurde heruntergeladen!\n\n📧 E-Mail-Programm wird geöffnet...\n\nBitte hänge das heruntergeladene PDF manuell an die E-Mail an.');
                     logToBookingHistory(`📋 Angebot per E-Mail an ${email} versendet`);
+                    markAngebotSent();
                 }, 500);
             });
         }
