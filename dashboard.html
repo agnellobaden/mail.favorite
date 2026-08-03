@@ -623,27 +623,13 @@
             });
         }
 
-        // 2. OFFENE RECHNUNGEN (noch nicht fällig)
-        const openInvoices = bookings.filter(b => {
-            if (!b.invoiceSent || b.invoicePaid) return false;
-
-            const sentDate = parseAnyDate(b.invoiceSentDate);
-            if (isNaN(sentDate)) return false;
-            const dueDate = new Date(sentDate);
-            dueDate.setDate(dueDate.getDate() + 14);
-            dueDate.setHours(0, 0, 0, 0);
-
-            const isOpen = dueDate >= today;
-            console.log('Prüfe offene Rechnung:', {
-                kunde: b.company || b.name,
-                versendet: sentDate.toLocaleDateString('de-DE'),
-                fällig: dueDate.toLocaleDateString('de-DE'),
-                heute: today.toLocaleDateString('de-DE'),
-                offen: isOpen
-            });
-
-            return isOpen;
-        });
+        // 2. OFFENE RECHNUNGEN (jede versendete, noch nicht bezahlte Rechnung -
+        // unabhängig vom Zahlungsziel. "Überfällige Rechnungen" oben ist eine
+        // Teilmenge davon für die dringenden Fälle, schließt sich aber
+        // bewusst nicht mehr gegenseitig mit "Offene Rechnungen" aus: eine
+        // Rechnung, für die schon eine Zahlungserinnerung raus ist, soll
+        // trotzdem noch als "offen" (= unbezahlt) zählen.
+        const openInvoices = bookings.filter(b => !!b.invoiceSent && !b.invoicePaid);
 
         let openTotal = 0;
         openInvoices.forEach(inv => {
