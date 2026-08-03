@@ -10,7 +10,7 @@
  * erinnerung senden"-Button in rechnung-erstellen.html.
  *
  * Um Spam zu vermeiden, wird pro Buchung höchstens alle
- * REMINDER_INTERVAL_DAYS erneut erinnert (siehe unten).
+ * REMINDER_INTERVAL_DAYS (10 Tage) erneut erinnert (siehe unten).
  *
  * Aktualisiert dieselben Firestore-Felder wie der manuelle Button
  * (paymentReminderSent/-Date/-Count) und schreibt einen Eintrag in
@@ -50,7 +50,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const EMAIL = 'eisfavorit@gmail.com';
-const REMINDER_INTERVAL_DAYS = 7; // Mindestabstand zwischen zwei automatischen Erinnerungen
+const REMINDER_INTERVAL_DAYS = 10; // Mindestabstand zwischen zwei automatischen Erinnerungen
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
