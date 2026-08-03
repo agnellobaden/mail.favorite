@@ -4680,6 +4680,24 @@
             const companyField = document.getElementById('formCompany').value.trim();
             const company = companyField;
 
+            // Doppelbuchungs-Check: warnen, wenn an diesem Tag bereits eine
+            // andere Buchung mit Status "Gebucht" existiert. Kein hartes
+            // Verbot (an einem Tag können ggf. mehrere kleinere Events
+            // stattfinden) - der Nutzer entscheidet bewusst per Bestätigung.
+            const formStatusValue = document.getElementById('formStatus').value;
+            if (formStatusValue === 'Gebucht') {
+                const conflicting = allBookings.filter(b =>
+                    b.id !== currentEditingBookingId &&
+                    b.status === 'Gebucht' &&
+                    b.date === formattedDate
+                );
+                if (conflicting.length > 0) {
+                    const details = conflicting.map(b => `• ${b.name || '-'} (${b.time || 'keine Uhrzeit'})`).join('\n');
+                    const proceed = confirm(`⚠️ Achtung: Am ${formattedDate} ist bereits gebucht:\n\n${details}\n\nTrotzdem speichern?`);
+                    if (!proceed) return;
+                }
+            }
+
             if (currentEditingBookingId) {
                 // BEARBEITEN - Bestehende Buchung aktualisieren
                 const booking = allBookings.find(b => b.id === currentEditingBookingId);
