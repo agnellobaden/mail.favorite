@@ -8,4 +8,5 @@ email-import-service/state.json
 email-import-service/import-log.txt
 email-import-service/backups/
 email-import-service/*-log.txt
+_ARCHIV-ALTE-BACKUPS-*/
 .env

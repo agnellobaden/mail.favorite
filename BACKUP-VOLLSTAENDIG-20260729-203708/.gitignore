@@ -1,9 +1,0 @@
-.vercel
-node_modules
-
-# Niemals committen: Zugangsdaten für den automatischen E-Mail-Import
-email-import-service/config.json
-email-import-service/firebase-service-account.json
-email-import-service/state.json
-email-import-service/import-log.txt
-.env
