@@ -594,7 +594,7 @@
                 <p><span contenteditable="true" id="customerPostalCode">PLZ</span> <span contenteditable="true" id="customerCity">Ort</span></p>
             </div>
             <div class="invoice-details">
-                <p><strong>Rechnungsnummer:</strong> <span contenteditable="true" id="invoiceNumber">2026075205</span></p>
+                <p><strong>Rechnungsnummer:</strong> <span id="invoiceNumber" title="Fortlaufend automatisch vergeben (GoBD) - nicht änderbar">2026075205</span></p>
                 <p><strong>Ausgestellt:</strong> <span contenteditable="true" id="invoiceDate"></span></p>
                 <p><strong>Leistung erbracht am:</strong> <span contenteditable="true" id="serviceDate"></span></p>
                 <p><strong>Zahlungsziel:</strong> <span contenteditable="true" id="paymentDue"></span></p>
@@ -798,7 +798,26 @@
             scheduleAutoSaveInvoice();
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        // Vergibt GoBD-konform eine fortlaufende, lückenlose Rechnungsnummer
+        // ("JAHR-0001", pro Jahr neu bei 1 beginnend) über einen Firestore-
+        // Zähler-Dokument + Transaktion (atomar, kollisionssicher auch wenn
+        // zwei Rechnungen gleichzeitig geöffnet werden). Wird nur für
+        // WIRKLICH neue Rechnungen aufgerufen - eine bereits vergebene
+        // Nummer wird nie neu vergeben oder verändert (siehe invoiceNumber
+        // ist absichtlich nicht mehr contenteditable).
+        async function allocateNextInvoiceNumber() {
+            const year = new Date().getFullYear();
+            const counterRef = db.collection('zaehler').doc('rechnungsnummer_' + year);
+            const next = await db.runTransaction(async (tx) => {
+                const snap = await tx.get(counterRef);
+                const current = snap.exists ? (snap.data().next || 1) : 1;
+                tx.set(counterRef, { next: current + 1 }, { merge: true });
+                return current;
+            });
+            return `${year}-${String(next).padStart(4, '0')}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
             // Datum setzen
             const today = new Date();
             const invoiceDate = formatDate(today);
@@ -811,19 +830,15 @@
             paymentDueDate.setDate(paymentDueDate.getDate() + 7);
             document.getElementById('paymentDue').textContent = formatDate(paymentDueDate);
 
-            // Rechnungsnummer generieren
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-            const invoiceNumber = `${year}${month}${day}${random}`;
-            document.getElementById('invoiceNumber').textContent = invoiceNumber;
+            document.getElementById('invoiceNumber').textContent = '…';
 
             // URL-Parameter prüfen
             const urlParams = new URLSearchParams(window.location.search);
             const bookingId = urlParams.get('bookingId');
 
             console.log('🔍 URL bookingId:', bookingId);
+
+            let loadedBooking = null;
 
             if (bookingId) {
                 // Buchung direkt aus localStorage laden (nicht auf loadBookings() warten)
@@ -837,6 +852,7 @@
 
                 if (booking) {
                     console.log('✅ Buchung gefunden:', booking.name);
+                    loadedBooking = booking;
                     loadBookingData(booking);
                 } else {
                     console.error('❌ Buchung nicht gefunden für ID:', bookingId);
@@ -845,6 +861,24 @@
             } else {
                 console.log('ℹ️ Keine bookingId in URL - zeige Suchfeld');
                 addItem();
+            }
+
+            // Nur eine neue, fortlaufende Nummer vergeben, wenn diese Rechnung
+            // (über die Buchung) noch keine feste Nummer hat - loadBookingData()
+            // hat inv.invoiceNumber oben bereits gesetzt, falls vorhanden.
+            const hasExistingNumber = !!(loadedBooking && loadedBooking.invoiceData && loadedBooking.invoiceData.invoiceNumber);
+            if (!hasExistingNumber) {
+                try {
+                    const newNumber = await allocateNextInvoiceNumber();
+                    document.getElementById('invoiceNumber').textContent = newNumber;
+                    // Sofort persistieren, damit ein bloßes Öffnen+Schließen
+                    // ohne weitere Änderung nicht bei jedem erneuten Öffnen
+                    // eine neue Nummer verbraucht (Lücken vermeiden).
+                    if (bookingId) autoSaveInvoiceData();
+                } catch (err) {
+                    console.error('❌ Konnte keine fortlaufende Rechnungsnummer vergeben:', err);
+                    alert('⚠️ Fortlaufende Rechnungsnummer konnte nicht vergeben werden (Firestore nicht erreichbar). Bitte Internetverbindung prüfen und Seite neu laden.');
+                }
             }
 
             // Buchungen für Suche laden
