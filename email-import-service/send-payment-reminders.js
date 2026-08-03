@@ -3,11 +3,13 @@
  * EisFavorite: Automatischer Versand von Zahlungserinnerungen
  *
  * Prüft alle Buchungen mit versendeter, aber unbezahlter Rechnung
- * (invoiceSent === true, invoicePaid nicht true). Ist das Zahlungsziel
- * (booking.invoiceData.paymentDue, Format TT.MM.JJJJ) überschritten,
- * wird per Gmail-SMTP eine Zahlungserinnerung an die Kunden-E-Mail
- * verschickt - genau der gleiche Text wie beim manuellen "Zahlungs-
- * erinnerung senden"-Button in rechnung-erstellen.html.
+ * (invoiceSent === true, invoicePaid nicht true). Die erste Erinnerung geht
+ * fest REMINDER_INTERVAL_DAYS (10 Tage) nach dem Rechnungsdatum
+ * (booking.invoiceData.invoiceDate, Format TT.MM.JJJJ) automatisch raus -
+ * bewusst unabhängig vom Zahlungsziel, auf ausdrücklichen Wunsch des
+ * Inhabers. Wird per Gmail-SMTP an die Kunden-E-Mail verschickt - genau der
+ * gleiche Text wie beim manuellen "Zahlungserinnerung senden"-Button in
+ * rechnung-erstellen.html.
  *
  * Um Spam zu vermeiden, wird pro Buchung höchstens alle
  * REMINDER_INTERVAL_DAYS (10 Tage) erneut erinnert (siehe unten).
@@ -146,16 +148,25 @@ async function run() {
 
         if (booking.invoicePaid) { skipped++; continue; }
 
-        const paymentDueStr = booking.invoiceData && booking.invoiceData.paymentDue;
-        const dueDate = parseGermanDate(paymentDueStr);
-        if (!dueDate) {
-            console.log(`  ⏭ ${bookingId}: kein/ungültiges Zahlungsziel, übersprungen.`);
+        // Erste Erinnerung: fest 10 Tage nach Rechnungsdatum (invoiceDate),
+        // unabhängig vom Zahlungsziel - das ist der explizite Wunsch des
+        // Inhabers, nicht das Zahlungsziel als Auslöser zu verwenden.
+        const invoiceDateStr = booking.invoiceData && booking.invoiceData.invoiceDate;
+        const invoiceDate = parseGermanDate(invoiceDateStr);
+        if (!invoiceDate) {
+            console.log(`  ⏭ ${bookingId}: kein/ungültiges Rechnungsdatum, übersprungen.`);
             skipped++;
             continue;
         }
 
-        const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
-        if (daysOverdue <= 0) { skipped++; continue; } // noch nicht überfällig
+        const daysSinceInvoice = Math.floor((today - invoiceDate) / (1000 * 60 * 60 * 24));
+        if (daysSinceInvoice < REMINDER_INTERVAL_DAYS) { skipped++; continue; } // noch nicht 10 Tage her
+
+        // Für die Anzeige "X Tage überfällig" in der Mail weiterhin am
+        // Zahlungsziel messen, falls vorhanden - sonst am Rechnungsdatum.
+        const paymentDueStr = booking.invoiceData && booking.invoiceData.paymentDue;
+        const dueDate = parseGermanDate(paymentDueStr) || invoiceDate;
+        const daysOverdue = Math.max(0, Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)));
 
         if (booking.paymentReminderSent && booking.paymentReminderDate) {
             const lastReminder = new Date(booking.paymentReminderDate);
