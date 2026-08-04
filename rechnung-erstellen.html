@@ -1043,9 +1043,12 @@
                 }
             }
 
-            const street = booking.street || 'Straße Hausnummer';
-            const postalCode = booking.plz || 'PLZ';
-            const city = booking.city || 'Ort';
+            // Falls eine abweichende Rechnungsadresse hinterlegt ist (siehe
+            // "Buchung bearbeiten" -> "Rechnungsadresse weicht ab"), diese für
+            // die Rechnung verwenden statt der Event-/Lieferadresse.
+            const street = booking.billingStreet || booking.street || 'Straße Hausnummer';
+            const postalCode = booking.billingPlz || booking.plz || 'PLZ';
+            const city = booking.billingCity || booking.city || 'Ort';
 
             document.getElementById('customerCompany').textContent = companyName;
             document.getElementById('customerContact').textContent = contactPerson;
