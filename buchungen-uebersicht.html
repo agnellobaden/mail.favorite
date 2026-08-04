@@ -2473,9 +2473,9 @@
                     <div class="form-group full-width">
                         <label for="formWunschsorten" onclick="toggleWunschsortenArea()" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; padding: 5px 0;">
                             <span>Wunschsorten (max. 3 Sorten)</span>
-                            <span id="wunschsorten-toggle" style="font-size: 0.8em; transition: transform 0.3s;">▼</span>
+                            <span id="wunschsorten-toggle" style="font-size: 0.8em; transition: transform 0.3s; transform: rotate(-90deg);">▼</span>
                         </label>
-                        <div id="wunschsorten-area" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #ddd; overflow: hidden; max-height: 1000px;">
+                        <div id="wunschsorten-area" class="collapsed" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 2px solid #ddd; overflow: hidden; max-height: 1000px;">
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
                                 <div style="background: white; padding: 10px; border-radius: 6px; border-left: 4px solid #667eea;">
                                     <strong style="color: #667eea; display: block; margin-bottom: 8px; font-size: 0.9em;">🥛 MILCHEIS</strong>
@@ -2574,10 +2574,9 @@
                         <label for="formNotizen">Notizen</label>
                         <textarea id="formNotizen"></textarea>
                     </div>
-                    <div class="form-group full-width">
-                        <label for="formEigeneNotizen">Eigene Notizen</label>
-                        <textarea id="formEigeneNotizen"></textarea>
-                    </div>
+                    <!-- formEigeneNotizen als eigenes Feld entfernt - Inhalt wird beim
+                         Öffnen einer Buchung automatisch mit in "Notizen" übernommen
+                         (siehe editBooking()), damit alles an einer Stelle steht. -->
 
                 </div>
                 <div class="form-actions" style="justify-content: space-between;">
@@ -4454,8 +4453,8 @@
                     <td>${booking.id || '-'}</td>
                     <td><span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span></td>
                     <td><strong>${booking.name || '-'}</strong>${countPreviousBookings(booking) > 0 ? ` <span title="${countPreviousBookings(booking)} frühere Buchung(en)" style="color:#f39c12;">🔁</span>` : ''}</td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email || '-'}</td>
-                    <td>${booking.phone || '-'}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email ? `<a href="mailto:${booking.email}" style="color:#667eea;">${booking.email}</a>` : '-'}</td>
+                    <td>${booking.phone ? `<a href="tel:${booking.phone.replace(/\s/g, '')}" style="color:#667eea;">${booking.phone}</a>` : '-'}</td>
                     <td>${booking.company || '-'}</td>
                     <td class="${dateClass}">${booking.date || '-'}${isNext ? ' 🔔' : ''}</td>
                     <td>${booking.time || '-'}</td>
@@ -4624,6 +4623,12 @@
                 display.innerHTML = '<span style="color: #999;">Wähle bis zu 3 Sorten aus</span>';
             } else {
                 display.innerHTML = `<span>${selectedFlavors.join(', ')}</span>`;
+                // Bereich automatisch aufklappen, sobald eine Sorte ausgewählt
+                // wurde, damit direkt sichtbar ist, welche das sind (Bereich
+                // ist standardmäßig zugeklappt, siehe #wunschsorten-area).
+                if (document.getElementById('wunschsorten-area').classList.contains('collapsed')) {
+                    toggleWunschsortenArea();
+                }
             }
 
             // Text-Input aktualisieren
@@ -4728,7 +4733,6 @@
                     booking.distance = document.getElementById('formDistance').value;
                     booking.wunschsorten = document.getElementById('formWunschsorten').value;
                     booking.notizen = document.getElementById('formNotizen').value;
-                    booking.eigeneNotizen = document.getElementById('formEigeneNotizen').value;
 
                     // Entferne "Neu eingetroffen" Markierung wenn bearbeitet
                     booking.isNewFromEmail = false;
@@ -4768,7 +4772,6 @@
                     distance: document.getElementById('formDistance').value,
                     wunschsorten: document.getElementById('formWunschsorten').value,
                     notizen: document.getElementById('formNotizen').value,
-                    eigeneNotizen: document.getElementById('formEigeneNotizen').value,
                     angebotUrl: '',
                     angebotVorlage: '',
                     rechnungUrl: '',
@@ -6121,10 +6124,17 @@
             toggleBillingAddressArea();
             document.getElementById('formDistance').value = booking.distance || '';
             document.getElementById('formWunschsorten').value = booking.wunschsorten || '';
-            document.getElementById('formNotizen').value = booking.notizen || '';
-            document.getElementById('formEigeneNotizen').value = booking.eigeneNotizen || '';
+            // "Eigene Notizen" gibt es als eigenes Feld nicht mehr - falls eine
+            // Buchung dort noch (alten) Inhalt hat, hier automatisch mit in
+            // "Notizen" zusammenführen, damit nichts verloren geht.
+            document.getElementById('formNotizen').value = [booking.notizen, booking.eigeneNotizen].filter(Boolean).join('\n\n');
 
-            // Checkboxen für Wunschsorten vorauswählen
+            // Checkboxen für Wunschsorten vorauswählen (Bereich zunächst
+            // zugeklappt - klappt über updateIceFlavorsSelection() automatisch
+            // auf, falls diese Buchung bereits Sorten hat).
+            if (!document.getElementById('wunschsorten-area').classList.contains('collapsed')) {
+                toggleWunschsortenArea();
+            }
             document.querySelectorAll('.ice-flavor-checkbox').forEach(checkbox => {
                 checkbox.checked = false;
             });
