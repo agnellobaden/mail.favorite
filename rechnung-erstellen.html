@@ -1044,8 +1044,12 @@
             }
 
             // Falls eine abweichende Rechnungsadresse hinterlegt ist (siehe
-            // "Buchung bearbeiten" -> "Rechnungsadresse weicht ab"), diese für
-            // die Rechnung verwenden statt der Event-/Lieferadresse.
+            // "Buchung bearbeiten" -> "Rechnungsadresse weicht ab"), deren
+            // Firmennamen für die Rechnung verwenden statt der Event-Firma.
+            if (booking.billingCompany) {
+                companyName = booking.billingCompany;
+            }
+
             const street = booking.billingStreet || booking.street || 'Straße Hausnummer';
             const postalCode = booking.billingPlz || booking.plz || 'PLZ';
             const city = booking.billingCity || booking.city || 'Ort';

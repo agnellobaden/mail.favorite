@@ -2450,6 +2450,10 @@
                     <div id="billing-address-area" style="display: none;" class="form-group full-width">
                         <div class="form-grid">
                             <div class="form-group full-width">
+                                <label for="formBillingCompany">Rechnungsadresse - Firma</label>
+                                <input type="text" id="formBillingCompany">
+                            </div>
+                            <div class="form-group full-width">
                                 <label for="formBillingStreet">Rechnungsadresse - Straße</label>
                                 <input type="text" id="formBillingStreet">
                             </div>
@@ -4708,10 +4712,12 @@
                     booking.plz = document.getElementById('formPLZ').value;
                     booking.city = document.getElementById('formCity').value;
                     if (document.getElementById('formUseBillingAddress').checked) {
+                        booking.billingCompany = document.getElementById('formBillingCompany').value;
                         booking.billingStreet = document.getElementById('formBillingStreet').value;
                         booking.billingPlz = document.getElementById('formBillingPLZ').value;
                         booking.billingCity = document.getElementById('formBillingCity').value;
                     } else {
+                        booking.billingCompany = '';
                         booking.billingStreet = '';
                         booking.billingPlz = '';
                         booking.billingCity = '';
@@ -4752,6 +4758,7 @@
                     street: document.getElementById('formStreet').value,
                     plz: document.getElementById('formPLZ').value,
                     city: document.getElementById('formCity').value,
+                    billingCompany: document.getElementById('formUseBillingAddress').checked ? document.getElementById('formBillingCompany').value : '',
                     billingStreet: document.getElementById('formUseBillingAddress').checked ? document.getElementById('formBillingStreet').value : '',
                     billingPlz: document.getElementById('formUseBillingAddress').checked ? document.getElementById('formBillingPLZ').value : '',
                     billingCity: document.getElementById('formUseBillingAddress').checked ? document.getElementById('formBillingCity').value : '',
@@ -6102,8 +6109,9 @@
             document.getElementById('formStreet').value = booking.street || '';
             document.getElementById('formPLZ').value = booking.plz || '';
             document.getElementById('formCity').value = booking.city || '';
-            const hasBillingAddress = !!(booking.billingStreet || booking.billingPlz || booking.billingCity);
+            const hasBillingAddress = !!(booking.billingCompany || booking.billingStreet || booking.billingPlz || booking.billingCity);
             document.getElementById('formUseBillingAddress').checked = hasBillingAddress;
+            document.getElementById('formBillingCompany').value = booking.billingCompany || '';
             document.getElementById('formBillingStreet').value = booking.billingStreet || '';
             document.getElementById('formBillingPLZ').value = booking.billingPlz || '';
             document.getElementById('formBillingCity').value = booking.billingCity || '';
