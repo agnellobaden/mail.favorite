@@ -738,6 +738,8 @@
             font-size: 1em;
             font-family: inherit;
             transition: border-color 0.3s;
+            max-width: 100%;
+            width: 100%;
         }
 
         .form-group input:focus,
@@ -2442,27 +2444,28 @@
                         <input type="number" id="formDistance" min="0" step="0.1">
                     </div>
                     <div class="form-group full-width">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                            <input type="checkbox" id="formUseBillingAddress" onchange="toggleBillingAddressArea()" style="width: auto;">
-                            <span>Rechnungsadresse weicht von der Event-/Lieferadresse ab</span>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; flex-wrap: wrap;">
+                            <input type="checkbox" id="formUseBillingAddress" onchange="toggleBillingAddressArea()" style="width: auto; flex-shrink: 0;">
+                            <span style="min-width: 0;">Rechnungsadresse weicht von der Event-/Lieferadresse ab</span>
                         </label>
                     </div>
                     <div id="billing-address-area" style="display: none;" class="form-group full-width">
+                        <h4 style="margin-bottom: 10px; color: #667eea;">Rechnungsadresse</h4>
                         <div class="form-grid">
                             <div class="form-group full-width">
-                                <label for="formBillingCompany">Rechnungsadresse - Firma</label>
+                                <label for="formBillingCompany">Firma</label>
                                 <input type="text" id="formBillingCompany">
                             </div>
                             <div class="form-group full-width">
-                                <label for="formBillingStreet">Rechnungsadresse - Straße</label>
+                                <label for="formBillingStreet">Straße</label>
                                 <input type="text" id="formBillingStreet">
                             </div>
                             <div class="form-group">
-                                <label for="formBillingPLZ">Rechnungsadresse - PLZ</label>
+                                <label for="formBillingPLZ">PLZ</label>
                                 <input type="text" id="formBillingPLZ">
                             </div>
                             <div class="form-group">
-                                <label for="formBillingCity">Rechnungsadresse - Stadt</label>
+                                <label for="formBillingCity">Stadt</label>
                                 <input type="text" id="formBillingCity">
                             </div>
                         </div>
