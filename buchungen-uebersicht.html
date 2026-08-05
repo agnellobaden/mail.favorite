@@ -348,6 +348,11 @@
             border-left: 4px solid #e0574c;
         }
 
+        tr.date-conflict-row {
+            background-color: #fbeae8 !important;
+            border-left: 4px solid #c0392b;
+        }
+
         .loading {
             text-align: center;
             padding: 50px;
@@ -4281,6 +4286,18 @@
             }).length;
         }
 
+        // Live-Check statt nur beim Import: prüft bei JEDER Anzeige, ob für
+        // diese (noch nicht fest gebuchte) Anfrage eine andere Buchung mit
+        // Status "Gebucht" am selben Tag existiert. Läuft dynamisch über die
+        // ohnehin geladenen Buchungen - deckt damit auch Fälle ab, in denen
+        // sich Datum/Status nachträglich geändert haben (der einmalige
+        // dateConflict-Flag aus dem automatischen Import erfasst das nicht).
+        function hasDateConflict(booking) {
+            if (!booking.date) return false;
+            if (booking.status === 'Gebucht' || booking.status === 'Storniert' || booking.status === 'Archiviert') return false;
+            return allBookings.some(b => b.id !== booking.id && b.status === 'Gebucht' && b.date === booking.date);
+        }
+
         function createBookingCardElement(booking, index, nextBooking, clickToEdit = true) {
                 const isNext = booking === nextBooking;
                 const card = document.createElement('div');
@@ -4288,7 +4305,8 @@
                 if (index % 2 === 1) card.classList.add('alternate');
                 if (isNext) card.classList.add('next-booking');
                 if (booking.paymentReminderSent && !booking.invoicePaid) card.classList.add('reminder-sent');
-                if (booking.dateConflict && booking.status !== 'Storniert' && booking.status !== 'Archiviert') card.classList.add('date-conflict');
+                const dateConflict = hasDateConflict(booking);
+                if (dateConflict) card.classList.add('date-conflict');
 
                 const previousBookingsCount = countPreviousBookings(booking);
 
@@ -4354,7 +4372,7 @@
                                 ${booking.emailReminderSent || booking.smsReminderSent ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet via ${booking.emailReminderSent ? 'E-Mail' : 'SMS'}">${booking.emailReminderSent ? '📧' : '📱'} ERINNERUNG</span>` : ''}
                                 ${booking.paymentReminderSent && !booking.invoicePaid ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #e0574c 0%, #ff8a75 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(224, 87, 76, 0.3);" title="Zahlungserinnerung versendet${booking.paymentReminderCount ? ' (' + booking.paymentReminderCount + '×)' : ''}">⏰ ZAHLUNGSERINNERUNG</span>` : ''}
                                 ${previousBookingsCount > 0 ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #f39c12 0%, #f7b733 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);" title="${previousBookingsCount} frühere Buchung(en) mit gleicher E-Mail/Telefonnummer">🔁 STAMMKUNDE (${previousBookingsCount + 1}. Buchung)</span>` : ''}
-                                ${booking.dateConflict && booking.status !== 'Storniert' && booking.status !== 'Archiviert' ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(192, 57, 43, 0.4);" title="Am ${booking.date} bereits gebucht: ${booking.dateConflictInfo || 'siehe andere Buchung'}">⚠️ TERMIN SCHON VERGEBEN</span>` : ''}
+                                ${dateConflict ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(192, 57, 43, 0.4);" title="Am ${booking.date} ist bereits eine andere Buchung mit Status 'Gebucht' vorhanden">⚠️ TERMIN SCHON VERGEBEN</span>` : ''}
                             </div>
                         </div>
                         <div class="card-date">
@@ -4458,6 +4476,7 @@
                 const isNext = booking === nextBooking;
                 if (isNext) row.classList.add('next-booking');
                 if (booking.paymentReminderSent && !booking.invoicePaid) row.classList.add('reminder-sent');
+                if (hasDateConflict(booking)) row.classList.add('date-conflict-row');
 
                 const dateClass = parseDate(booking.date) > now ? 'date-highlight' : '';
 
@@ -4470,7 +4489,7 @@
                 row.innerHTML = `
                     <td>${booking.id || '-'}</td>
                     <td><span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span></td>
-                    <td><strong>${booking.name || '-'}</strong>${countPreviousBookings(booking) > 0 ? ` <span title="${countPreviousBookings(booking)} frühere Buchung(en)" style="color:#f39c12;">🔁</span>` : ''}</td>
+                    <td><strong>${booking.name || '-'}</strong>${countPreviousBookings(booking) > 0 ? ` <span title="${countPreviousBookings(booking)} frühere Buchung(en)" style="color:#f39c12;">🔁</span>` : ''}${hasDateConflict(booking) ? ` <span title="Am ${booking.date} ist bereits eine andere Buchung mit Status 'Gebucht' vorhanden" style="color:#c0392b;">⚠️</span>` : ''}</td>
                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email ? `<a href="mailto:${booking.email}" style="color:#667eea;">${booking.email}</a>` : '-'}</td>
                     <td>${booking.phone ? `<a href="tel:${booking.phone.replace(/\s/g, '')}" style="color:#667eea;">${booking.phone}</a>` : '-'}</td>
                     <td>${booking.company || '-'}</td>
