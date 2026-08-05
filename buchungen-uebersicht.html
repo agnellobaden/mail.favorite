@@ -4403,7 +4403,12 @@
                             <span>${booking.wunschsorten}</span>
                         </div>
                         ` : ''}
-                        ${(booking.guests && booking.kugelPerGuest) ? `
+                        ${booking.tallyTotal != null ? `
+                        <div class="card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
+                            <span>✅</span>
+                            <span><strong>Effektiver Umsatz (Strichliste):</strong> ${booking.tallyTotal.toFixed(2)} €</span>
+                        </div>
+                        ` : (booking.guests && booking.kugelPerGuest) ? `
                         <div class="card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
                             <span>💰</span>
                             <span><strong>Geschätzter Umsatz:</strong> ${revenue.gesamt.toFixed(2)} € (Eis: ${revenue.eis.toFixed(2)} €${revenue.anfahrt > 0 ? ' + Anfahrt: ' + revenue.anfahrt.toFixed(2) + ' €' : ''})</span>
