@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Adressverwaltung - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-row input[type="text"] {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+        flex: 1;
+        min-width: 200px;
+    }
+    .filter-row select {
+        padding: 10px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+    }
+    .filter-row label.checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.9em;
+        color: #555;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    .action-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .selection-count {
+        font-weight: 600;
+        color: #667eea;
+        margin-right: auto;
+    }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-decoration: none;
+        display: inline-block;
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-success { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
+    tr:hover { background: #f8f9fa; }
+    td.no-email { color: #bbb; }
+
+    .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .status-anfrage, .status-neu { background: #fff3cd; color: #856404; }
+    .status-gebucht { background: #cce5ff; color: #004085; }
+    .status-rechnung-versendet { background: #ffe5cc; color: #a15c00; }
+    .status-bezahlte-rechnung { background: #d4edda; color: #155724; }
+    .status-event-beendet { background: #e2e3e5; color: #383d41; }
+    .status-archiviert { background: #e2e3e5; color: #6c757d; }
+    .status-storniert { background: #f8d7da; color: #721c24; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #888;
+    }
+    .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+        .selection-count { width: 100%; margin-right: 0; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>📇 Adressverwaltung</h1>
+        <p class="subtitle">Alle Kontakte aus Anfragen, manuell eingetragenen und gebuchten Events - Grundlage für Frühjahrs-/Sommer-Kampagnen an Bestandskunden.</p>
+
+        <div class="filter-row">
+            <input type="text" id="searchFilter" placeholder="Name, Firma, Ort, E-Mail suchen..." oninput="renderTable()">
+            <select id="statusFilter" onchange="renderTable()">
+                <option value="alle">Alle Status</option>
+                <option value="Anfrage">Anfrage</option>
+                <option value="Neu">Neu</option>
+                <option value="Gebucht">Gebucht</option>
+                <option value="Rechnung versendet">Rechnung versendet</option>
+                <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
+                <option value="Event beendet">Event beendet</option>
+                <option value="Archiviert">Archiviert</option>
+                <option value="Storniert">Storniert</option>
+            </select>
+            <label class="checkbox-label">
+                <input type="checkbox" id="onlyWithEmail" checked onchange="renderTable()">
+                Nur mit E-Mail-Adresse
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="dedupeByEmail" checked onchange="renderTable()">
+                Doppelte E-Mails zusammenfassen
+            </label>
+        </div>
+
+        <div class="action-row">
+            <span class="selection-count" id="selectionCount">0 ausgewählt</span>
+            <button class="btn btn-secondary" onclick="selectAllVisible()">Alle sichtbaren auswählen</button>
+            <button class="btn btn-secondary" onclick="clearSelection()">Auswahl aufheben</button>
+            <button class="btn btn-success" id="campaignBtn" onclick="startEmailCampaign()" disabled>📧 Kampagne per E-Mail (BCC)</button>
+            <button class="btn" id="copyBtn" onclick="copySelectedEmails()" disabled>📋 E-Mails kopieren</button>
+            <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
+        </div>
+
+        <div class="table-wrap">
+            <table id="addressTable">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllHeader" onchange="toggleSelectAll(this.checked)"></th>
+                        <th>Name</th>
+                        <th>Firma</th>
+                        <th>Adresse</th>
+                        <th>E-Mail</th>
+                        <th>Telefon</th>
+                        <th>Status</th>
+                        <th>Datum</th>
+                    </tr>
+                </thead>
+                <tbody id="addressBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">📇</div>
+                <p>Keine Kontakte gefunden.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allBookings = [];
+        let selectedIds = new Set();
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            db = firebase.firestore();
+            db.collection('buchungen').onSnapshot(snapshot => {
+                allBookings = [];
+                snapshot.forEach(doc => {
+                    allBookings.push({ ...doc.data(), id: doc.id });
+                });
+                renderTable();
+            }, error => {
+                console.error('Firestore-Fehler:', error);
+            });
+        }
+
+        // Baut aus allen Buchungen die Kontaktliste - bei aktivierter
+        // Dedupe-Option wird pro E-Mail-Adresse nur der zuletzt aktualisierte
+        // Eintrag behalten, damit Stammkunden mit mehreren Buchungen nicht
+        // mehrfach in der Kampagnen-Liste auftauchen.
+        function buildContactList() {
+            const onlyWithEmail = document.getElementById('onlyWithEmail').checked;
+            const dedupe = document.getElementById('dedupeByEmail').checked;
+
+            let contacts = allBookings.filter(b => b.name || b.company || b.email || b.street);
+            if (onlyWithEmail) {
+                contacts = contacts.filter(b => !!b.email);
+            }
+
+            if (dedupe) {
+                const byEmail = new Map();
+                contacts.forEach(b => {
+                    const key = (b.email || '').trim().toLowerCase();
+                    if (!key) {
+                        // Ohne E-Mail: eindeutig über die Buchungs-ID behalten (kein Dedupe möglich)
+                        byEmail.set('__no_email_' + b.id, b);
+                        return;
+                    }
+                    const existing = byEmail.get(key);
+                    if (!existing || (b.lastModifiedMs || 0) > (existing.lastModifiedMs || 0)) {
+                        byEmail.set(key, b);
+                    }
+                });
+                contacts = Array.from(byEmail.values());
+            }
+
+            return contacts;
+        }
+
+        function filteredContacts() {
+            const search = document.getElementById('searchFilter').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            let contacts = buildContactList();
+
+            if (statusFilter !== 'alle') {
+                contacts = contacts.filter(b => b.status === statusFilter);
+            }
+
+            if (search) {
+                contacts = contacts.filter(b => {
+                    const haystack = [b.name, b.company, b.email, b.city, b.street].filter(Boolean).join(' ').toLowerCase();
+                    return haystack.includes(search);
+                });
+            }
+
+            contacts.sort((a, b) => (a.name || a.company || '').localeCompare(b.name || b.company || '', 'de'));
+            return contacts;
+        }
+
+        function renderTable() {
+            const contacts = filteredContacts();
+            const tbody = document.getElementById('addressBody');
+            const emptyState = document.getElementById('emptyState');
+
+            // Auswahl auf noch existierende IDs beschränken (falls sich der Filter geändert hat)
+            const visibleIds = new Set(contacts.map(c => c.id));
+
+            if (contacts.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                updateSelectionUi();
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = contacts.map(b => {
+                const address = [b.street, [b.plz, b.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || '-';
+                const statusClass = 'status-' + (b.status || '').toLowerCase().replace(/ /g, '-');
+                const checked = selectedIds.has(b.id) ? 'checked' : '';
+                return `
+                <tr>
+                    <td><input type="checkbox" class="row-check" data-id="${b.id}" ${checked} onchange="toggleRow('${b.id}', this.checked)"></td>
+                    <td>${b.name || '-'}</td>
+                    <td>${b.company || '-'}</td>
+                    <td>${address}</td>
+                    <td class="${b.email ? '' : 'no-email'}">${b.email ? `<a href="mailto:${b.email}" style="color:#667eea;">${b.email}</a>` : 'keine E-Mail'}</td>
+                    <td>${b.phone ? `<a href="tel:${b.phone.replace(/\s/g, '')}" style="color:#667eea;">${b.phone}</a>` : '-'}</td>
+                    <td><span class="status-badge ${statusClass}">${b.status || '-'}</span></td>
+                    <td>${b.date || '-'}</td>
+                </tr>
+            `;
+            }).join('');
+
+            // Auswahl von nicht mehr sichtbaren Einträgen bereinigen
+            selectedIds.forEach(id => { if (!visibleIds.has(id)) selectedIds.delete(id); });
+            document.getElementById('selectAllHeader').checked = contacts.length > 0 && contacts.every(c => selectedIds.has(c.id));
+            updateSelectionUi();
+        }
+
+        function toggleRow(id, checked) {
+            if (checked) selectedIds.add(id); else selectedIds.delete(id);
+            updateSelectionUi();
+        }
+
+        function toggleSelectAll(checked) {
+            const contacts = filteredContacts();
+            contacts.forEach(c => { if (checked) selectedIds.add(c.id); else selectedIds.delete(c.id); });
+            renderTable();
+        }
+
+        function selectAllVisible() { toggleSelectAll(true); }
+        function clearSelection() { selectedIds.clear(); renderTable(); }
+
+        function updateSelectionUi() {
+            document.getElementById('selectionCount').textContent = `${selectedIds.size} ausgewählt`;
+            const hasSelection = selectedIds.size > 0;
+            document.getElementById('campaignBtn').disabled = !hasSelection;
+            document.getElementById('copyBtn').disabled = !hasSelection;
+        }
+
+        function selectedContactsWithEmail() {
+            const contacts = buildContactList();
+            return contacts.filter(c => selectedIds.has(c.id) && c.email);
+        }
+
+        // Öffnet Gmail (Weboberfläche, fester Absender eisfavorit@gmail.com)
+        // mit allen ausgewählten E-Mails im BCC-Feld - für sehr große Listen
+        // (>60) lieber "E-Mails kopieren" nutzen, da BCC-Links irgendwann an
+        // Browser-URL-Längengrenzen stoßen können.
+        function startEmailCampaign() {
+            const contacts = selectedContactsWithEmail();
+            if (contacts.length === 0) {
+                alert('Keine der ausgewählten Kontakte hat eine E-Mail-Adresse.');
+                return;
+            }
+            if (contacts.length > 60) {
+                if (!confirm(`${contacts.length} E-Mail-Adressen ausgewählt - das kann bei Gmail-Weblinks zu Problemen führen.\n\nTrotzdem versuchen? (Alternativ: "E-Mails kopieren" nutzen und manuell ins BCC-Feld einfügen)`)) {
+                    return;
+                }
+            }
+            const bcc = contacts.map(c => c.email).join(',');
+            const subject = encodeURIComponent('EisFavorite - die Eiswagen-Saison ist wieder da! 🍦');
+            const body = encodeURIComponent(
+                `Liebe Kundin, lieber Kunde,\n\n` +
+                `die Eiswagen-Saison bei EisFavorite startet wieder - wir würden uns sehr freuen, auch dieses Jahr wieder für Ihre Veranstaltung dabei zu sein!\n\n` +
+                `Bei Interesse oder Fragen zu Terminen melden Sie sich gerne einfach bei uns.\n\n` +
+                `Mit eisigen Grüßen\nIhr EisFavorite Team\n` +
+                `Tel: +49 176 56813172`
+            );
+            const url = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&authuser=eisfavorit@gmail.com&bcc=${encodeURIComponent(bcc)}&su=${subject}&body=${body}`;
+            window.location.href = url;
+        }
+
+        function copySelectedEmails() {
+            const contacts = selectedContactsWithEmail();
+            if (contacts.length === 0) {
+                alert('Keine der ausgewählten Kontakte hat eine E-Mail-Adresse.');
+                return;
+            }
+            const text = contacts.map(c => c.email).join(', ');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert(`✓ ${contacts.length} E-Mail-Adresse(n) in die Zwischenablage kopiert.`);
+                }).catch(() => {
+                    prompt('Kopieren fehlgeschlagen - bitte manuell markieren und kopieren:', text);
+                });
+            } else {
+                prompt('E-Mail-Adressen (bitte manuell kopieren):', text);
+            }
+        }
+
+        function exportCsv() {
+            const contacts = filteredContacts();
+            if (contacts.length === 0) {
+                alert('Keine Kontakte für den aktuellen Filter vorhanden.');
+                return;
+            }
+            const header = ['Name', 'Firma', 'Straße', 'PLZ', 'Ort', 'E-Mail', 'Telefon', 'Status', 'Datum'];
+            const rows = contacts.map(b => [
+                b.name || '', b.company || '', b.street || '', b.plz || '', b.city || '',
+                b.email || '', b.phone || '', b.status || '', b.date || ''
+            ]);
+            const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+            const csv = [header, ...rows].map(row => row.map(csvEscape).join(';')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Adressen_EisFavorite_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>
