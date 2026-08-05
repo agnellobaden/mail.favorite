@@ -4406,7 +4406,7 @@
                         ${booking.tallyTotal != null ? `
                         <div class="card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
                             <span>✅</span>
-                            <span><strong>Effektiver Umsatz (Strichliste):</strong> ${booking.tallyTotal.toFixed(2)} €</span>
+                            <span><strong>Effektiver Umsatz (Strichliste):</strong> ${(booking.tallyTotal + (travelCostWithMwSt || 0)).toFixed(2)} € (Eis: ${booking.tallyTotal.toFixed(2)} €${travelCostWithMwSt > 0 ? ' + Anfahrt: ' + travelCostWithMwSt.toFixed(2) + ' €' : ''})</span>
                         </div>
                         ` : (booking.guests && booking.kugelPerGuest) ? `
                         <div class="card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
