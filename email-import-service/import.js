@@ -82,6 +82,21 @@ async function addBookingToFirestore(booking) {
     return ref.id;
 }
 
+// Prüft, ob am selben Tag bereits eine Buchung mit Status "Gebucht" existiert
+// (gleiches Kriterium wie der manuelle Doppelbuchungs-Check in
+// buchungen-uebersicht.html). Automatisch importierte Anfragen können nicht
+// interaktiv bestätigt werden, deshalb wird der Konflikt stattdessen als
+// Flag auf der Buchung gespeichert, damit er in der Buchungsübersicht
+// (roter Warn-Badge) sofort auffällt.
+async function checkDateConflict(dateStr) {
+    if (!dateStr) return [];
+    const snapshot = await db.collection('buchungen')
+        .where('status', '==', 'Gebucht')
+        .where('date', '==', dateStr)
+        .get();
+    return snapshot.docs.map(doc => doc.data());
+}
+
 // Sucht Buchungen, deren Feld "email" zum Absender passt (case-insensitiv,
 // da Kunden ihre Adresse mal groß, mal klein schreiben). Gibt die zuletzt
 // bearbeitete passende Buchung zurück, oder null.
@@ -252,6 +267,13 @@ async function run() {
                 if (!booking.name && !booking.email) {
                     console.log(`  ⚠️ UID ${uid} übersprungen (keine Daten erkannt, evtl. anderes Template)`);
                     continue;
+                }
+
+                const conflicts = await checkDateConflict(booking.date);
+                if (conflicts.length > 0) {
+                    booking.dateConflict = true;
+                    booking.dateConflictInfo = conflicts.map(c => `${c.name || '-'} (${c.time || 'keine Uhrzeit'})`).join(', ');
+                    console.log(`  ⚠️ Terminkonflikt am ${booking.date}: bereits gebucht - ${booking.dateConflictInfo}`);
                 }
 
                 const docId = await addBookingToFirestore(booking);

@@ -439,6 +439,12 @@
             border-color: #e0574c;
         }
 
+        .booking-card.date-conflict {
+            border-color: #c0392b;
+            border-width: 4px;
+            box-shadow: 0 4px 15px rgba(192, 57, 43, 0.4);
+        }
+
         .card-header {
             display: flex;
             justify-content: space-between;
@@ -4282,6 +4288,7 @@
                 if (index % 2 === 1) card.classList.add('alternate');
                 if (isNext) card.classList.add('next-booking');
                 if (booking.paymentReminderSent && !booking.invoicePaid) card.classList.add('reminder-sent');
+                if (booking.dateConflict && booking.status !== 'Storniert' && booking.status !== 'Archiviert') card.classList.add('date-conflict');
 
                 const previousBookingsCount = countPreviousBookings(booking);
 
@@ -4347,6 +4354,7 @@
                                 ${booking.emailReminderSent || booking.smsReminderSent ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 600; box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);" title="24h-Erinnerung versendet via ${booking.emailReminderSent ? 'E-Mail' : 'SMS'}">${booking.emailReminderSent ? '📧' : '📱'} ERINNERUNG</span>` : ''}
                                 ${booking.paymentReminderSent && !booking.invoicePaid ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #e0574c 0%, #ff8a75 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(224, 87, 76, 0.3);" title="Zahlungserinnerung versendet${booking.paymentReminderCount ? ' (' + booking.paymentReminderCount + '×)' : ''}">⏰ ZAHLUNGSERINNERUNG</span>` : ''}
                                 ${previousBookingsCount > 0 ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #f39c12 0%, #f7b733 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);" title="${previousBookingsCount} frühere Buchung(en) mit gleicher E-Mail/Telefonnummer">🔁 STAMMKUNDE (${previousBookingsCount + 1}. Buchung)</span>` : ''}
+                                ${booking.dateConflict && booking.status !== 'Storniert' && booking.status !== 'Archiviert' ? `<span style="display: inline-block; margin-left: 8px; padding: 4px 10px; background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); color: white; border-radius: 6px; font-size: 0.85em; font-weight: 700; box-shadow: 0 2px 8px rgba(192, 57, 43, 0.4);" title="Am ${booking.date} bereits gebucht: ${booking.dateConflictInfo || 'siehe andere Buchung'}">⚠️ TERMIN SCHON VERGEBEN</span>` : ''}
                             </div>
                         </div>
                         <div class="card-date">
