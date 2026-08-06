@@ -82,6 +82,42 @@ async function addBookingToFirestore(booking) {
     return ref.id;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Spiegelt eine Buchung mit gültiger E-Mail als "Bestandskunde"-Lead in
+// "marketingLeads" (siehe werbung.html) - damit landen auch automatisch
+// importierte Anfragen in der zentralen Adress-/Kampagnenliste, ohne
+// manuellen Abgleich. Deterministische Doc-ID (bestandskunde-<bookingId>),
+// damit spätere Aufrufe denselben Lead aktualisieren statt ihn zu duplizieren.
+async function syncBookingToMarketingLeads(bookingId, booking) {
+    const email = (booking.email || '').trim();
+    if (!EMAIL_RE.test(email)) return;
+
+    const address = [booking.street, [booking.plz, booking.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const leadRef = db.collection('marketingLeads').doc('bestandskunde-' + bookingId);
+    try {
+        const existing = await leadRef.get();
+        const data = {
+            name: booking.company || booking.name || '(kein Name)',
+            category: 'bestandskunde',
+            contactPerson: booking.company ? (booking.name || '') : '',
+            address: address || '',
+            phone: booking.phone || '',
+            email: email,
+            sourceBookingId: bookingId,
+            sourceType: 'buchungen',
+            lastModifiedMs: Date.now()
+        };
+        if (!existing.exists) {
+            data.status = 'neu';
+            data.createdAtMs = Date.now();
+        }
+        await leadRef.set(data, { merge: true });
+    } catch (err) {
+        console.error('  ⚠️ Konnte Bestandskunde-Lead nicht anlegen/aktualisieren:', err.message);
+    }
+}
+
 // Prüft, ob am selben Tag bereits eine Buchung mit Status "Gebucht" existiert
 // (gleiches Kriterium wie der manuelle Doppelbuchungs-Check in
 // buchungen-uebersicht.html). Automatisch importierte Anfragen können nicht
@@ -279,6 +315,7 @@ async function run() {
                 const docId = await addBookingToFirestore(booking);
                 imported++;
                 console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
+                await syncBookingToMarketingLeads(docId, booking);
                 continue;
             }
 

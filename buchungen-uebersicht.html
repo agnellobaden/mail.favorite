@@ -4299,6 +4299,41 @@
             return allBookings.some(b => b.id !== booking.id && b.status === 'Gebucht' && b.date === booking.date);
         }
 
+        // Spiegelt eine neu angelegte Buchung mit gültiger E-Mail als
+        // "Bestandskunde"-Lead in "marketingLeads" (siehe werbung.html) -
+        // dasselbe macht import.js für automatisch importierte Anfragen,
+        // damit die Adressverwaltung/Werbung immer aktuell bleibt, egal auf
+        // welchem Weg eine neue Buchung entsteht.
+        const EMAIL_RE_LEAD_SYNC = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        function syncBookingToMarketingLeads(booking) {
+            if (!db) return;
+            const email = (booking.email || '').trim();
+            if (!EMAIL_RE_LEAD_SYNC.test(email)) return;
+
+            const address = [booking.street, [booking.plz, booking.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+            const leadRef = db.collection('marketingLeads').doc('bestandskunde-' + booking.id);
+            leadRef.get().then(existing => {
+                const data = {
+                    name: booking.company || booking.name || '(kein Name)',
+                    category: 'bestandskunde',
+                    contactPerson: booking.company ? (booking.name || '') : '',
+                    address: address || '',
+                    phone: booking.phone || '',
+                    email: email,
+                    sourceBookingId: booking.id,
+                    sourceType: 'buchungen',
+                    lastModifiedMs: Date.now()
+                };
+                if (!existing.exists) {
+                    data.status = 'neu';
+                    data.createdAtMs = Date.now();
+                }
+                return leadRef.set(data, { merge: true });
+            }).catch(err => {
+                console.error('⚠️ Konnte Bestandskunde-Lead nicht anlegen/aktualisieren:', err.message);
+            });
+        }
+
         function createBookingCardElement(booking, index, nextBooking, clickToEdit = true) {
                 const isNext = booking === nextBooking;
                 const card = document.createElement('div');
@@ -4846,6 +4881,7 @@
                 updateBookingTimestamp(newBooking);
 
                 allBookings.push(newBooking);
+                syncBookingToMarketingLeads(newBooking);
                 alert('✓ Neue Buchung wurde erstellt!');
             }
 
