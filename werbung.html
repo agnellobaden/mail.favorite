@@ -145,6 +145,15 @@
     th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
     tr:hover { background: #f8f9fa; }
 
+    tr.category-group-header td {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 700;
+        font-size: 0.95em;
+        padding: 8px 12px;
+    }
+    tr.category-group-header:hover td { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
     .status-badge {
         padding: 4px 10px;
         border-radius: 20px;
@@ -565,14 +574,31 @@
             const visibleIds = new Set(filtered.map(l => l.id));
             selectedLeadIds.forEach(id => { if (!visibleIds.has(id)) selectedLeadIds.delete(id); });
 
-            tbody.innerHTML = filtered.map(lead => {
+            // Bei Sortierung nach Kategorie und "Alle Kategorien" zusätzlich
+            // eine Gruppen-Überschrift pro Kategorie einfügen (🏫 SCHULE (5) usw.),
+            // damit Schule/Kita/Firma/Verein etc. optisch klar getrennt sind,
+            // statt nur "irgendwie" hintereinander sortiert zu sein.
+            const showGroupHeaders = sortField === 'category' && categoryFilter === 'alle';
+            let lastCategory = null;
+            const rowsHtml = filtered.map(lead => {
                 const status = lead.status || 'neu';
                 const lastContacted = lead.lastContactedAt
                     ? new Date(lead.lastContactedAt).toLocaleDateString('de-DE')
                     : '-';
                 const checked = selectedLeadIds.has(lead.id) ? 'checked' : '';
                 const category = lead.category || 'firma';
-                return `
+
+                let groupHeaderHtml = '';
+                if (showGroupHeaders && category !== lastCategory) {
+                    lastCategory = category;
+                    const count = filtered.filter(l => (l.category || 'firma') === category).length;
+                    groupHeaderHtml = `
+                    <tr class="category-group-header">
+                        <td colspan="11">${CATEGORY_LABELS[category] || category} (${count})</td>
+                    </tr>`;
+                }
+
+                return groupHeaderHtml + `
                     <tr>
                         <td><input type="checkbox" class="lead-checkbox" data-id="${lead.id}" ${checked} onchange="toggleLeadSelection('${lead.id}', this.checked)"></td>
                         <td>${CATEGORY_LABELS[category] || category}</td>
@@ -596,6 +622,7 @@
                     </tr>
                 `;
             }).join('');
+            tbody.innerHTML = rowsHtml;
 
             updateSelectAllCheckbox(filtered);
             updateSelectedCount();
