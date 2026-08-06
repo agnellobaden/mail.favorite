@@ -106,6 +106,48 @@
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: #f0f0f0; color: #333; }
     .btn-success { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .btn-sm { padding: 6px 10px; font-size: 0.8em; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+        background: #fff;
+        border-radius: 16px;
+        max-width: 480px;
+        width: 100%;
+        padding: 26px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        max-height: 92vh;
+        overflow-y: auto;
+    }
+    .modal-box h3 { margin: 0 0 18px 0; color: #667eea; }
+    .modal-box label { display: block; font-weight: 600; font-size: 0.9em; margin-bottom: 4px; }
+    .modal-box input, .modal-box select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+        margin-bottom: 14px;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 14px;
+    }
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
@@ -204,10 +246,6 @@
                 <option value="Storniert">Storniert</option>
             </select>
             <label class="checkbox-label">
-                <input type="checkbox" id="onlyWithEmail" checked onchange="renderTable()">
-                Nur mit E-Mail-Adresse
-            </label>
-            <label class="checkbox-label">
                 <input type="checkbox" id="dedupeByEmail" checked onchange="renderTable()">
                 Doppelte E-Mails zusammenfassen
             </label>
@@ -234,6 +272,7 @@
                         <th>Telefon</th>
                         <th>Status</th>
                         <th>Datum</th>
+                        <th>Aktion</th>
                     </tr>
                 </thead>
                 <tbody id="addressBody"></tbody>
@@ -242,6 +281,49 @@
                 <div class="icon">📇</div>
                 <p>Keine Kontakte gefunden.</p>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-box">
+            <h3>✏️ Kontakt bearbeiten</h3>
+            <form id="editForm" onsubmit="saveEdit(event)">
+                <label>Name</label>
+                <input type="text" id="editName">
+                <label>Firma</label>
+                <input type="text" id="editCompany">
+                <label>Straße</label>
+                <input type="text" id="editStreet">
+                <div class="form-grid">
+                    <div>
+                        <label>PLZ</label>
+                        <input type="text" id="editPlz">
+                    </div>
+                    <div>
+                        <label>Ort</label>
+                        <input type="text" id="editCity">
+                    </div>
+                </div>
+                <label>E-Mail</label>
+                <input type="email" id="editEmail">
+                <label>Telefon</label>
+                <input type="tel" id="editPhone">
+                <label>Status</label>
+                <select id="editStatus">
+                    <option value="Anfrage">Anfrage</option>
+                    <option value="Neu">Neu</option>
+                    <option value="Gebucht">Gebucht</option>
+                    <option value="Rechnung versendet">Rechnung versendet</option>
+                    <option value="Bezahlte Rechnung">Bezahlte Rechnung</option>
+                    <option value="Event beendet">Event beendet</option>
+                    <option value="Archiviert">Archiviert</option>
+                    <option value="Storniert">Storniert</option>
+                </select>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+                    <button type="submit" class="btn">✅ Speichern</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">✖ Abbrechen</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -279,13 +361,11 @@
         // Eintrag behalten, damit Stammkunden mit mehreren Buchungen nicht
         // mehrfach in der Kampagnen-Liste auftauchen.
         function buildContactList() {
-            const onlyWithEmail = document.getElementById('onlyWithEmail').checked;
             const dedupe = document.getElementById('dedupeByEmail').checked;
 
-            let contacts = allBookings.filter(b => b.name || b.company || b.email || b.street);
-            if (onlyWithEmail) {
-                contacts = contacts.filter(b => !!b.email);
-            }
+            // Kontakte ohne E-Mail-Adresse sind für Kampagnen nutzlos und
+            // werden deshalb immer herausgefiltert (kein optionaler Schalter).
+            let contacts = allBookings.filter(b => !!b.email);
 
             if (dedupe) {
                 const byEmail = new Map();
@@ -358,6 +438,12 @@
                     <td>${b.phone ? `<a href="tel:${b.phone.replace(/\s/g, '')}" style="color:#667eea;">${b.phone}</a>` : '-'}</td>
                     <td><span class="status-badge ${statusClass}">${b.status || '-'}</span></td>
                     <td>${b.date || '-'}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn btn-secondary btn-sm" onclick="openEditModal('${b.id}')">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteContact('${b.id}')">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
             `;
             }).join('');
@@ -381,6 +467,64 @@
 
         function selectAllVisible() { toggleSelectAll(true); }
         function clearSelection() { selectedIds.clear(); renderTable(); }
+
+        // Bearbeiten/Löschen wirken direkt auf die zugrundeliegende Buchung
+        // in Firestore ("buchungen") - ein Kontakt hier IST die Buchung,
+        // keine separate Adress-Tabelle.
+        function openEditModal(id) {
+            const booking = allBookings.find(b => b.id === id);
+            if (!booking) return;
+            document.getElementById('editForm').dataset.id = id;
+            document.getElementById('editName').value = booking.name || '';
+            document.getElementById('editCompany').value = booking.company || '';
+            document.getElementById('editStreet').value = booking.street || '';
+            document.getElementById('editPlz').value = booking.plz || '';
+            document.getElementById('editCity').value = booking.city || '';
+            document.getElementById('editEmail').value = booking.email || '';
+            document.getElementById('editPhone').value = booking.phone || '';
+            document.getElementById('editStatus').value = booking.status || 'Neu';
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        function saveEdit(event) {
+            event.preventDefault();
+            const id = document.getElementById('editForm').dataset.id;
+            const now = new Date();
+
+            const fields = {
+                name: document.getElementById('editName').value.trim(),
+                company: document.getElementById('editCompany').value.trim(),
+                street: document.getElementById('editStreet').value.trim(),
+                plz: document.getElementById('editPlz').value.trim(),
+                city: document.getElementById('editCity').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                phone: document.getElementById('editPhone').value.trim(),
+                status: document.getElementById('editStatus').value,
+                lastModified: now.toISOString(),
+                lastModifiedMs: now.getTime(),
+                aktualisiertAm: now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            };
+
+            db.collection('buchungen').doc(id).set(fields, { merge: true }).then(() => {
+                closeEditModal();
+            }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function deleteContact(id) {
+            const booking = allBookings.find(b => b.id === id);
+            if (!booking) return;
+            if (!confirm(`Kontakt "${booking.name || booking.company || '-'}" wirklich unwiderruflich löschen?\n\nDas löscht die komplette zugehörige Buchung (inkl. Status, Rechnungsdaten etc.) - nicht nur die Adresse!\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
+            selectedIds.delete(id);
+            db.collection('buchungen').doc(id).delete().catch(err => {
+                alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
+        }
 
         function updateSelectionUi() {
             document.getElementById('selectionCount').textContent = `${selectedIds.size} ausgewählt`;
