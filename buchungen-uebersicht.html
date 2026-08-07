@@ -4767,15 +4767,35 @@
                 // place_rank (≤ ~30).
                 const isPreciseMatch = dest.addresstype === 'house' || dest.class === 'building' ||
                     (typeof dest.place_rank === 'number' && dest.place_rank >= 26 && street);
-
-                const straightLineKm = haversineKm(KUPPENHEIM_ORIGIN.lat, KUPPENHEIM_ORIGIN.lon, parseFloat(dest.lat), parseFloat(dest.lon));
-                const roadEstimateKm = straightLineKm * 1.3; // grober Straßenfaktor
-
-                document.getElementById('formDistance').value = roadEstimateKm.toFixed(1);
-
                 if (street && !isPreciseMatch) {
-                    console.warn('Entfernung: nur grobe Übereinstimmung gefunden (nicht exakt auf Hausnummer), Wert kann ungenau sein:', dest.display_name);
+                    console.warn('Entfernung: nur grobe Übereinstimmung gefunden (nicht exakt auf Hausnummer):', dest.display_name);
                 }
+
+                const destLat = parseFloat(dest.lat);
+                const destLon = parseFloat(dest.lon);
+
+                // Echte Straßen-Entfernung per OSRM (kostenlose Routing-API,
+                // kein API-Key nötig) statt nur Luftlinie - deutlich näher an
+                // der tatsächlichen Anfahrt (Serpentinen, Umwege etc.). Bei
+                // Fehler/keiner Route (z.B. Netzwerkproblem) Luftlinie ×1.3
+                // als Notlösung.
+                let finalKm = null;
+                try {
+                    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${KUPPENHEIM_ORIGIN.lon},${KUPPENHEIM_ORIGIN.lat};${destLon},${destLat}?overview=false`;
+                    const routeResponse = await fetch(routeUrl);
+                    const routeData = await routeResponse.json();
+                    if (routeData && routeData.code === 'Ok' && routeData.routes && routeData.routes[0]) {
+                        finalKm = routeData.routes[0].distance / 1000; // Meter -> km
+                    }
+                } catch (routeErr) {
+                    console.warn('OSRM-Routenberechnung fehlgeschlagen, nutze Luftlinien-Schätzung:', routeErr.message);
+                }
+
+                if (finalKm === null) {
+                    finalKm = haversineKm(KUPPENHEIM_ORIGIN.lat, KUPPENHEIM_ORIGIN.lon, destLat, destLon) * 1.3;
+                }
+
+                document.getElementById('formDistance').value = finalKm.toFixed(1);
             } catch (err) {
                 console.error('Entfernungsberechnung fehlgeschlagen:', err);
                 alert('⚠️ Entfernung konnte nicht automatisch berechnet werden (keine Verbindung?) - bitte manuell eintragen.');
