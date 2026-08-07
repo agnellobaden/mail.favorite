@@ -2463,7 +2463,10 @@
                     </div>
                     <div class="form-group">
                         <label for="formDistance">Entfernung (km)</label>
-                        <input type="number" id="formDistance" min="0" step="0.1">
+                        <div style="display: flex; gap: 6px;">
+                            <input type="number" id="formDistance" min="0" step="0.1" style="flex: 1;">
+                            <button type="button" onclick="calculateDistanceFromKuppenheim(this)" title="Entfernung automatisch von Favoritenstrasse 11, 76456 Kuppenheim berechnen" style="flex-shrink: 0; padding: 0 12px; border: 2px solid #ddd; border-radius: 8px; background: #f0f0f0; cursor: pointer; font-size: 1.1em;">📍</button>
+                        </div>
                     </div>
                     <div class="form-group full-width">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; flex-wrap: wrap;">
@@ -4682,6 +4685,75 @@
             const email = document.getElementById('formEmail').value.trim();
             if (!email) { alert('Bitte zuerst eine E-Mail-Adresse eingeben.'); return; }
             window.location.href = `mailto:${email}`;
+        }
+
+        // Berechnet die Entfernung (km) automatisch von der festen
+        // Geschäftsadresse (Favoritenstrasse 11, 76456 Kuppenheim) zur im
+        // Formular eingetragenen Event-Adresse - per kostenloser OSM-
+        // Nominatim-Geocodierung + Luftlinie (Haversine), mit einem
+        // Straßenfaktor (×1.3) als grobe Annäherung an die echte Fahrstrecke.
+        // Die Hausadresse selbst ist in OSM nicht als Straße erfasst, daher
+        // als Ursprung die Koordinaten von Kuppenheim-Zentrum fest hinterlegt
+        // (per Geocoding einmalig ermittelt) statt bei jeder Berechnung neu
+        // abzufragen.
+        const KUPPENHEIM_ORIGIN = { lat: 48.8272323, lon: 8.2545743 };
+
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const toRad = deg => deg * Math.PI / 180;
+            const R = 6371; // Erdradius in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        async function calculateDistanceFromKuppenheim(btn) {
+            const street = document.getElementById('formStreet').value.trim();
+            const plz = document.getElementById('formPLZ').value.trim();
+            const city = document.getElementById('formCity').value.trim();
+
+            if (!city) {
+                alert('Bitte zuerst mindestens die Stadt eintragen.');
+                return;
+            }
+
+            const originalText = btn.textContent;
+            btn.textContent = '⏳';
+            btn.disabled = true;
+
+            try {
+                const params = new URLSearchParams({
+                    format: 'json',
+                    country: 'Germany',
+                    city: city,
+                    limit: '1'
+                });
+                if (street) params.set('street', street);
+                if (plz) params.set('postalcode', plz);
+
+                const response = await fetch('https://nominatim.openstreetmap.org/search?' + params.toString(), {
+                    headers: { 'Accept-Language': 'de' }
+                });
+                const results = await response.json();
+
+                if (!results || results.length === 0) {
+                    alert('⚠️ Adresse konnte nicht gefunden werden - bitte Entfernung manuell eintragen.');
+                    return;
+                }
+
+                const dest = results[0];
+                const straightLineKm = haversineKm(KUPPENHEIM_ORIGIN.lat, KUPPENHEIM_ORIGIN.lon, parseFloat(dest.lat), parseFloat(dest.lon));
+                const roadEstimateKm = straightLineKm * 1.3; // grober Straßenfaktor
+
+                document.getElementById('formDistance').value = roadEstimateKm.toFixed(1);
+            } catch (err) {
+                console.error('Entfernungsberechnung fehlgeschlagen:', err);
+                alert('⚠️ Entfernung konnte nicht automatisch berechnet werden (keine Verbindung?) - bitte manuell eintragen.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         }
 
         function toggleBillingAddressArea() {
