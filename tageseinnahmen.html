@@ -430,7 +430,11 @@
                 <tr${e.fromBooking ? ' style="background:#f0f7ff;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.fromBooking
-                        ? `<span style="cursor:pointer;" onclick="editBookingPaymentMethod('${e.id}')" title="Zahlungsart nachtragen/ändern">${paymentBadge(e.paymentMethod)} ✏️</span>`
+                        ? `<select onchange="editBookingPaymentMethod('${e.id}', this.value)" style="padding:4px 8px; border:2px solid #ddd; border-radius:8px; font-size:0.85em; font-family:inherit;">
+                            <option value="" ${!e.paymentMethod ? 'selected' : ''}>- wählen -</option>
+                            <option value="bar" ${e.paymentMethod === 'bar' ? 'selected' : ''}>💵 Kasse</option>
+                            <option value="ueberweisung" ${e.paymentMethod === 'ueberweisung' ? 'selected' : ''}>🏦 Überweisung</option>
+                        </select>`
                         : paymentBadge(e.paymentMethod)}</td>
                     <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
                     <td>${e.note || '-'}</td>
@@ -450,15 +454,9 @@
         // nachtragen/ändern - schreibt direkt in booking.invoiceData.paymentMethod
         // zurück (dieselbe Stelle, die auch rechnung-erstellen.html beim
         // Erstellen der Rechnung befüllt), damit es überall synchron bleibt.
-        function editBookingPaymentMethod(entryId) {
-            const entry = allBookingEntries.find(e => e.id === entryId);
-            if (!entry) return;
+        function editBookingPaymentMethod(entryId, paymentMethod) {
+            if (!paymentMethod) return; // "- wählen -" ausgewählt, nichts tun
             const bookingId = entryId.replace(/^booking-/, '');
-
-            const current = entry.paymentMethod === 'ueberweisung' ? 'ueberweisung' : 'bar';
-            const input = prompt(`Zahlungsart für "${entry.note}" (${entry.date}):\n"bar" (= Kasse) oder "ueberweisung" eingeben`, current);
-            if (input === null) return;
-            const paymentMethod = input.trim().toLowerCase() === 'ueberweisung' ? 'ueberweisung' : 'bar';
 
             db.collection('buchungen').doc(bookingId).update({
                 'invoiceData.paymentMethod': paymentMethod
