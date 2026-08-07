@@ -227,7 +227,8 @@
 
     <script>
         let db = null;
-        let allEntries = [];
+        let allEntries = [];      // manuell erfasste Tageseinnahmen (editierbar/löschbar)
+        let allBookingEntries = []; // aus "buchungen" abgeleitet (nur Anzeige, Kennzeichnung "Event")
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -245,13 +246,77 @@
             db.collection('tageseinnahmen').onSnapshot(snapshot => {
                 allEntries = [];
                 snapshot.forEach(doc => allEntries.push({ ...doc.data(), id: doc.id }));
-                allEntries.sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
-                updateStats();
-                updateMonthFilterOptions();
-                renderTable();
+                refreshAll();
             }, error => {
                 console.error('Firestore-Fehler:', error);
             });
+            db.collection('buchungen').onSnapshot(snapshot => {
+                allBookingEntries = [];
+                snapshot.forEach(doc => {
+                    const entry = bookingToEntry(doc.id, doc.data());
+                    if (entry) allBookingEntries.push(entry);
+                });
+                refreshAll();
+            }, error => {
+                console.error('Firestore-Fehler (Buchungen):', error);
+            });
+        }
+
+        function refreshAll() {
+            updateStats();
+            updateMonthFilterOptions();
+            renderTable();
+        }
+
+        // Deutsches "246,15 €" (oder "246.15") in eine Zahl umwandeln.
+        function parseAmountToNumber(str) {
+            if (!str) return null;
+            const cleaned = String(str).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? null : n;
+        }
+
+        // Gleiche Anfahrtskosten-Formel wie in buchungen-uebersicht.html.
+        function calculateTravelCost(distance) {
+            const km = parseFloat(distance) || 0;
+            if (km < 6) return 0;
+            if (km < 10) return 45;
+            const additionalKm = km - 10;
+            const additionalCost = Math.floor(additionalKm / 10) * 10;
+            return 55 + additionalCost;
+        }
+
+        // Leitet aus einer Buchung einen Tageseinnahmen-Eintrag ab - gleiche
+        // Priorität wie der "Effektiver Umsatz"-Wert auf der Buchungskarte:
+        // 1. Tatsächlicher Rechnungsbetrag, falls Rechnung erstellt/versendet.
+        // 2. Sonst Strichliste + Anfahrt, falls Strichliste ausgefüllt.
+        // 3. Sonst kein zuverlässiger Betrag vorhanden -> kein Eintrag.
+        function bookingToEntry(id, b) {
+            if (!b.date) return null;
+            const dateParts = b.date.split('.');
+            if (dateParts.length !== 3) return null;
+            const dateIso = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+
+            let amount = null;
+            if (b.invoiceAmount) {
+                amount = parseAmountToNumber(b.invoiceAmount);
+            } else if (b.tallyTotal != null) {
+                amount = (parseFloat(b.tallyTotal) || 0) + calculateTravelCost(b.distance) * 1.07;
+            }
+            if (amount == null) return null;
+
+            return {
+                id: 'booking-' + id,
+                dateIso: dateIso,
+                date: b.date,
+                amount: amount,
+                note: 'Event: ' + (b.company || b.name || 'Unbekannt'),
+                fromBooking: true
+            };
+        }
+
+        function combinedEntries() {
+            return allEntries.concat(allBookingEntries);
         }
 
         function todayIso() {
@@ -282,7 +347,7 @@
             const monthPrefix = thisMonthPrefix();
 
             let sumToday = 0, sumWeek = 0, sumMonth = 0, sumTotal = 0;
-            allEntries.forEach(e => {
+            combinedEntries().forEach(e => {
                 const amount = parseFloat(e.amount) || 0;
                 sumTotal += amount;
                 if (e.dateIso === today) sumToday += amount;
@@ -299,7 +364,7 @@
         function updateMonthFilterOptions() {
             const select = document.getElementById('monthFilter');
             const current = select.value;
-            const months = Array.from(new Set(allEntries.map(e => (e.dateIso || '').slice(0, 7)).filter(Boolean))).sort().reverse();
+            const months = Array.from(new Set(combinedEntries().map(e => (e.dateIso || '').slice(0, 7)).filter(Boolean))).sort().reverse();
             select.innerHTML = '<option value="alle">Alle Monate</option>' +
                 months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
             if (months.includes(current)) select.value = current;
@@ -313,7 +378,7 @@
 
         function renderTable() {
             const monthFilter = document.getElementById('monthFilter').value;
-            let entries = allEntries;
+            let entries = combinedEntries().sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
             if (monthFilter !== 'alle') {
                 entries = entries.filter(e => (e.dateIso || '').startsWith(monthFilter));
             }
@@ -329,15 +394,17 @@
             emptyState.style.display = 'none';
 
             tbody.innerHTML = entries.map(e => `
-                <tr>
+                <tr${e.fromBooking ? ' style="background:#f0f7ff;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
                     <td>${e.note || '-'}</td>
                     <td>
-                        <div class="row-actions">
-                            <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
-                        </div>
+                        ${e.fromBooking
+                            ? '<span style="color:#999; font-size:0.85em;">aus Buchung</span>'
+                            : `<div class="row-actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
+                            </div>`}
                     </td>
                 </tr>
             `).join('');
