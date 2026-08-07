@@ -455,7 +455,7 @@
                     <td>${e.note || '-'}</td>
                     <td>
                         ${e.fromBooking
-                            ? '<span style="color:#999; font-size:0.85em;">aus Buchung</span>'
+                            ? `<button class="btn btn-danger btn-sm" onclick="deleteBookingEntry('${e.id}')" title="Löscht die komplette zugehörige Buchung">🗑️ Buchung löschen</button>`
                             : `<div class="row-actions">
                                 <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
@@ -477,6 +477,21 @@
                 'invoiceData.paymentMethod': paymentMethod
             }).catch(err => {
                 alert('❌ Konnte Zahlungsart nicht speichern: ' + err.message);
+            });
+        }
+
+        // Löscht die komplette Buchung, die hinter einem "Event"-Eintrag
+        // steckt (der Eintrag selbst ist nur eine Ableitung, keine eigene
+        // Tageseinnahmen-Zeile - Löschen entfernt deshalb die ganze Buchung).
+        function deleteBookingEntry(entryId) {
+            const entry = allBookingEntries.find(e => e.id === entryId);
+            if (!entry) return;
+            const bookingId = entryId.replace(/^booking-/, '');
+
+            if (!confirm(`Achtung: Das löscht die komplette Buchung "${entry.note}" (${entry.date}, ${formatEuro(entry.amount)}) unwiderruflich - nicht nur diesen Umsatz-Eintrag!\n\nWirklich löschen?`)) return;
+
+            db.collection('buchungen').doc(bookingId).delete().catch(err => {
+                alert('❌ Konnte Buchung nicht löschen: ' + err.message);
             });
         }
 
