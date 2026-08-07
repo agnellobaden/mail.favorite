@@ -159,6 +159,7 @@
     <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script>
         (function() {
             var __cfg = {
@@ -332,7 +333,49 @@
             }
         }
 
+        function getDb() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            return firebase.firestore();
+        }
+
+        function currentTotal() {
+            const prices = loadPrices();
+            let total = 0;
+            PRODUCTS_LIST.forEach(p => { total += (counts[p.id] || 0) * (prices[p.id] || 0); });
+            return total;
+        }
+
+        // Bevor der Verkauf zurückgesetzt wird: Ergebnis optional direkt als
+        // Tageseinnahme speichern (siehe tageseinnahmen.html), damit der Tag
+        // nicht nur "verrechnet", sondern auch dauerhaft protokolliert wird.
         function resetTally() {
+            const total = currentTotal();
+
+            if (total > 0 && confirm(`Aktuellen Verkauf (${total.toFixed(2)} €) als Tageseinnahme von heute speichern, bevor zurückgesetzt wird?`)) {
+                const now = new Date();
+                const dateIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+                const dateDe = String(now.getDate()).padStart(2, '0') + '.' + String(now.getMonth() + 1).padStart(2, '0') + '.' + now.getFullYear();
+                getDb().collection('tageseinnahmen').add({
+                    dateIso: dateIso,
+                    date: dateDe,
+                    amount: total,
+                    note: 'Freier Verkauf',
+                    createdAtMs: Date.now()
+                }).catch(err => {
+                    alert('⚠️ Konnte nicht als Tageseinnahme gespeichert werden: ' + err.message);
+                });
+            }
+
             if (!confirm('Neuen Verkauf starten? Der aktuelle Verkauf wird zurückgesetzt.')) return;
             PRODUCTS_LIST.forEach(p => counts[p.id] = 0);
             saveCounts();
