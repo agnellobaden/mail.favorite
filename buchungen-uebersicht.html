@@ -4723,30 +4723,59 @@
             btn.disabled = true;
 
             try {
-                const params = new URLSearchParams({
-                    format: 'json',
-                    country: 'Germany',
-                    city: city,
-                    limit: '1'
-                });
-                if (street) params.set('street', street);
-                if (plz) params.set('postalcode', plz);
+                // 1. Versuch: strukturierte Suche (präziser, wenn Straße exakt
+                // in OSM erfasst ist).
+                let dest = null;
+                if (street) {
+                    const structuredParams = new URLSearchParams({
+                        format: 'json',
+                        country: 'Germany',
+                        city: city,
+                        street: street,
+                        limit: '1'
+                    });
+                    if (plz) structuredParams.set('postalcode', plz);
+                    const structuredResponse = await fetch('https://nominatim.openstreetmap.org/search?' + structuredParams.toString(), {
+                        headers: { 'Accept-Language': 'de' }
+                    });
+                    const structuredResults = await structuredResponse.json();
+                    if (structuredResults && structuredResults.length > 0) dest = structuredResults[0];
+                }
 
-                const response = await fetch('https://nominatim.openstreetmap.org/search?' + params.toString(), {
-                    headers: { 'Accept-Language': 'de' }
-                });
-                const results = await response.json();
+                // 2. Versuch (Fallback): freie Textsuche mit allen Angaben in
+                // einem String - findet Adressen, bei denen die strukturierte
+                // Suche zu streng ist/keinen Treffer liefert, oft trotzdem.
+                if (!dest) {
+                    const freeText = [street, plz, city, 'Germany'].filter(Boolean).join(', ');
+                    const freeParams = new URLSearchParams({ format: 'json', q: freeText, limit: '1' });
+                    const freeResponse = await fetch('https://nominatim.openstreetmap.org/search?' + freeParams.toString(), {
+                        headers: { 'Accept-Language': 'de' }
+                    });
+                    const freeResults = await freeResponse.json();
+                    if (freeResults && freeResults.length > 0) dest = freeResults[0];
+                }
 
-                if (!results || results.length === 0) {
+                if (!dest) {
                     alert('⚠️ Adresse konnte nicht gefunden werden - bitte Entfernung manuell eintragen.');
                     return;
                 }
 
-                const dest = results[0];
+                // Warnen, falls nur eine grobe Übereinstimmung (z.B. nur Stadt/
+                // Straße ohne Hausnummer) gefunden wurde statt der genauen
+                // Hausadresse - Nominatim liefert bei Hausnummern-Treffern
+                // "addresstype": "house"/"building" bzw. eine niedrige
+                // place_rank (≤ ~30).
+                const isPreciseMatch = dest.addresstype === 'house' || dest.class === 'building' ||
+                    (typeof dest.place_rank === 'number' && dest.place_rank >= 26 && street);
+
                 const straightLineKm = haversineKm(KUPPENHEIM_ORIGIN.lat, KUPPENHEIM_ORIGIN.lon, parseFloat(dest.lat), parseFloat(dest.lon));
                 const roadEstimateKm = straightLineKm * 1.3; // grober Straßenfaktor
 
                 document.getElementById('formDistance').value = roadEstimateKm.toFixed(1);
+
+                if (street && !isPreciseMatch) {
+                    console.warn('Entfernung: nur grobe Übereinstimmung gefunden (nicht exakt auf Hausnummer), Wert kann ungenau sein:', dest.display_name);
+                }
             } catch (err) {
                 console.error('Entfernungsberechnung fehlgeschlagen:', err);
                 alert('⚠️ Entfernung konnte nicht automatisch berechnet werden (keine Verbindung?) - bitte manuell eintragen.');
