@@ -193,6 +193,13 @@
                 <label for="entryAmount">Umsatz (€)</label>
                 <input type="number" id="entryAmount" step="0.01" min="0" placeholder="0,00">
             </div>
+            <div class="field">
+                <label for="entryPaymentMethod">Zahlungsart</label>
+                <select id="entryPaymentMethod">
+                    <option value="bar">💵 Bar</option>
+                    <option value="ueberweisung">🏦 Überweisung</option>
+                </select>
+            </div>
             <div class="field" style="flex:1;">
                 <label for="entryNote">Notiz (optional)</label>
                 <input type="text" id="entryNote" placeholder="z.B. Standverkauf Marktplatz">
@@ -204,6 +211,11 @@
             <select id="monthFilter" onchange="renderTable()">
                 <option value="alle">Alle Monate</option>
             </select>
+            <select id="paymentMethodFilter" onchange="updateStats(); renderTable();">
+                <option value="alle">Bar + Überweisung</option>
+                <option value="bar">Nur Bar</option>
+                <option value="ueberweisung">Nur Überweisung</option>
+            </select>
         </div>
 
         <div class="table-wrap">
@@ -211,6 +223,7 @@
                 <thead>
                     <tr>
                         <th>Datum</th>
+                        <th>Zahlungsart</th>
                         <th>Umsatz</th>
                         <th>Notiz</th>
                         <th>Aktion</th>
@@ -305,12 +318,19 @@
             }
             if (amount == null) return null;
 
+            // Zahlungsart kommt aus der Rechnung (dort beim Erstellen gewählt,
+            // siehe rechnung-erstellen.html) - ohne Rechnung/Angabe unbekannt.
+            const paymentMethod = b.invoiceData && b.invoiceData.paymentMethod === 'bar' ? 'bar'
+                : b.invoiceData && b.invoiceData.paymentMethod === 'ueberweisung' ? 'ueberweisung'
+                : null;
+
             return {
                 id: 'booking-' + id,
                 dateIso: dateIso,
                 date: b.date,
                 amount: amount,
                 note: 'Event: ' + (b.company || b.name || 'Unbekannt'),
+                paymentMethod: paymentMethod,
                 fromBooking: true
             };
         }
@@ -345,9 +365,12 @@
             const today = todayIso();
             const weekStart = mondayOfThisWeekIso();
             const monthPrefix = thisMonthPrefix();
+            const paymentFilter = document.getElementById('paymentMethodFilter').value;
 
             let sumToday = 0, sumWeek = 0, sumMonth = 0, sumTotal = 0;
-            combinedEntries().forEach(e => {
+            combinedEntries()
+                .filter(e => paymentFilter === 'alle' || e.paymentMethod === paymentFilter)
+                .forEach(e => {
                 const amount = parseFloat(e.amount) || 0;
                 sumTotal += amount;
                 if (e.dateIso === today) sumToday += amount;
@@ -376,11 +399,21 @@
             return names[parseInt(m, 10) - 1] + ' ' + y;
         }
 
+        function paymentBadge(method) {
+            if (method === 'bar') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#fff3cd; color:#856404;">💵 Bar</span>';
+            if (method === 'ueberweisung') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#cce5ff; color:#004085;">🏦 Überweisung</span>';
+            return '<span style="color:#bbb;">-</span>';
+        }
+
         function renderTable() {
             const monthFilter = document.getElementById('monthFilter').value;
+            const paymentFilter = document.getElementById('paymentMethodFilter').value;
             let entries = combinedEntries().sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
             if (monthFilter !== 'alle') {
                 entries = entries.filter(e => (e.dateIso || '').startsWith(monthFilter));
+            }
+            if (paymentFilter !== 'alle') {
+                entries = entries.filter(e => e.paymentMethod === paymentFilter);
             }
 
             const tbody = document.getElementById('entriesBody');
@@ -396,6 +429,7 @@
             tbody.innerHTML = entries.map(e => `
                 <tr${e.fromBooking ? ' style="background:#f0f7ff;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
+                    <td>${paymentBadge(e.paymentMethod)}</td>
                     <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
                     <td>${e.note || '-'}</td>
                     <td>
@@ -419,6 +453,7 @@
             const dateIso = document.getElementById('entryDate').value;
             const amount = parseFloat(document.getElementById('entryAmount').value);
             const note = document.getElementById('entryNote').value.trim();
+            const paymentMethod = document.getElementById('entryPaymentMethod').value;
 
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
             if (isNaN(amount) || amount < 0) { alert('Bitte einen gültigen Umsatz eintragen.'); return; }
@@ -428,6 +463,7 @@
                 date: isoToDe(dateIso),
                 amount: amount,
                 note: note,
+                paymentMethod: paymentMethod,
                 createdAtMs: Date.now()
             }).then(() => {
                 document.getElementById('entryAmount').value = '';
@@ -445,9 +481,12 @@
             const newAmount = parseFloat(newAmountStr.replace(',', '.'));
             if (isNaN(newAmount) || newAmount < 0) { alert('Ungültiger Betrag.'); return; }
             const newNote = prompt('Notiz (leer lassen für keine):', entry.note || '');
+            const newPaymentMethod = prompt('Zahlungsart eingeben: "bar" oder "ueberweisung"', entry.paymentMethod || 'bar');
+            const paymentMethod = (newPaymentMethod === 'ueberweisung') ? 'ueberweisung' : 'bar';
             db.collection('tageseinnahmen').doc(id).set({
                 amount: newAmount,
-                note: newNote === null ? (entry.note || '') : newNote.trim()
+                note: newNote === null ? (entry.note || '') : newNote.trim(),
+                paymentMethod: paymentMethod
             }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
