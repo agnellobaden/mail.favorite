@@ -196,7 +196,7 @@
             <div class="field">
                 <label for="entryPaymentMethod">Zahlungsart</label>
                 <select id="entryPaymentMethod">
-                    <option value="bar">💵 Bar</option>
+                    <option value="bar">💵 Kasse</option>
                     <option value="ueberweisung">🏦 Überweisung</option>
                 </select>
             </div>
@@ -212,8 +212,8 @@
                 <option value="alle">Alle Monate</option>
             </select>
             <select id="paymentMethodFilter" onchange="updateStats(); renderTable();">
-                <option value="alle">Bar + Überweisung</option>
-                <option value="bar">Nur Bar</option>
+                <option value="alle">Kasse + Überweisung</option>
+                <option value="bar">Nur Kasse</option>
                 <option value="ueberweisung">Nur Überweisung</option>
             </select>
         </div>
@@ -400,7 +400,7 @@
         }
 
         function paymentBadge(method) {
-            if (method === 'bar') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#fff3cd; color:#856404;">💵 Bar</span>';
+            if (method === 'bar') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#fff3cd; color:#856404;">💵 Kasse</span>';
             if (method === 'ueberweisung') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#cce5ff; color:#004085;">🏦 Überweisung</span>';
             return '<span style="color:#bbb;">-</span>';
         }
@@ -481,7 +481,7 @@
             const newAmount = parseFloat(newAmountStr.replace(',', '.'));
             if (isNaN(newAmount) || newAmount < 0) { alert('Ungültiger Betrag.'); return; }
             const newNote = prompt('Notiz (leer lassen für keine):', entry.note || '');
-            const newPaymentMethod = prompt('Zahlungsart eingeben: "bar" oder "ueberweisung"', entry.paymentMethod || 'bar');
+            const newPaymentMethod = prompt('Zahlungsart eingeben: "bar" (= Kasse) oder "ueberweisung"', entry.paymentMethod || 'bar');
             const paymentMethod = (newPaymentMethod === 'ueberweisung') ? 'ueberweisung' : 'bar';
             db.collection('tageseinnahmen').doc(id).set({
                 amount: newAmount,
