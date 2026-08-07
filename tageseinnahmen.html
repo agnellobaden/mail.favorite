@@ -299,7 +299,10 @@
             return 55 + additionalCost;
         }
 
-        // Leitet aus einer Buchung einen Tageseinnahmen-Eintrag ab:
+        // Leitet aus einer Buchung einen Tageseinnahmen-Eintrag ab - NUR wenn
+        // tatsächlich eine Rechnung erstellt oder eine Strichliste ausgefüllt
+        // wurde (kein reiner Schätzwert für Buchungen ohne beides, die
+        // tauchen hier bewusst nicht auf):
         // 1. Tatsächlicher Rechnungsbetrag, sobald die Rechnung versendet/
         //    als versendet markiert wurde (verbindlichster Wert).
         // 2. Sonst die Summe der Rechnungspositionen so, wie die Rechnung
@@ -308,10 +311,7 @@
         //    damit taucht eine neu erstellte Rechnung sofort mit dem
         //    richtigen Betrag auf, nicht erst nach dem Versenden.
         // 3. Sonst Strichliste + Anfahrt, falls Strichliste ausgefüllt.
-        // 4. Sonst geschätzter Umsatz (Gäste × Kugeln/Gast × 1,80 € + Anfahrt),
-        //    als Schätzung gekennzeichnet - wird automatisch durch eine der
-        //    vorigen Stufen ersetzt, sobald mehr Daten vorliegen.
-        // 5. Ohne alledem kein Eintrag.
+        // 4. Ohne Rechnung und ohne Strichliste kein Eintrag.
         function bookingToEntry(id, b) {
             if (!b.date) return null;
             if (b.status === 'Storniert') return null;
@@ -320,7 +320,6 @@
             const dateIso = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
 
             let amount = null;
-            let isEstimate = false;
             if (b.invoiceAmount) {
                 amount = parseAmountToNumber(b.invoiceAmount);
             } else if (b.invoiceData && Array.isArray(b.invoiceData.items) && b.invoiceData.items.length > 0) {
@@ -331,10 +330,6 @@
                 }, 0);
             } else if (b.tallyTotal != null) {
                 amount = (parseFloat(b.tallyTotal) || 0) + calculateTravelCost(b.distance) * 1.07;
-            } else if (b.guests && b.kugelPerGuest) {
-                const eisUmsatz = (parseInt(b.guests) || 0) * (parseInt(b.kugelPerGuest) || 0) * 1.80;
-                amount = eisUmsatz + calculateTravelCost(b.distance) * 1.07;
-                isEstimate = true;
             }
             if (amount == null) return null;
 
@@ -349,7 +344,7 @@
                 dateIso: dateIso,
                 date: b.date,
                 amount: amount,
-                note: (isEstimate ? 'Event (geschätzt): ' : 'Event: ') + (b.company || b.name || 'Unbekannt'),
+                note: 'Event: ' + (b.company || b.name || 'Unbekannt'),
                 paymentMethod: paymentMethod,
                 fromBooking: true
             };
