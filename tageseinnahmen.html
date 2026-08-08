@@ -216,6 +216,7 @@
                 <option value="bar">Nur Kasse</option>
                 <option value="ueberweisung">Nur Überweisung</option>
             </select>
+            <button class="btn btn-secondary" onclick="openTagesbericht()">📄 Tagesbericht (für Steuerberater)</button>
         </div>
 
         <div class="table-wrap">
@@ -237,6 +238,43 @@
             </div>
         </div>
     </div>
+
+    <div id="tagesberichtModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; overflow-y:auto; padding:20px;">
+        <div style="max-width:700px; margin:20px auto; background:white; border-radius:16px; padding:25px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <h2 style="color:#667eea; margin:0;">📄 Tagesbericht</h2>
+                <button class="btn btn-secondary btn-sm no-print" onclick="closeTagesbericht()">✖ Schließen</button>
+            </div>
+            <p style="color:#666; font-size:0.9em; margin-bottom:15px;" id="tagesberichtSubtitle"></p>
+            <div class="table-wrap">
+                <table id="tagesberichtTable">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Kasse</th>
+                            <th>Überweisung</th>
+                            <th>Gesamt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tagesberichtBody"></tbody>
+                    <tfoot id="tagesberichtFoot" style="font-weight:700;"></tfoot>
+                </table>
+            </div>
+            <div class="no-print" style="display:flex; gap:10px; margin-top:18px;">
+                <button class="btn" onclick="exportTagesberichtCsv()">⬇️ Als CSV exportieren</button>
+                <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #tagesberichtModal, #tagesberichtModal * { visibility: visible; }
+            #tagesberichtModal { position: absolute; inset: 0; background: white; padding: 0; }
+            .no-print { display: none !important; }
+        }
+    </style>
 
     <script>
         let db = null;
@@ -493,6 +531,101 @@
             db.collection('buchungen').doc(bookingId).delete().catch(err => {
                 alert('❌ Konnte Buchung nicht löschen: ' + err.message);
             });
+        }
+
+        // Tagesbericht: pro Tag aggregierte Kasse-/Überweisung-/Gesamtsumme -
+        // genau die Aufstellung, die ein Steuerberater für die Buchhaltung
+        // braucht (Einträge ohne bekannte Zahlungsart zählen separat in
+        // "Gesamt" mit, aber weder bei Kasse noch Überweisung, damit die
+        // Spaltensummen nicht falsch aussehen).
+        function buildTagesberichtRows() {
+            const monthFilter = document.getElementById('monthFilter').value;
+            let entries = combinedEntries();
+            if (monthFilter !== 'alle') {
+                entries = entries.filter(e => (e.dateIso || '').startsWith(monthFilter));
+            }
+
+            const byDate = new Map();
+            entries.forEach(e => {
+                const key = e.dateIso || e.date;
+                if (!key) return;
+                if (!byDate.has(key)) byDate.set(key, { dateIso: e.dateIso, date: e.date, kasse: 0, ueberweisung: 0, gesamt: 0 });
+                const row = byDate.get(key);
+                const amount = parseFloat(e.amount) || 0;
+                row.gesamt += amount;
+                if (e.paymentMethod === 'bar') row.kasse += amount;
+                else if (e.paymentMethod === 'ueberweisung') row.ueberweisung += amount;
+            });
+
+            return Array.from(byDate.values()).sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+        }
+
+        function openTagesbericht() {
+            const monthFilter = document.getElementById('monthFilter').value;
+            document.getElementById('tagesberichtSubtitle').textContent =
+                'Zeitraum: ' + (monthFilter === 'alle' ? 'alle erfassten Tage' : monthLabel(monthFilter));
+
+            const rows = buildTagesberichtRows();
+            const tbody = document.getElementById('tagesberichtBody');
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888; padding:20px;">Keine Einträge für diesen Zeitraum.</td></tr>';
+                document.getElementById('tagesberichtFoot').innerHTML = '';
+            } else {
+                tbody.innerHTML = rows.map(r => `
+                    <tr>
+                        <td>${r.date || r.dateIso}</td>
+                        <td>${formatEuro(r.kasse)}</td>
+                        <td>${formatEuro(r.ueberweisung)}</td>
+                        <td>${formatEuro(r.gesamt)}</td>
+                    </tr>
+                `).join('');
+
+                const totalKasse = rows.reduce((s, r) => s + r.kasse, 0);
+                const totalUeberweisung = rows.reduce((s, r) => s + r.ueberweisung, 0);
+                const totalGesamt = rows.reduce((s, r) => s + r.gesamt, 0);
+                document.getElementById('tagesberichtFoot').innerHTML = `
+                    <tr>
+                        <td>Summe</td>
+                        <td>${formatEuro(totalKasse)}</td>
+                        <td>${formatEuro(totalUeberweisung)}</td>
+                        <td>${formatEuro(totalGesamt)}</td>
+                    </tr>
+                `;
+            }
+
+            document.getElementById('tagesberichtModal').style.display = 'block';
+        }
+
+        function closeTagesbericht() {
+            document.getElementById('tagesberichtModal').style.display = 'none';
+        }
+
+        function exportTagesberichtCsv() {
+            const rows = buildTagesberichtRows();
+            if (rows.length === 0) {
+                alert('Keine Daten für diesen Zeitraum.');
+                return;
+            }
+            const header = ['Datum', 'Kasse (€)', 'Überweisung (€)', 'Gesamt (€)'];
+            const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+            const dataRows = rows.map(r => [
+                r.date || r.dateIso,
+                r.kasse.toFixed(2).replace('.', ','),
+                r.ueberweisung.toFixed(2).replace('.', ','),
+                r.gesamt.toFixed(2).replace('.', ',')
+            ]);
+            const totalKasse = rows.reduce((s, r) => s + r.kasse, 0);
+            const totalUeberweisung = rows.reduce((s, r) => s + r.ueberweisung, 0);
+            const totalGesamt = rows.reduce((s, r) => s + r.gesamt, 0);
+            dataRows.push(['Summe', totalKasse.toFixed(2).replace('.', ','), totalUeberweisung.toFixed(2).replace('.', ','), totalGesamt.toFixed(2).replace('.', ',')]);
+
+            const csv = [header, ...dataRows].map(row => row.map(csvEscape).join(';')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Tagesbericht_EisFavorite_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
         }
 
         function isoToDe(iso) {
