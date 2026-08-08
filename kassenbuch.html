@@ -215,6 +215,8 @@
             <select id="monthFilter" onchange="renderTable()">
                 <option value="alle">Alle Monate</option>
             </select>
+            <input type="date" id="kbReportDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+            <button class="btn btn-secondary" onclick="openKassenbericht()">🖨️ Kassenbericht für diesen Tag</button>
         </div>
 
         <div class="table-wrap">
@@ -237,6 +239,60 @@
             </div>
         </div>
     </div>
+
+    <div id="kassenberichtModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; overflow-y:auto; padding:20px;">
+        <div style="max-width:650px; margin:20px auto; background:white; border-radius:16px; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;" class="no-print">
+                <h2 style="color:#667eea; margin:0;">🖨️ Kassenbericht</h2>
+                <button class="btn btn-secondary btn-sm" onclick="closeKassenbericht()">✖ Schließen</button>
+            </div>
+
+            <div id="kbPrintArea">
+                <h2 style="text-align:center; margin:10px 0 2px;">Kassenbericht</h2>
+                <p style="text-align:center; color:#555; margin:0 0 20px;">EisFavorite</p>
+                <p style="font-size:1.05em; margin-bottom:20px;"><strong>Datum:</strong> <span id="kbReportDateLabel"></span></p>
+
+                <table style="margin-top:0;">
+                    <tbody>
+                        <tr><td>Kassenbestand lt. Vortag (Anfangsbestand)</td><td style="text-align:right; font-weight:700;" id="kbAnfangsbestand"></td></tr>
+                        <tr><td>+ Bareinnahmen (Verkauf)</td><td style="text-align:right; color:#28a745; font-weight:700;" id="kbEinnahmen"></td></tr>
+                        <tr><td>+ Einlagen (z.B. Kleingeld/Wechselgeld)</td><td style="text-align:right; color:#28a745; font-weight:700;" id="kbEinlagen"></td></tr>
+                        <tr><td>- Barausgaben</td><td style="text-align:right; color:#e74c3c; font-weight:700;" id="kbAusgaben"></td></tr>
+                        <tr><td>- Entnahmen / zur Bank gebracht</td><td style="text-align:right; color:#e74c3c; font-weight:700;" id="kbEntnahmen"></td></tr>
+                        <tr style="border-top:2px solid #333;"><td style="font-weight:800; padding-top:12px;">= Kassenbestand am Ende des Tages</td><td style="text-align:right; font-weight:800; padding-top:12px;" id="kbEndbestand"></td></tr>
+                    </tbody>
+                </table>
+
+                <h3 style="margin:25px 0 8px; font-size:1em; color:#555;">Einzelne Buchungen dieses Tages</h3>
+                <div class="table-wrap">
+                    <table id="kbDetailTable">
+                        <thead>
+                            <tr><th>Art</th><th>Notiz</th><th>Betrag</th></tr>
+                        </thead>
+                        <tbody id="kbDetailBody"></tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top:50px; display:flex; justify-content:space-between; gap:20px;">
+                    <div style="flex:1; border-top:1px solid #333; padding-top:5px; font-size:0.85em; color:#555;">Ort, Datum</div>
+                    <div style="flex:1; border-top:1px solid #333; padding-top:5px; font-size:0.85em; color:#555;">Unterschrift</div>
+                </div>
+            </div>
+
+            <div class="no-print" style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #kassenberichtModal, #kassenberichtModal * { visibility: visible; }
+            #kassenberichtModal { position: absolute; inset: 0; background: white; padding: 0; }
+            .no-print { display: none !important; }
+        }
+    </style>
 
     <script>
         let db = null;
@@ -453,7 +509,60 @@
             });
         }
 
+        // Amtlicher Kassenbericht für einen einzelnen Tag - genau die
+        // Aufstellung (Anfangsbestand + Einnahmen/Einlagen - Ausgaben/
+        // Entnahmen = Endbestand), die für die offene Ladenkasse täglich
+        // ausgedruckt und abgeheftet werden muss.
+        function openKassenbericht() {
+            const dateIso = document.getElementById('kbReportDate').value;
+            if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
+
+            const withBalance = entriesWithBalance();
+            const dayEntries = withBalance.filter(e => e.dateIso === dateIso);
+
+            // Anfangsbestand = Kassenbestand nach dem letzten Eintrag VOR diesem Tag.
+            const before = withBalance.filter(e => e.dateIso < dateIso);
+            const anfangsbestand = before.length > 0 ? before[before.length - 1].balance : 0;
+
+            let einnahmen = 0, ausgaben = 0, einlagen = 0, entnahmen = 0;
+            dayEntries.forEach(e => {
+                const amount = parseFloat(e.amount) || 0;
+                if (e.type === 'einnahme') einnahmen += amount;
+                if (e.type === 'ausgabe') ausgaben += amount;
+                if (e.type === 'einlage') einlagen += amount;
+                if (e.type === 'entnahme') entnahmen += amount;
+            });
+            const endbestand = anfangsbestand + einnahmen + einlagen - ausgaben - entnahmen;
+
+            document.getElementById('kbReportDateLabel').textContent = isoToDe(dateIso);
+            document.getElementById('kbAnfangsbestand').textContent = formatEuro(anfangsbestand);
+            document.getElementById('kbEinnahmen').textContent = '+ ' + formatEuro(einnahmen);
+            document.getElementById('kbEinlagen').textContent = '+ ' + formatEuro(einlagen);
+            document.getElementById('kbAusgaben').textContent = '- ' + formatEuro(ausgaben);
+            document.getElementById('kbEntnahmen').textContent = '- ' + formatEuro(entnahmen);
+            document.getElementById('kbEndbestand').textContent = formatEuro(endbestand);
+
+            const detailBody = document.getElementById('kbDetailBody');
+            if (dayEntries.length === 0) {
+                detailBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888; padding:15px;">Keine Buchungen an diesem Tag.</td></tr>';
+            } else {
+                detailBody.innerHTML = dayEntries.map(e => {
+                    const t = TYPE_LABELS[e.type] || { sign: 0, label: '-' };
+                    const amount = parseFloat(e.amount) || 0;
+                    const amountSign = t.sign >= 0 ? '+' : '-';
+                    return `<tr><td>${t.label}</td><td>${e.note || '-'}</td><td>${amountSign} ${formatEuro(amount)}</td></tr>`;
+                }).join('');
+            }
+
+            document.getElementById('kassenberichtModal').style.display = 'block';
+        }
+
+        function closeKassenbericht() {
+            document.getElementById('kassenberichtModal').style.display = 'none';
+        }
+
         document.getElementById('entryDate').value = todayIso();
+        document.getElementById('kbReportDate').value = todayIso();
         initFirebase();
     </script>
 </body>
