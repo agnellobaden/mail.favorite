@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Kassenbuch - EisFavorite</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link { color: #667eea; text-decoration: none; font-weight: 600; }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .stats {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 25px;
+    }
+    .stat-card {
+        flex: 1;
+        min-width: 150px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+    }
+    .stat-card .label { font-size: 0.8em; text-transform: uppercase; opacity: 0.9; font-weight: 600; }
+    .stat-card .value { font-size: 1.7em; font-weight: 800; margin-top: 4px; }
+    .stat-card.balance { background: linear-gradient(135deg, #333 0%, #555 100%); }
+    .stat-card.einnahme { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .stat-card.ausgabe { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .stat-card.entnahme { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); }
+
+    .add-form {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        background: #f8f9fa;
+        padding: 18px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 2px solid #eee;
+    }
+    .add-form .field { display: flex; flex-direction: column; gap: 4px; }
+    .add-form label { font-size: 0.8em; font-weight: 700; color: #555; }
+    .add-form input, .add-form select {
+        padding: 10px 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 0.95em;
+        font-family: inherit;
+    }
+    .add-form input#entryNote { min-width: 220px; flex: 1; }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .btn-sm { padding: 6px 10px; font-size: 0.8em; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .filter-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-row select { padding: 10px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; position: sticky; top: 0; }
+    tr:hover { background: #f8f9fa; }
+    .amount-plus { font-weight: 700; color: #28a745; }
+    .amount-minus { font-weight: 700; color: #e74c3c; }
+    .balance-cell { font-weight: 700; color: #333; }
+
+    .table-wrap { overflow-x: auto; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #888; }
+    .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+        .add-form { flex-direction: column; align-items: stretch; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>🧾 Kassenbuch</h1>
+        <p class="subtitle">Täglicher Kassenbericht für die offene Ladenkasse (ohne elektronische Kasse) - Bareinnahmen, Barausgaben, Einlagen (z.B. Kleingeld) und Entnahmen/Bankeinzahlungen erfassen. Der Kassenbestand wird fortlaufend berechnet.</p>
+
+        <div class="stats">
+            <div class="stat-card balance">
+                <div class="label">Aktueller Kassenbestand</div>
+                <div class="value" id="statBalance">0,00 €</div>
+            </div>
+            <div class="stat-card einnahme">
+                <div class="label">Einnahmen (Monat)</div>
+                <div class="value" id="statEinnahmenMonat">0,00 €</div>
+            </div>
+            <div class="stat-card ausgabe">
+                <div class="label">Ausgaben (Monat)</div>
+                <div class="value" id="statAusgabenMonat">0,00 €</div>
+            </div>
+            <div class="stat-card entnahme">
+                <div class="label">Entnahmen/Bank (Monat)</div>
+                <div class="value" id="statEntnahmenMonat">0,00 €</div>
+            </div>
+        </div>
+
+        <div class="add-form">
+            <div class="field">
+                <label for="entryDate">Datum</label>
+                <input type="date" id="entryDate">
+            </div>
+            <div class="field">
+                <label for="entryType">Art</label>
+                <select id="entryType">
+                    <option value="einnahme">💵 Bareinnahme (Verkauf)</option>
+                    <option value="ausgabe">🧾 Barausgabe (z.B. Einkauf)</option>
+                    <option value="einlage">➕ Einlage (z.B. Kleingeld/Wechselgeld)</option>
+                    <option value="entnahme">🏦 Entnahme / zur Bank gebracht</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="entryAmount">Betrag (€)</label>
+                <input type="number" id="entryAmount" step="0.01" min="0" placeholder="0,00">
+            </div>
+            <div class="field" style="flex:1;">
+                <label for="entryNote">Notiz (optional)</label>
+                <input type="text" id="entryNote" placeholder="z.B. Wareneinkauf Großmarkt">
+            </div>
+            <button class="btn" onclick="addEntry()">➕ Eintragen</button>
+        </div>
+
+        <div class="filter-row">
+            <select id="monthFilter" onchange="renderTable()">
+                <option value="alle">Alle Monate</option>
+            </select>
+        </div>
+
+        <div class="table-wrap">
+            <table id="entriesTable">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Art</th>
+                        <th>Notiz</th>
+                        <th>Betrag</th>
+                        <th>Kassenbestand</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody id="entriesBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <div class="icon">🧾</div>
+                <p>Noch keine Kassenbuch-Einträge erfasst.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allEntries = [];
+
+        const TYPE_LABELS = {
+            einnahme: { label: '💵 Bareinnahme', bg: '#d4edda', color: '#155724', sign: 1 },
+            ausgabe: { label: '🧾 Ausgabe', bg: '#f8d7da', color: '#721c24', sign: -1 },
+            einlage: { label: '➕ Einlage', bg: '#fff3cd', color: '#856404', sign: 1 },
+            entnahme: { label: '🏦 Entnahme/Bank', bg: '#cce5ff', color: '#004085', sign: -1 }
+        };
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            db = firebase.firestore();
+            db.collection('kassenbuch').onSnapshot(snapshot => {
+                allEntries = [];
+                snapshot.forEach(doc => allEntries.push({ ...doc.data(), id: doc.id }));
+                refreshAll();
+            }, error => {
+                console.error('Firestore-Fehler:', error);
+            });
+        }
+
+        function refreshAll() {
+            updateMonthFilterOptions();
+            renderTable();
+        }
+
+        function todayIso() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function thisMonthPrefix() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        }
+
+        function formatEuro(n) {
+            return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+
+        function isoToDe(iso) {
+            const [y, m, d] = iso.split('-');
+            return `${d}.${m}.${y}`;
+        }
+
+        // Chronologisch sortierte Liste (Datum, dann Erfassungszeitpunkt) -
+        // Grundlage für den fortlaufenden Kassenbestand. Wird bei jedem
+        // Render frisch berechnet, damit nachträgliches Bearbeiten/Löschen
+        // automatisch alle folgenden Salden korrigiert.
+        function sortedEntriesChronological() {
+            return [...allEntries].sort((a, b) => {
+                const dateCompare = (a.dateIso || '').localeCompare(b.dateIso || '');
+                if (dateCompare !== 0) return dateCompare;
+                return (a.createdAtMs || 0) - (b.createdAtMs || 0);
+            });
+        }
+
+        // Fortlaufenden Kassenbestand je Eintrag berechnen (über ALLE
+        // Einträge, unabhängig vom Monatsfilter - der Bestand muss immer
+        // lückenlos fortgeführt werden).
+        function entriesWithBalance() {
+            let balance = 0;
+            return sortedEntriesChronological().map(e => {
+                const amount = parseFloat(e.amount) || 0;
+                const sign = (TYPE_LABELS[e.type] || {}).sign || 0;
+                balance += sign * amount;
+                return { ...e, balance };
+            });
+        }
+
+        function updateStats() {
+            const withBalance = entriesWithBalance();
+            const currentBalance = withBalance.length > 0 ? withBalance[withBalance.length - 1].balance : 0;
+            document.getElementById('statBalance').textContent = formatEuro(currentBalance);
+
+            const monthPrefix = thisMonthPrefix();
+            let einnahmenMonat = 0, ausgabenMonat = 0, entnahmenMonat = 0;
+            allEntries.filter(e => (e.dateIso || '').startsWith(monthPrefix)).forEach(e => {
+                const amount = parseFloat(e.amount) || 0;
+                if (e.type === 'einnahme') einnahmenMonat += amount;
+                if (e.type === 'ausgabe') ausgabenMonat += amount;
+                if (e.type === 'entnahme') entnahmenMonat += amount;
+            });
+            document.getElementById('statEinnahmenMonat').textContent = formatEuro(einnahmenMonat);
+            document.getElementById('statAusgabenMonat').textContent = formatEuro(ausgabenMonat);
+            document.getElementById('statEntnahmenMonat').textContent = formatEuro(entnahmenMonat);
+        }
+
+        function updateMonthFilterOptions() {
+            const select = document.getElementById('monthFilter');
+            const current = select.value;
+            const months = Array.from(new Set(allEntries.map(e => (e.dateIso || '').slice(0, 7)).filter(Boolean))).sort().reverse();
+            select.innerHTML = '<option value="alle">Alle Monate</option>' +
+                months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+            if (months.includes(current)) select.value = current;
+        }
+
+        function monthLabel(yyyyMm) {
+            const [y, m] = yyyyMm.split('-');
+            const names = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            return names[parseInt(m, 10) - 1] + ' ' + y;
+        }
+
+        function typeBadge(type) {
+            const t = TYPE_LABELS[type];
+            if (!t) return '<span style="color:#bbb;">-</span>';
+            return `<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:${t.bg}; color:${t.color};">${t.label}</span>`;
+        }
+
+        function renderTable() {
+            updateStats();
+            const monthFilter = document.getElementById('monthFilter').value;
+            let entries = entriesWithBalance().sort((a, b) => {
+                const dateCompare = (b.dateIso || '').localeCompare(a.dateIso || '');
+                if (dateCompare !== 0) return dateCompare;
+                return (b.createdAtMs || 0) - (a.createdAtMs || 0);
+            });
+            if (monthFilter !== 'alle') {
+                entries = entries.filter(e => (e.dateIso || '').startsWith(monthFilter));
+            }
+
+            const tbody = document.getElementById('entriesBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (entries.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = entries.map(e => {
+                const t = TYPE_LABELS[e.type] || { sign: 0 };
+                const amount = parseFloat(e.amount) || 0;
+                const amountClass = t.sign >= 0 ? 'amount-plus' : 'amount-minus';
+                const amountSign = t.sign >= 0 ? '+' : '-';
+                return `
+                <tr>
+                    <td>${e.date || e.dateIso || '-'}</td>
+                    <td>${typeBadge(e.type)}</td>
+                    <td>${e.note || '-'}</td>
+                    <td class="${amountClass}">${amountSign} ${formatEuro(amount)}</td>
+                    <td class="balance-cell">${formatEuro(e.balance)}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+        }
+
+        function addEntry() {
+            const dateIso = document.getElementById('entryDate').value;
+            const type = document.getElementById('entryType').value;
+            const amount = parseFloat(document.getElementById('entryAmount').value);
+            const note = document.getElementById('entryNote').value.trim();
+
+            if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
+            if (isNaN(amount) || amount < 0) { alert('Bitte einen gültigen Betrag eintragen.'); return; }
+
+            db.collection('kassenbuch').add({
+                dateIso: dateIso,
+                date: isoToDe(dateIso),
+                type: type,
+                amount: amount,
+                note: note,
+                createdAtMs: Date.now()
+            }).then(() => {
+                document.getElementById('entryAmount').value = '';
+                document.getElementById('entryNote').value = '';
+            }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function editEntry(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) return;
+            const newAmountStr = prompt('Neuer Betrag (€) für ' + (entry.date || entry.dateIso) + ':', entry.amount);
+            if (newAmountStr === null) return;
+            const newAmount = parseFloat(newAmountStr.replace(',', '.'));
+            if (isNaN(newAmount) || newAmount < 0) { alert('Ungültiger Betrag.'); return; }
+            const newNote = prompt('Notiz (leer lassen für keine):', entry.note || '');
+            db.collection('kassenbuch').doc(id).set({
+                amount: newAmount,
+                note: newNote === null ? (entry.note || '') : newNote.trim()
+            }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function deleteEntry(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) return;
+            if (!confirm(`Eintrag vom ${entry.date || entry.dateIso} (${formatEuro(parseFloat(entry.amount) || 0)}) wirklich löschen?`)) return;
+            db.collection('kassenbuch').doc(id).delete().catch(err => {
+                alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
+        }
+
+        document.getElementById('entryDate').value = todayIso();
+        initFirebase();
+    </script>
+</body>
+</html>
