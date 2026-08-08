@@ -317,8 +317,7 @@
 
     <style>
         @media print {
-            body * { visibility: hidden; }
-            #kassenberichtModal, #kassenberichtModal * { visibility: visible; }
+            body > *:not(#kassenberichtModal) { display: none !important; }
             #kassenberichtModal {
                 position: static;
                 overflow: visible;
