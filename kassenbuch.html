@@ -248,30 +248,26 @@
             </div>
 
             <div id="kbPrintArea">
-                <h2 style="text-align:center; margin:10px 0 2px;">Kassenbericht</h2>
-                <p style="text-align:center; color:#555; margin:0 0 20px;">EisFavorite</p>
-                <p style="font-size:1.05em; margin-bottom:20px;"><strong>Datum:</strong> <span id="kbReportDateLabel"></span></p>
+                <h2 style="margin:10px 0 20px;">Kassenbericht vom <span id="kbReportDateLabel"></span></h2>
 
-                <table style="margin-top:0;">
-                    <tbody>
-                        <tr><td>Kassenbestand lt. Vortag (Anfangsbestand)</td><td style="text-align:right; font-weight:700;" id="kbAnfangsbestand"></td></tr>
-                        <tr><td>+ Bareinnahmen (Verkauf)</td><td style="text-align:right; color:#28a745; font-weight:700;" id="kbEinnahmen"></td></tr>
-                        <tr><td>+ Einlagen (z.B. Kleingeld/Wechselgeld)</td><td style="text-align:right; color:#28a745; font-weight:700;" id="kbEinlagen"></td></tr>
-                        <tr><td>- Barausgaben</td><td style="text-align:right; color:#e74c3c; font-weight:700;" id="kbAusgaben"></td></tr>
-                        <tr><td>- Entnahmen / zur Bank gebracht</td><td style="text-align:right; color:#e74c3c; font-weight:700;" id="kbEntnahmen"></td></tr>
-                        <tr style="border-top:2px solid #333;"><td style="font-weight:800; padding-top:12px;">= Kassenbestand am Ende des Tages</td><td style="text-align:right; font-weight:800; padding-top:12px;" id="kbEndbestand"></td></tr>
-                    </tbody>
+                <table id="kbSummaryTable" style="margin-top:0;">
+                    <tbody id="kbSummaryBody"></tbody>
                 </table>
 
-                <h3 style="margin:25px 0 8px; font-size:1em; color:#555;">Einzelne Buchungen dieses Tages</h3>
-                <div class="table-wrap">
-                    <table id="kbDetailTable">
-                        <thead>
-                            <tr><th>Art</th><th>Notiz</th><th>Betrag</th></tr>
-                        </thead>
-                        <tbody id="kbDetailBody"></tbody>
-                    </table>
-                </div>
+                <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
+                <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 10px;">Menge je Stückelung eintragen - wird für dieses Datum automatisch gespeichert und ergibt den "Kassenbestand bei Geschäftsschluss" oben.</p>
+                <table id="kbZaehlTable">
+                    <thead>
+                        <tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr>
+                    </thead>
+                    <tbody id="kbZaehlBody"></tbody>
+                    <tfoot>
+                        <tr style="font-weight:800; border-top:2px solid #333;">
+                            <td colspan="2">Kassenendbestand</td>
+                            <td id="kbZaehlEndbestand" style="text-align:right;"></td>
+                        </tr>
+                    </tfoot>
+                </table>
 
                 <div style="margin-top:50px; display:flex; justify-content:space-between; gap:20px;">
                     <div style="flex:1; border-top:1px solid #333; padding-top:5px; font-size:0.85em; color:#555;">Ort, Datum</div>
@@ -291,12 +287,14 @@
             #kassenberichtModal, #kassenberichtModal * { visibility: visible; }
             #kassenberichtModal { position: absolute; inset: 0; background: white; padding: 0; }
             .no-print { display: none !important; }
+            .print-only { display: inline !important; }
         }
     </style>
 
     <script>
         let db = null;
         let allEntries = [];
+        let allZaehlungen = {}; // Kassenzählprotokoll je Tag, key = dateIso
 
         const TYPE_LABELS = {
             einnahme: { label: '💵 Bareinnahme', bg: '#d4edda', color: '#155724', sign: 1 },
@@ -304,6 +302,9 @@
             einlage: { label: '➕ Einlage', bg: '#fff3cd', color: '#856404', sign: 1 },
             entnahme: { label: '🏦 Entnahme/Bank', bg: '#cce5ff', color: '#004085', sign: -1 }
         };
+
+        // Übliche Stückelung für das Kassenzählprotokoll (Scheine + Münzen).
+        const DENOMINATIONS = [500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -324,6 +325,15 @@
                 refreshAll();
             }, error => {
                 console.error('Firestore-Fehler:', error);
+            });
+            db.collection('kassenzaehlung').onSnapshot(snapshot => {
+                allZaehlungen = {};
+                snapshot.forEach(doc => { allZaehlungen[doc.id] = doc.data(); });
+                if (document.getElementById('kassenberichtModal').style.display === 'block') {
+                    renderKassenbericht();
+                }
+            }, error => {
+                console.error('Firestore-Fehler (Kassenzählung):', error);
             });
         }
 
@@ -509,52 +519,111 @@
             });
         }
 
-        // Amtlicher Kassenbericht für einen einzelnen Tag - genau die
-        // Aufstellung (Anfangsbestand + Einnahmen/Einlagen - Ausgaben/
-        // Entnahmen = Endbestand), die für die offene Ladenkasse täglich
-        // ausgedruckt und abgeheftet werden muss.
+        // Amtlicher Kassenbericht nach der "retrograden" Methode für die
+        // offene Ladenkasse: der tatsächliche Kassenbestand wird am Ende
+        // des Tages ausgezählt (Kassenzählprotokoll), und die Tageseinnahme
+        // (Kasseneingang) wird daraus RÜCKWÄRTS errechnet:
+        //   Kassenbestand bei Geschäftsschluss (gezählt)
+        //   + Ausgaben im Laufe des Tages
+        //   + Privatentnahmen
+        //   = Summe
+        //   - Kassenbestand des Vortages (gezählt)
+        //   = Kasseneingang (Tageseinnahme, kassensturzfähig)
+        function currentZaehlungCounts(dateIso) {
+            const z = allZaehlungen[dateIso];
+            return (z && z.counts) ? z.counts : {};
+        }
+
+        function zaehlungTotal(dateIso) {
+            const counts = currentZaehlungCounts(dateIso);
+            return DENOMINATIONS.reduce((sum, d) => sum + (parseFloat(counts[d]) || 0) * d, 0);
+        }
+
+        // Letzter VOR diesem Tag tatsächlich ausgezählter Kassenbestand
+        // (überspringt Tage ohne Zählung, z.B. Ruhetage).
+        function previousZaehlungTotal(dateIso) {
+            const priorDates = Object.keys(allZaehlungen).filter(d => d < dateIso).sort();
+            if (priorDates.length === 0) return 0;
+            return zaehlungTotal(priorDates[priorDates.length - 1]);
+        }
+
         function openKassenbericht() {
             const dateIso = document.getElementById('kbReportDate').value;
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
-
-            const withBalance = entriesWithBalance();
-            const dayEntries = withBalance.filter(e => e.dateIso === dateIso);
-
-            // Anfangsbestand = Kassenbestand nach dem letzten Eintrag VOR diesem Tag.
-            const before = withBalance.filter(e => e.dateIso < dateIso);
-            const anfangsbestand = before.length > 0 ? before[before.length - 1].balance : 0;
-
-            let einnahmen = 0, ausgaben = 0, einlagen = 0, entnahmen = 0;
-            dayEntries.forEach(e => {
-                const amount = parseFloat(e.amount) || 0;
-                if (e.type === 'einnahme') einnahmen += amount;
-                if (e.type === 'ausgabe') ausgaben += amount;
-                if (e.type === 'einlage') einlagen += amount;
-                if (e.type === 'entnahme') entnahmen += amount;
-            });
-            const endbestand = anfangsbestand + einnahmen + einlagen - ausgaben - entnahmen;
-
-            document.getElementById('kbReportDateLabel').textContent = isoToDe(dateIso);
-            document.getElementById('kbAnfangsbestand').textContent = formatEuro(anfangsbestand);
-            document.getElementById('kbEinnahmen').textContent = '+ ' + formatEuro(einnahmen);
-            document.getElementById('kbEinlagen').textContent = '+ ' + formatEuro(einlagen);
-            document.getElementById('kbAusgaben').textContent = '- ' + formatEuro(ausgaben);
-            document.getElementById('kbEntnahmen').textContent = '- ' + formatEuro(entnahmen);
-            document.getElementById('kbEndbestand').textContent = formatEuro(endbestand);
-
-            const detailBody = document.getElementById('kbDetailBody');
-            if (dayEntries.length === 0) {
-                detailBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888; padding:15px;">Keine Buchungen an diesem Tag.</td></tr>';
-            } else {
-                detailBody.innerHTML = dayEntries.map(e => {
-                    const t = TYPE_LABELS[e.type] || { sign: 0, label: '-' };
-                    const amount = parseFloat(e.amount) || 0;
-                    const amountSign = t.sign >= 0 ? '+' : '-';
-                    return `<tr><td>${t.label}</td><td>${e.note || '-'}</td><td>${amountSign} ${formatEuro(amount)}</td></tr>`;
-                }).join('');
-            }
-
             document.getElementById('kassenberichtModal').style.display = 'block';
+            renderKassenbericht();
+        }
+
+        function renderKassenbericht() {
+            const dateIso = document.getElementById('kbReportDate').value;
+            document.getElementById('kbReportDateLabel').textContent = isoToDe(dateIso);
+
+            const dayEntries = allEntries.filter(e => e.dateIso === dateIso);
+            const ausgabenLines = dayEntries.filter(e => e.type === 'ausgabe');
+            const privatentnahmen = dayEntries.filter(e => e.type === 'entnahme').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const einlagen = dayEntries.filter(e => e.type === 'einlage').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const ausgabenSumme = ausgabenLines.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+
+            const kassenbestandSchluss = zaehlungTotal(dateIso);
+            const kassenbestandVortag = previousZaehlungTotal(dateIso);
+            const summe = kassenbestandSchluss + ausgabenSumme + privatentnahmen;
+            const kasseneingang = summe - kassenbestandVortag;
+
+            const rows = [];
+            rows.push(`<tr><td><strong>Kassenbestand bei Geschäftsschluss</strong></td><td></td><td style="text-align:right; font-weight:800; border-top:1px solid #333; border-bottom:3px double #333;">${formatEuro(kassenbestandSchluss)}</td></tr>`);
+            rows.push(`<tr><td colspan="3" style="border:none; padding-top:14px;">zuzüglich Ausgaben im Laufe des Tages</td></tr>`);
+            if (ausgabenLines.length === 0) {
+                rows.push(`<tr><td colspan="3" style="color:#999;">- keine -</td></tr>`);
+            } else {
+                ausgabenLines.forEach(e => {
+                    rows.push(`<tr><td>${e.note || ''}</td><td style="text-align:right;">${formatEuro(parseFloat(e.amount) || 0)}</td><td></td></tr>`);
+                });
+            }
+            rows.push(`<tr><td style="padding-top:10px;">Privatentnahmen (durch Eigenbeleg nachzuweisen)</td><td style="text-align:right; padding-top:10px;">${formatEuro(privatentnahmen)}</td><td></td></tr>`);
+            rows.push(`<tr><td><strong>Summe</strong></td><td style="text-align:right; font-weight:800; border-top:1px solid #333;">${formatEuro(ausgabenSumme + privatentnahmen)}</td><td style="text-align:right; font-weight:800; border-top:1px solid #333;">${formatEuro(summe)}</td></tr>`);
+            rows.push(`<tr><td style="padding-top:14px;">abzüglich Kassenbestand des Vortages</td><td></td><td style="text-align:right; padding-top:14px; font-weight:800;">${formatEuro(kassenbestandVortag)}</td></tr>`);
+            rows.push(`<tr><td><strong>Kasseneingang</strong></td><td></td><td style="text-align:right; font-weight:800; border-top:1px solid #333;">${formatEuro(kasseneingang)}</td></tr>`);
+            rows.push(`<tr><td colspan="3" style="border:none; padding-top:18px;"></td></tr>`);
+            rows.push(`<tr><td>Einnahmen 7% USt</td><td style="text-align:right;">${formatEuro(kasseneingang)}</td><td></td></tr>`);
+            rows.push(`<tr><td colspan="3" style="border:none; padding-top:8px;"></td></tr>`);
+            rows.push(`<tr><td>Einlagen (durch Eigenbeleg nachzuweisen)</td><td style="text-align:right;">${formatEuro(einlagen)}</td><td></td></tr>`);
+            document.getElementById('kbSummaryBody').innerHTML = rows.join('');
+
+            renderZaehlprotokoll(dateIso);
+        }
+
+        function renderZaehlprotokoll(dateIso) {
+            const counts = currentZaehlungCounts(dateIso);
+            const tbody = document.getElementById('kbZaehlBody');
+            tbody.innerHTML = DENOMINATIONS.map(d => {
+                const menge = counts[d] || '';
+                const betrag = (parseFloat(counts[d]) || 0) * d;
+                return `
+                <tr>
+                    <td>${formatEuro(d)}</td>
+                    <td><input type="number" min="0" step="1" value="${menge}" class="no-print" style="width:80px; padding:6px 8px; border:2px solid #ddd; border-radius:6px;" onchange="updateZaehlungMenge('${dateIso}', ${d}, this.value)"><span class="print-only" style="display:none;">${menge}</span></td>
+                    <td style="text-align:right;">${formatEuro(betrag)}</td>
+                </tr>`;
+            }).join('');
+            document.getElementById('kbZaehlEndbestand').textContent = formatEuro(zaehlungTotal(dateIso));
+        }
+
+        function updateZaehlungMenge(dateIso, denomination, value) {
+            const menge = parseFloat(value) || 0;
+            const counts = { ...currentZaehlungCounts(dateIso) };
+            if (menge > 0) counts[denomination] = menge; else delete counts[denomination];
+            allZaehlungen[dateIso] = { dateIso, date: isoToDe(dateIso), counts };
+
+            db.collection('kassenzaehlung').doc(dateIso).set({
+                dateIso: dateIso,
+                date: isoToDe(dateIso),
+                counts: counts,
+                updatedAtMs: Date.now()
+            }, { merge: true }).catch(err => {
+                alert('❌ Konnte Zählung nicht speichern: ' + err.message);
+            });
+
+            renderKassenbericht();
         }
 
         function closeKassenbericht() {
