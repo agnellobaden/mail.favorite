@@ -310,7 +310,7 @@
             </div>
 
             <div class="no-print" style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+                <button class="btn" onclick="printKassenbericht()">🖨️ Drucken / Als PDF speichern</button>
             </div>
         </div>
     </div>
@@ -701,6 +701,17 @@
 
         function closeKassenbericht() {
             document.getElementById('kassenberichtModal').style.display = 'none';
+        }
+
+        // Chrome "merkt" sich beim Drucken die aktuelle Scroll-Position des
+        // Kassenbericht-Fensters (das auf dem Bildschirm scrollbar ist) und
+        // schneidet dadurch den oberen Teil im PDF ab, wenn man vorher zum
+        // Ausfüllen der Zählung nach unten gescrollt hat. Deshalb vor dem
+        // Drucken die Scroll-Position explizit zurücksetzen.
+        function printKassenbericht() {
+            document.getElementById('kassenberichtModal').scrollTop = 0;
+            window.scrollTo(0, 0);
+            setTimeout(() => window.print(), 50);
         }
 
         document.getElementById('entryDate').value = todayIso();
