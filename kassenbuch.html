@@ -319,7 +319,22 @@
         @media print {
             body * { visibility: hidden; }
             #kassenberichtModal, #kassenberichtModal * { visibility: visible; }
-            #kassenberichtModal { position: absolute; inset: 0; background: white; padding: 0; }
+            #kassenberichtModal {
+                position: static;
+                overflow: visible;
+                height: auto;
+                background: white;
+                padding: 0;
+            }
+            #kassenberichtModal > div {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border-radius: 0;
+            }
+            #kbSummaryTable, #kbZaehlTable { page-break-inside: auto; }
+            #kbSummaryTable tr, #kbZaehlTable tr { page-break-inside: avoid; }
             .no-print { display: none !important; }
             .print-only { display: inline !important; }
         }
