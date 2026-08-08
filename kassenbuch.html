@@ -293,7 +293,7 @@
                 </table>
 
                 <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
-                <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 10px;">Menge je Stückelung eintragen - wird für dieses Datum automatisch gespeichert und ergibt den "Kassenbestand bei Geschäftsschluss" oben.</p>
+                <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 10px;">Menge je Stückelung eintragen (tatsächlich gezähltes Bargeld) - wird automatisch gespeichert und mit dem Kassenbestand laut Kassenbuch oben verglichen (Kassensturz).</p>
                 <table id="kbZaehlTable">
                     <thead>
                         <tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr>
@@ -301,11 +301,12 @@
                     <tbody id="kbZaehlBody"></tbody>
                     <tfoot>
                         <tr style="font-weight:800; border-top:2px solid #333;">
-                            <td colspan="2">Kassenendbestand</td>
+                            <td colspan="2">Kassenendbestand (gezählt)</td>
                             <td id="kbZaehlEndbestand" style="text-align:right;"></td>
                         </tr>
                     </tfoot>
                 </table>
+                <p id="kbZaehlDifferenz" style="font-size:0.9em; margin-top:8px;"></p>
 
                 <div style="margin-top:50px; display:flex; justify-content:space-between; gap:20px;">
                     <div style="flex:1; border-top:1px solid #333; padding-top:5px; font-size:0.85em; color:#555;">Ort, Datum</div>
@@ -557,16 +558,15 @@
             });
         }
 
-        // Amtlicher Kassenbericht nach der "retrograden" Methode für die
-        // offene Ladenkasse: der tatsächliche Kassenbestand wird am Ende
-        // des Tages ausgezählt (Kassenzählprotokoll), und die Tageseinnahme
-        // (Kasseneingang) wird daraus RÜCKWÄRTS errechnet:
-        //   Kassenbestand bei Geschäftsschluss (gezählt)
-        //   + Ausgaben im Laufe des Tages
-        //   + Privatentnahmen
-        //   = Summe
-        //   - Kassenbestand des Vortages (gezählt)
-        //   = Kasseneingang (Tageseinnahme, kassensturzfähig)
+        // Kassenbericht für einen einzelnen Tag. Grundlage sind die
+        // tatsächlich im Kassenbuch erfassten Buchungen (Bareinnahme,
+        // Ausgabe, Einlage, Privatentnahme) - "Kasseneingang" zeigt also
+        // genau die Bareinnahme, die an dem Tag eingetragen wurde, nicht
+        // eine aus der Zählung zurückgerechnete Zahl. Der "Kassenbestand
+        // bei Geschäftsschluss" ist der fortlaufende Kassenbuch-Saldo
+        // (Vortag + Einnahme + Einlage - Ausgabe - Entnahme).
+        // Das Kassenzählprotokoll (Stückelung) dient separat als
+        // Kassensturz-Kontrolle: gezählter Ist-Bestand vs. Soll laut Buch.
         function currentZaehlungCounts(dateIso) {
             const z = allZaehlungen[dateIso];
             return (z && z.counts) ? z.counts : {};
@@ -575,14 +575,6 @@
         function zaehlungTotal(dateIso) {
             const counts = currentZaehlungCounts(dateIso);
             return DENOMINATIONS.reduce((sum, d) => sum + (parseFloat(counts[d]) || 0) * d, 0);
-        }
-
-        // Letzter VOR diesem Tag tatsächlich ausgezählter Kassenbestand
-        // (überspringt Tage ohne Zählung, z.B. Ruhetage).
-        function previousZaehlungTotal(dateIso) {
-            const priorDates = Object.keys(allZaehlungen).filter(d => d < dateIso).sort();
-            if (priorDates.length === 0) return 0;
-            return zaehlungTotal(priorDates[priorDates.length - 1]);
         }
 
         function openKassenbericht() {
@@ -596,16 +588,26 @@
             const dateIso = document.getElementById('kbReportDate').value;
             document.getElementById('kbReportDateLabel').textContent = isoToDe(dateIso);
 
+            const withBalance = entriesWithBalance();
             const dayEntries = allEntries.filter(e => e.dateIso === dateIso);
             const ausgabenLines = dayEntries.filter(e => e.type === 'ausgabe');
             const privatentnahmen = dayEntries.filter(e => e.type === 'entnahme').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const einlagen = dayEntries.filter(e => e.type === 'einlage').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const ausgabenSumme = ausgabenLines.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
-            const kassenbestandSchluss = zaehlungTotal(dateIso);
-            const kassenbestandVortag = previousZaehlungTotal(dateIso);
+            // Kassenbestand Vortag = fortlaufender Kassenbuch-Saldo am Ende
+            // des letzten Tages VOR diesem Datum mit Buchungen.
+            const before = withBalance.filter(e => e.dateIso < dateIso);
+            const kassenbestandVortag = before.length > 0 ? before[before.length - 1].balance : 0;
+
+            // Kassenbestand bei Geschäftsschluss = Saldo am Ende dieses
+            // Tages (bzw. Vortag unverändert, falls an diesem Tag nichts
+            // gebucht wurde).
+            const todayWithBalance = withBalance.filter(e => e.dateIso === dateIso);
+            const kassenbestandSchluss = todayWithBalance.length > 0 ? todayWithBalance[todayWithBalance.length - 1].balance : kassenbestandVortag;
+
             const summe = kassenbestandSchluss + ausgabenSumme + privatentnahmen;
-            const kasseneingang = summe - kassenbestandVortag;
+            const kasseneingang = summe - kassenbestandVortag; // = Bareinnahmen + Einlagen des Tages
 
             // Mindestens 8 Zeilen im Ausgaben-Block, genau wie in der
             // Papiervorlage (leere Zeilen zum handschriftlichen Nachtragen,
@@ -635,10 +637,10 @@
             rows.push(`<tr><td>Einlagen (durch Eigenbeleg nachzuweisen)</td><td class="kb-amount">${formatEuro(einlagen)}</td><td></td></tr>`);
             document.getElementById('kbSummaryBody').innerHTML = rows.join('');
 
-            renderZaehlprotokoll(dateIso);
+            renderZaehlprotokoll(dateIso, kassenbestandSchluss);
         }
 
-        function renderZaehlprotokoll(dateIso) {
+        function renderZaehlprotokoll(dateIso, kassenbestandSchluss) {
             const counts = currentZaehlungCounts(dateIso);
             const tbody = document.getElementById('kbZaehlBody');
             tbody.innerHTML = DENOMINATIONS.map(d => {
@@ -651,7 +653,23 @@
                     <td style="text-align:right;">${formatEuro(betrag)}</td>
                 </tr>`;
             }).join('');
-            document.getElementById('kbZaehlEndbestand').textContent = formatEuro(zaehlungTotal(dateIso));
+            const gezaehlt = zaehlungTotal(dateIso);
+            document.getElementById('kbZaehlEndbestand').textContent = formatEuro(gezaehlt);
+
+            const hasCount = Object.keys(counts).length > 0;
+            const differenzEl = document.getElementById('kbZaehlDifferenz');
+            if (!hasCount) {
+                differenzEl.textContent = '';
+            } else {
+                const differenz = gezaehlt - kassenbestandSchluss;
+                if (Math.abs(differenz) < 0.005) {
+                    differenzEl.style.color = '#28a745';
+                    differenzEl.textContent = '✓ Kassensturz stimmt: gezählter Bestand entspricht dem Kassenbuch.';
+                } else {
+                    differenzEl.style.color = '#e74c3c';
+                    differenzEl.textContent = `⚠ Differenz zum Kassenbuch: ${differenz > 0 ? '+' : ''}${formatEuro(differenz)} (Soll laut Kassenbuch: ${formatEuro(kassenbestandSchluss)}).`;
+                }
+            }
         }
 
         function updateZaehlungMenge(dateIso, denomination, value) {
