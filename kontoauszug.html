@@ -161,7 +161,7 @@
             <input type="file" id="csvFile" accept=".csv,.CSV" onchange="handleFileUpload(event)">
             <button class="btn" onclick="document.getElementById('csvFile').click()">📤 CSV-Datei auswählen</button>
         </div>
-        <p class="upload-hint">Export aus dem Sparkassen-Onlinebanking: Umsätze → Exportieren → "Excel (CSV-CAMT V2)". Bereits importierte Buchungen werden beim erneuten Hochladen (z.B. bei überlappendem Zeitraum) automatisch übersprungen.</p>
+        <p class="upload-hint">Export aus dem Sparkassen-Onlinebanking: Umsätze → Exportieren → "Excel (CSV-CAMT V2)". Bereits importierte Buchungen werden beim erneuten Hochladen (z.B. bei überlappendem Zeitraum) automatisch übersprungen. Neu importierte Buchungen werden automatisch als "Geschäftsausgabe" markiert - bitte einzeln auf "Privat" umstellen, wenn es keine Betriebsausgabe war.</p>
 
         <div class="stats">
             <div class="stat-card offen">
@@ -180,11 +180,12 @@
 
         <div class="filter-row">
             <select id="catFilter" onchange="renderTable()">
-                <option value="alle">Alle Buchungen</option>
-                <option value="offen" selected>Nur noch zu kategorisieren</option>
+                <option value="alle" selected>Alle Buchungen</option>
+                <option value="offen">Nur noch zu kategorisieren</option>
                 <option value="geschaeft">Nur Geschäftsausgaben</option>
                 <option value="privat">Nur Privat</option>
             </select>
+            <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
         </div>
 
         <div class="table-wrap">
@@ -350,7 +351,10 @@
                     buchungstext: buchungstext,
                     verwendungszweck: verwendungszweck,
                     empfaenger: empfaenger,
-                    category: null,
+                    // Standardmäßig als Geschäftsausgabe eingetragen - nur
+                    // auf "Privat" umstellen, wenn es tatsächlich keine
+                    // Betriebsausgabe ist.
+                    category: 'geschaeft',
                     note: '',
                     importedAtMs: Date.now()
                 }, { merge: true });
@@ -429,6 +433,18 @@
             db.collection('kontoauszug').doc(id).set({ category: category || null }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
+        }
+
+        // Für bereits vor dieser Änderung importierte, noch unkategorisierte
+        // Buchungen (category: null) - trägt "Geschäftsausgabe" nach, damit
+        // auch ältere Importe automatisch mitzählen.
+        function markAllOffenAsGeschaeft() {
+            const offen = allEntries.filter(e => !e.category);
+            if (offen.length === 0) { alert('Keine offenen Buchungen vorhanden.'); return; }
+            if (!confirm(`${offen.length} noch offene Buchung(en) als Geschäftsausgabe markieren?`)) return;
+            const batch = db.batch();
+            offen.forEach(e => batch.set(db.collection('kontoauszug').doc(e.id), { category: 'geschaeft' }, { merge: true }));
+            batch.commit().catch(err => alert('❌ Konnte nicht gespeichert werden: ' + err.message));
         }
 
         function setNote(id, note) {
