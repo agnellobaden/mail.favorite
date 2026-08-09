@@ -115,64 +115,42 @@
     .empty-state { text-align: center; padding: 60px 20px; color: #888; }
     .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
 
-    /* Kassenbericht-Blatt: sauberes, ruhiges Dokument-Layout statt
-       Excel-Gitteroptik - lieber zwei übersichtliche Seiten als eine
-       vollgestopfte. Klassenbasiert (nicht ID), damit beim Sammeldruck
-       mehrere Tages-Blöcke dieselbe Optik bekommen. */
-    #kbPrintArea { font-family: 'Segoe UI', Calibri, Tahoma, sans-serif; color: #222; }
-    .kb-day-block { margin-bottom: 30px; }
-    .kb-letterhead {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        border-bottom: 3px solid #667eea;
-        padding-bottom: 12px;
-        margin-bottom: 24px;
-    }
-    .kb-letterhead .kb-brand { font-size: 1.4em; font-weight: 800; color: #333; }
-    .kb-letterhead .kb-doctitle { font-size: 1.1em; font-weight: 700; color: #667eea; }
-    .kb-letterhead .kb-date { font-size: 0.95em; color: #555; margin-top: 2px; }
-
-    .kb-box {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #f7f8fc;
-        border-left: 4px solid #667eea;
-        border-radius: 6px;
-        padding: 12px 18px;
-        margin: 14px 0;
-    }
-    .kb-box .kb-box-label { font-weight: 700; font-size: 1em; }
-    .kb-box .kb-box-value { font-weight: 800; font-size: 1.25em; }
-    .kb-box.kb-box-final { border-left-color: #28a745; background: #f2faf4; }
-
-    .kb-section-title { font-size: 0.95em; font-weight: 700; color: #555; margin: 20px 0 6px; text-transform: uppercase; letter-spacing: 0.03em; }
-
-    .kb-line-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-bottom: 6px; }
-    .kb-line-table td { padding: 4px 4px; border-bottom: 1px solid #eee; }
-    .kb-line-table td.kb-amount { text-align: right; width: 110px; }
-    .kb-line-table tr:last-child td { border-bottom: none; }
-    .kb-line-table .kb-total-row td { border-top: 1.5px solid #333; border-bottom: none; font-weight: 700; padding-top: 6px; }
-    .kb-empty-note { color: #999; font-style: italic; font-size: 0.9em; margin: 4px 0; }
-
-    .kb-info-line { font-size: 0.9em; color: #444; margin: 4px 0; }
-
-    .kb-zaehl-table {
+    /* Kassenbericht-Blatt im Excel-Vorlagen-Look: durchgehendes graues
+       Tabellenraster wie in einer Kalkulationstabelle, mit gezielten
+       schwarzen Rahmen für die Summenboxen. Klassenbasiert (nicht ID), damit
+       beim Sammeldruck mehrere Tages-Blöcke dieselbe Optik bekommen. */
+    #kbPrintArea { font-family: 'Calibri', 'Segoe UI', Tahoma, sans-serif; }
+    #kbPrintArea h2 { font-size: 1.3em; margin: 0 0 16px; }
+    .kb-day-block { margin-bottom: 40px; }
+    .kb-summary-table, .kb-zaehl-table {
         border-collapse: collapse;
         width: 100%;
-        font-size: 0.92em;
-        margin-top: 4px;
+        table-layout: fixed;
+        margin-top: 0;
+        font-size: 0.95em;
     }
-    .kb-zaehl-table th, .kb-zaehl-table td {
-        border-bottom: 1px solid #eee;
+    .kb-summary-table col.kb-col-a { width: 58%; }
+    .kb-summary-table col.kb-col-b { width: 21%; }
+    .kb-summary-table col.kb-col-c { width: 21%; }
+    .kb-summary-table td {
+        border: 1px solid #d5d5d5;
         padding: 5px 10px;
+        text-align: left;
+        font-size: inherit;
     }
-    .kb-zaehl-table th { background: #f7f8fc; font-weight: 700; text-align: left; color: #555; }
+    .kb-summary-table td.kb-amount { text-align: right; }
+    .kb-summary-table td.kb-bold { font-weight: 700; }
+    .kb-summary-table td.kb-box-top { border-top: 1.5px solid #000; }
+    .kb-summary-table td.kb-box-bottom { border-bottom: 3px double #000; }
+    .kb-zaehl-table th, .kb-zaehl-table td {
+        border: 1px solid #d5d5d5;
+        padding: 5px 10px;
+        font-size: 0.95em;
+    }
+    .kb-zaehl-table th { background: #f0f0f0; font-weight: 700; text-align: left; }
     .kb-zaehl-table td:first-child { text-align: right; }
     .kb-zaehl-table td:last-child { text-align: right; }
-    .kb-zaehl-table tbody tr:nth-child(even) { background: #fafafa; }
-    .kb-zaehl-table tfoot td { border-top: 1.5px solid #333; border-bottom: none; font-weight: 700; }
+    .kb-zaehl-table tfoot td { border-top: 1.5px solid #000; font-weight: 700; }
 
     @media (max-width: 700px) {
         .container { padding: 15px; }
@@ -349,8 +327,8 @@
                 box-shadow: none;
                 border-radius: 0;
             }
-            .kb-line-table, .kb-zaehl-table { page-break-inside: auto; }
-            .kb-line-table tr, .kb-zaehl-table tr, .kb-box { page-break-inside: avoid; }
+            .kb-summary-table, .kb-zaehl-table { page-break-inside: auto; }
+            .kb-summary-table tr, .kb-zaehl-table tr { page-break-inside: avoid; }
             .kb-day-block + .kb-day-block { page-break-before: always; }
             .no-print { display: none !important; }
             .print-only { display: inline !important; }
@@ -686,30 +664,32 @@
             const summe = kassenbestandSchluss + ausgabenSumme + privatentnahmen;
             const kasseneingang = summe - kassenbestandVortag; // = Bareinnahmen + Einlagen des Tages
 
-            const ausgabenRowsHtml = ausgabenLines.length === 0
-                ? `<p class="kb-empty-note">Keine Ausgaben erfasst.</p>`
-                : `<table class="kb-line-table"><tbody>${ausgabenLines.map(e =>
-                    `<tr><td>${e.note || 'Ausgabe'}</td><td class="kb-amount">${formatEuro(parseFloat(e.amount) || 0)}</td></tr>`
-                  ).join('')}<tr class="kb-total-row"><td>Zwischensumme Ausgaben + Privatentnahmen</td><td class="kb-amount">${formatEuro(ausgabenSumme + privatentnahmen)}</td></tr></tbody></table>`;
+            // Mindestens 8 Zeilen im Ausgaben-Block, genau wie in der
+            // Papiervorlage (leere Zeilen zum handschriftlichen Nachtragen,
+            // falls weniger als 8 Ausgaben erfasst sind).
+            const AUSGABEN_ZEILEN = Math.max(8, ausgabenLines.length);
 
-            const summaryHtml = `
-                <div class="kb-box">
-                    <span class="kb-box-label">Kassenbestand bei Geschäftsschluss</span>
-                    <span class="kb-box-value">${formatEuro(kassenbestandSchluss)}</span>
-                </div>
-
-                <div class="kb-section-title">Zuzüglich Ausgaben im Laufe des Tages</div>
-                ${ausgabenRowsHtml}
-                <p class="kb-info-line">Privatentnahmen (durch Eigenbeleg nachzuweisen): <strong>${formatEuro(privatentnahmen)}</strong></p>
-                <p class="kb-info-line">Summe: <strong>${formatEuro(summe)}</strong> &nbsp;−&nbsp; Kassenbestand des Vortages: <strong>${formatEuro(kassenbestandVortag)}</strong></p>
-
-                <div class="kb-box kb-box-final">
-                    <span class="kb-box-label">Kasseneingang</span>
-                    <span class="kb-box-value">${formatEuro(kasseneingang)}</span>
-                </div>
-
-                <p class="kb-info-line">Einnahmen 7% USt: <strong>${formatEuro(kasseneingang)}</strong> &nbsp;·&nbsp; Einlagen (durch Eigenbeleg nachzuweisen): <strong>${formatEuro(einlagen)}</strong></p>
-            `;
+            const rows = [];
+            rows.push(`<tr><td class="kb-bold">Kassenbestand bei Geschäftsschluss</td><td></td><td class="kb-amount kb-bold kb-box-top kb-box-bottom">${formatEuro(kassenbestandSchluss)}</td></tr>`);
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td colspan="3">zuzüglich Ausgaben im Laufe des Tages</td></tr>`);
+            for (let i = 0; i < AUSGABEN_ZEILEN; i++) {
+                const e = ausgabenLines[i];
+                const label = e ? (e.note || '') : '';
+                const amount = e ? formatEuro(parseFloat(e.amount) || 0) : '';
+                rows.push(`<tr><td>${label}</td><td class="kb-amount">${amount}</td><td></td></tr>`);
+            }
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td>Privatentnahmen (durch Eigenbeleg nachzuweisen)</td><td class="kb-amount">${formatEuro(privatentnahmen)}</td><td></td></tr>`);
+            rows.push(`<tr><td class="kb-bold">Summe</td><td class="kb-amount kb-bold kb-box-top">${formatEuro(ausgabenSumme + privatentnahmen)}</td><td class="kb-amount kb-bold kb-box-top">${formatEuro(summe)}</td></tr>`);
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td class="kb-bold">abzüglich Kassenbestand des Vortages</td><td></td><td class="kb-amount kb-bold kb-box-top">${formatEuro(kassenbestandVortag)}</td></tr>`);
+            rows.push(`<tr><td>Kasseneingang</td><td></td><td class="kb-amount kb-bold kb-box-top kb-box-bottom">${formatEuro(kasseneingang)}</td></tr>`);
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td>Einnahmen 7% USt</td><td class="kb-amount">${formatEuro(kasseneingang)}</td><td></td></tr>`);
+            rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
+            rows.push(`<tr><td>Einlagen (durch Eigenbeleg nachzuweisen)</td><td class="kb-amount">${formatEuro(einlagen)}</td><td></td></tr>`);
 
             const counts = currentZaehlungCounts(dateIso);
             const zaehlRows = DENOMINATIONS.map(d => {
@@ -735,17 +715,12 @@
 
             return `
                 <div class="kb-day-block">
-                    <div class="kb-letterhead">
-                        <div class="kb-brand">🍦 EisFavorite</div>
-                        <div style="text-align:right;">
-                            <div class="kb-doctitle">Kassenbericht</div>
-                            <div class="kb-date">${isoToDe(dateIso)}</div>
-                        </div>
-                    </div>
-
-                    ${summaryHtml}
-
-                    <div class="kb-section-title">Kassenzählprotokoll</div>
+                    <h2 style="margin:10px 0 20px;">Kassenbericht vom ${isoToDe(dateIso)}</h2>
+                    <table class="kb-summary-table">
+                        <colgroup><col class="kb-col-a"><col class="kb-col-b"><col class="kb-col-c"></colgroup>
+                        <tbody>${rows.join('')}</tbody>
+                    </table>
+                    <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
                     <table class="kb-zaehl-table">
                         <thead><tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr></thead>
                         <tbody>${zaehlRows}</tbody>
