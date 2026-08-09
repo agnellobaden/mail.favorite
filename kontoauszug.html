@@ -184,6 +184,7 @@
                 <option value="offen">Nur noch zu kategorisieren</option>
                 <option value="geschaeft">Nur Geschäftsausgaben</option>
                 <option value="privat">Nur Privat</option>
+                <option value="zahlungseingang">Nur Zahlungseingänge</option>
             </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
@@ -319,7 +320,7 @@
                 return;
             }
 
-            let imported = 0, skippedIncome = 0, skippedDuplicate = 0;
+            let imported = 0, skippedDuplicate = 0;
             const batch = db.batch();
             let batchCount = 0;
 
@@ -335,9 +336,11 @@
                 const betrag = parseFloat(betragStr);
                 if (isNaN(betrag)) continue;
 
-                // Nur Ausgaben (negative Beträge) importieren - Einnahmen
-                // per Überweisung werden bereits über Tageseinnahmen erfasst.
-                if (betrag >= 0) { skippedIncome++; continue; }
+                // Ausgaben (negativ) UND Einnahmen (positiv) importieren -
+                // Einnahmen dienen als Zahlungsnachweis zu den Rechnungen
+                // (siehe Steuerreport "Buchhaltungsordner"), zählen aber
+                // NICHT als Betriebsausgabe.
+                const richtung = betrag < 0 ? 'ausgabe' : 'einnahme';
 
                 const buchungstext = idx['Buchungstext'] != null ? cols[idx['Buchungstext']] : '';
                 const verwendungszweck = idx['Verwendungszweck'] != null ? cols[idx['Verwendungszweck']].trim() : '';
@@ -351,13 +354,15 @@
                     dateIso: dateIso,
                     date: isoToDe(dateIso),
                     betrag: Math.abs(betrag),
+                    richtung: richtung,
                     buchungstext: buchungstext,
                     verwendungszweck: verwendungszweck,
                     empfaenger: empfaenger,
-                    // Standardmäßig als Geschäftsausgabe eingetragen - nur
-                    // auf "Privat" umstellen, wenn es tatsächlich keine
-                    // Betriebsausgabe ist.
-                    category: 'geschaeft',
+                    // Ausgaben standardmäßig als Geschäftsausgabe eingetragen
+                    // (nur bei Bedarf auf "Privat" umstellen); Einnahmen
+                    // bekommen automatisch "Zahlungseingang" und tauchen
+                    // nicht in der Kategorie-Auswahl auf.
+                    category: richtung === 'ausgabe' ? 'geschaeft' : 'zahlungseingang',
                     note: '',
                     importedAtMs: Date.now()
                 }, { merge: true });
@@ -373,19 +378,19 @@
 
             if (batchCount > 0) {
                 batch.commit().then(() => {
-                    alert(`✅ ${imported} Buchung(en) importiert.\n${skippedDuplicate} bereits vorhanden (übersprungen).\n${skippedIncome} Einnahmen ignoriert (nur Ausgaben werden importiert).`);
+                    alert(`✅ ${imported} Buchung(en) importiert.\n${skippedDuplicate} bereits vorhanden (übersprungen).`);
                 }).catch(err => {
                     alert('❌ Fehler beim Speichern: ' + err.message);
                 });
             } else if (imported === 0) {
-                alert(`Keine neuen Ausgaben gefunden.\n${skippedDuplicate} bereits vorhanden, ${skippedIncome} Einnahmen ignoriert.`);
+                alert(`Keine neuen Buchungen gefunden.\n${skippedDuplicate} bereits vorhanden.`);
             }
         }
 
         function renderAll() {
             const geschaeft = allEntries.filter(e => e.category === 'geschaeft').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
             const privat = allEntries.filter(e => e.category === 'privat').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
-            const offen = allEntries.filter(e => !e.category).length;
+            const offen = allEntries.filter(e => e.richtung !== 'einnahme' && !e.category).length;
 
             document.getElementById('statOffen').textContent = offen;
             document.getElementById('statGeschaeft').textContent = formatEuro(geschaeft);
@@ -397,7 +402,7 @@
         function renderTable() {
             const filter = document.getElementById('catFilter').value;
             let entries = [...allEntries].sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
-            if (filter === 'offen') entries = entries.filter(e => !e.category);
+            if (filter === 'offen') entries = entries.filter(e => e.richtung !== 'einnahme' && !e.category);
             else if (filter !== 'alle') entries = entries.filter(e => e.category === filter);
 
             const tbody = document.getElementById('entriesBody');
@@ -412,19 +417,24 @@
 
             tbody.innerHTML = entries.map(e => {
                 const catClass = e.category === 'geschaeft' ? 'geschaeft' : e.category === 'privat' ? 'privat' : 'offen';
+                const isEinnahme = e.richtung === 'einnahme';
+                const amountHtml = isEinnahme
+                    ? `<span style="color:#28a745;">+ ${formatEuro(parseFloat(e.betrag) || 0)}</span>`
+                    : `<span style="color:#e74c3c;">- ${formatEuro(parseFloat(e.betrag) || 0)}</span>`;
+                const categoryHtml = isEinnahme
+                    ? `<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#d4edda; color:#155724;">💰 Zahlungseingang</span>`
+                    : `<select class="cat-select ${catClass}" onchange="setCategory('${e.id}', this.value)">
+                            <option value="" ${!e.category ? 'selected' : ''}>- wählen -</option>
+                            <option value="geschaeft" ${e.category === 'geschaeft' ? 'selected' : ''}>🧾 Geschäftsausgabe</option>
+                            <option value="privat" ${e.category === 'privat' ? 'selected' : ''}>🏠 Privat</option>
+                        </select>`;
                 return `
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.buchungstext || '-'}</td>
                     <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}</td>
-                    <td class="amount-cell">- ${formatEuro(parseFloat(e.betrag) || 0)}</td>
-                    <td>
-                        <select class="cat-select ${catClass}" onchange="setCategory('${e.id}', this.value)">
-                            <option value="" ${!e.category ? 'selected' : ''}>- wählen -</option>
-                            <option value="geschaeft" ${e.category === 'geschaeft' ? 'selected' : ''}>🧾 Geschäftsausgabe</option>
-                            <option value="privat" ${e.category === 'privat' ? 'selected' : ''}>🏠 Privat</option>
-                        </select>
-                    </td>
+                    <td class="amount-cell">${amountHtml}</td>
+                    <td>${categoryHtml}</td>
                     <td>
                         <div style="display:flex; gap:4px; align-items:center;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
