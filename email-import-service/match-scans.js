@@ -56,6 +56,31 @@ function extractKunde(text) {
     return null;
 }
 
+function parseGermanNumber(str) {
+    return parseFloat(String(str).replace(/\./g, '').replace(',', '.'));
+}
+
+// Metro-Rechnungen (und ähnliche) weisen die MwSt oft AUF DERSELBEN
+// Rechnung in mehreren Sätzen aus (z.B. Lebensmittel 7% + sonstige Waren
+// 19%, jeweils mit eigener Zeile "Nettowert A/B=Satz% MwSt Brutto"). Statt
+// einen einzigen Satz auf den Gesamtbetrag zu schätzen, wird hier jede
+// Zeile einzeln gelesen und die tatsächlich ausgewiesene Vorsteuer exakt
+// aufsummiert - damit ans Finanzamt weder zu viel noch zu wenig geht.
+function extractMwstBreakdown(text) {
+    const regex = /([\d.]+,\d{2})\s+[A-Z]=\s*(\d+),\d{2}%\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})/g;
+    const lines = [];
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+        lines.push({
+            netto: parseGermanNumber(m[1]),
+            satz: parseInt(m[2], 10),
+            mwst: parseGermanNumber(m[3]),
+            brutto: parseGermanNumber(m[4])
+        });
+    }
+    return lines;
+}
+
 function extractDateAndAmount(filePath) {
     const text = runPdftotext(filePath);
     if (!text) return null;
@@ -63,7 +88,21 @@ function extractDateAndAmount(filePath) {
     const amountMatches = [...text.matchAll(/SUMME EUR\s*([\d.]+,\d{2})/g)];
     if (!dateMatch || amountMatches.length === 0) return null;
     const amountStr = amountMatches[amountMatches.length - 1][1].replace(/\./g, '').replace(',', '.');
-    return { dateIso: deToIso(dateMatch[1]), amount: parseFloat(amountStr), kunde: extractKunde(text) };
+    const amount = parseFloat(amountStr);
+
+    const mwstLines = extractMwstBreakdown(text);
+    let vorsteuerExact = null;
+    if (mwstLines.length > 0) {
+        const summe = mwstLines.reduce((s, l) => s + l.brutto, 0);
+        // Nur übernehmen, wenn die Summe der Einzelzeilen zum
+        // Rechnungsgesamtbetrag passt (Rundungstoleranz 2 Cent) - sonst
+        // lieber gar nichts Exaktes behaupten als etwas Falsches.
+        if (Math.abs(summe - amount) < 0.02) {
+            vorsteuerExact = Math.round(mwstLines.reduce((s, l) => s + l.mwst, 0) * 100) / 100;
+        }
+    }
+
+    return { dateIso: deToIso(dateMatch[1]), amount, kunde: extractKunde(text), vorsteuerExact };
 }
 
 async function main() {
@@ -112,6 +151,9 @@ async function main() {
             fields.kunde = info.kunde;
             fields.kundeSource = 'scan'; // erkannt aus dem Beleg - im UI nicht überschreibbar
         }
+        if (info.vorsteuerExact != null) {
+            fields.vorsteuerExact = info.vorsteuerExact; // exakt aus dem Beleg gelesen, ersetzt die Schätzung per einzelnem MwSt-Satz
+        }
 
         // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
         // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen
@@ -123,7 +165,7 @@ async function main() {
         }
 
         await db.collection('kontoauszug').doc(match.id).set(fields, { merge: true });
-        console.log(`✅ "${file}" -> ${match.date} ${match.betrag} € (${match.empfaenger || match.verwendungszweck || ''})${info.kunde ? ' [' + info.kunde + ']' : ''}`);
+        console.log(`✅ "${file}" -> ${match.date} ${match.betrag} € (${match.empfaenger || match.verwendungszweck || ''})${info.kunde ? ' [' + info.kunde + ']' : ''}${info.vorsteuerExact != null ? ' [Vorsteuer exakt: ' + info.vorsteuerExact.toFixed(2) + ' €]' : ' [Vorsteuer: geschätzt]'}`);
         matched++;
     }
 

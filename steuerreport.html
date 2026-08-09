@@ -701,6 +701,7 @@
                 kunde: e.kunde || '',
                 kategorie: e.kategorie || 'Sonstiges',
                 mwstSatz: e.mwstSatz != null ? e.mwstSatz : 19,
+                vorsteuerExact: e.vorsteuerExact != null ? e.vorsteuerExact : null,
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
             }));
         }
@@ -710,6 +711,11 @@
         // angegebenen Satz wird konservativ 19% angenommen (Standardsatz).
         function calcVorsteuer(expenses) {
             return expenses.reduce((s, e) => {
+                // Exakt aus dem gescannten Beleg gelesen (z.B. bei Metro-
+                // Rechnungen mit gemischten 7%/19%-Positionen auf derselben
+                // Rechnung) - genauer als eine Schätzung über einen
+                // einzelnen MwSt-Satz auf den Gesamtbetrag.
+                if (e.vorsteuerExact != null) return s + e.vorsteuerExact;
                 const satz = e.mwstSatz != null ? e.mwstSatz : 19;
                 if (satz <= 0) return s;
                 return s + (parseFloat(e.amount) || 0) * satz / (100 + satz);
@@ -1020,6 +1026,9 @@
                     scanHtml = `<div class="folder-payment"><div>✅ <span class="folder-label">Beleg gescannt</span> - ${e.scanFile} (zu groß zum Anzeigen, Datei lokal im scan-Ordner öffnen)</div></div>`;
                 } else {
                     scanHtml = `<div class="folder-payment missing"><div>⚠ <span class="folder-label">Kein Scan gefunden</span> im scan-Ordner für diese Buchung.</div></div>`;
+                }
+                if (e.vorsteuerExact != null) {
+                    scanHtml += `<div class="folder-payment"><div>✓ <span class="folder-label">Vorsteuer exakt aus Beleg</span> (ggf. gemischte MwSt-Sätze) - ${formatEuro(e.vorsteuerExact)}</div></div>`;
                 }
             }
 
@@ -1362,7 +1371,7 @@
             tbody.innerHTML = sorted.map(e => `<tr>
                 <td>${e.date || e.dateIso || '-'}</td>
                 <td>${e.kategorie || 'Sonstiges'}</td>
-                <td>${e.mwstSatz != null ? e.mwstSatz : 19}%</td>
+                <td>${e.vorsteuerExact != null ? `✓ exakt (${formatEuro(e.vorsteuerExact)})` : (e.mwstSatz != null ? e.mwstSatz : 19) + '% (geschätzt)'}</td>
                 <td>${e.belegNr || '-'}</td>
                 <td>${e.note || '-'}</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>

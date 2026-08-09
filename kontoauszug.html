@@ -449,13 +449,15 @@
                 const kategorieHtml = (!isEinnahme && e.category === 'geschaeft')
                     ? `<select class="cat-select" onchange="setKategorie('${e.id}', this.value)">${EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === e.kategorie ? 'selected' : ''}>${k}</option>`).join('')}</select>`
                     : '-';
-                const mwstHtml = (!isEinnahme && e.category === 'geschaeft')
-                    ? `<select class="cat-select" onchange="setMwstSatz('${e.id}', this.value)">
-                        <option value="19" ${e.mwstSatz === 19 ? 'selected' : ''}>19%</option>
-                        <option value="7" ${e.mwstSatz === 7 ? 'selected' : ''}>7%</option>
-                        <option value="0" ${e.mwstSatz === 0 ? 'selected' : ''}>0%</option>
-                      </select>`
-                    : '-';
+                const mwstHtml = e.vorsteuerExact != null
+                    ? `<span title="Exakt aus dem Beleg gelesen (ggf. gemischte MwSt-Sätze wie 7%+19% auf einer Rechnung)" style="color:#28a745; font-weight:700;">✓ exakt (${formatEuro(e.vorsteuerExact)})</span>`
+                    : (!isEinnahme && e.category === 'geschaeft')
+                        ? `<select class="cat-select" onchange="setMwstSatz('${e.id}', this.value)">
+                            <option value="19" ${e.mwstSatz === 19 ? 'selected' : ''}>19%</option>
+                            <option value="7" ${e.mwstSatz === 7 ? 'selected' : ''}>7%</option>
+                            <option value="0" ${e.mwstSatz === 0 ? 'selected' : ''}>0%</option>
+                          </select>`
+                        : '-';
                 return `
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
