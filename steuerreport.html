@@ -156,6 +156,10 @@
         .container { box-shadow: none; border-radius: 0; max-width: 100%; padding: 10mm; }
         .no-print { display: none !important; }
         @page { margin: 10mm; }
+        /* Nur der Buchhaltungsordner-Abschnitt drucken, wenn über den
+           dedizierten Druckbutton ausgelöst - alles andere ausblenden. */
+        body.printing-folder-only .container > *:not(#folderSection) { display: none !important; }
+        .folder-page { page-break-inside: avoid; }
     }
 </style>
 </head>
@@ -266,9 +270,14 @@
             <div class="empty-state" id="journalEmpty" style="display:none;">Keine Buchungen im gewählten Zeitraum.</div>
         </div>
 
-        <h2 class="section-title">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
-        <p style="color:#666; font-size:0.9em; margin:-6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet.</p>
-        <div id="folderView"></div>
+        <div id="folderSection">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <h2 class="section-title" style="margin:0;">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
+                <button class="btn btn-secondary no-print" onclick="printFolderView()">🖨️ Nur diesen Ordner drucken</button>
+            </div>
+            <p style="color:#666; font-size:0.9em; margin:6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet.</p>
+            <div id="folderView"></div>
+        </div>
 
         <h2 class="section-title">Betriebseinnahmen-Liste (mit Rechnung)</h2>
         <div class="table-wrap">
@@ -885,6 +894,14 @@
         // Einnahme auftauchen, zu EINER PDF zusammenfügen (die bereits als
         // fertige PDF im Rechnungsarchiv gespeicherten Dateien werden mit
         // pdf-lib direkt zusammengefügt, nicht neu erzeugt).
+        function printFolderView() {
+            document.body.classList.add('printing-folder-only');
+            window.print();
+        }
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('printing-folder-only');
+        });
+
         async function exportInvoicesBundlePdf() {
             const revenue = filteredRevenue();
             const invoices = [];
