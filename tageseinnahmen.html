@@ -38,6 +38,41 @@
     }
     .back-link { color: #667eea; text-decoration: none; font-weight: 600; }
     h1 { color: #333; margin: 0; font-size: 1.8em; }
+
+    .burger-wrap { position: relative; }
+    .burger-btn {
+        padding: 8px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        color: #333;
+    }
+    .burger-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        min-width: 220px;
+        padding: 8px;
+        z-index: 200;
+    }
+    .burger-dropdown.open { display: block; }
+    .burger-dropdown a {
+        display: block;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #333;
+        text-decoration: none;
+        font-size: 0.9em;
+    }
+    .burger-dropdown a:hover { background: #f0f0f8; }
     .subtitle { color: #666; margin-bottom: 20px; }
 
     .stats {
@@ -161,6 +196,16 @@
     <div class="container">
         <div class="top-bar">
             <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+            <div class="burger-wrap">
+                <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
+                <div class="burger-dropdown" id="burgerDropdown">
+                    <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
+                    <a href="kassenbuch.html">🧾 Kassenbuch</a>
+                    <a href="kontoauszug.html">🏦 Kontoauszug</a>
+                    <a href="rechnungsarchiv.html">🗂️ Rechnungsarchiv</a>
+                    <a href="steuerreport.html">📊 Steuerreport</a>
+                </div>
+            </div>
         </div>
         <h1>💶 Tageseinnahmen</h1>
         <p class="subtitle">Täglicher Eisverkauf (z.B. freier Verkauf ohne Buchung) - Datum + Umsatz erfassen und nach Tag/Woche/Monat/gesamt auswerten.</p>
@@ -684,6 +729,17 @@
                 alert('❌ Konnte nicht gelöscht werden: ' + err.message);
             });
         }
+
+        function toggleBurgerMenu() {
+            document.getElementById('burgerDropdown').classList.toggle('open');
+        }
+        function closeBurgerMenu() {
+            document.getElementById('burgerDropdown').classList.remove('open');
+        }
+        document.addEventListener('click', (e) => {
+            const wrap = document.querySelector('.burger-wrap');
+            if (wrap && !wrap.contains(e.target)) closeBurgerMenu();
+        });
 
         document.getElementById('entryDate').value = todayIso();
         initFirebase();
