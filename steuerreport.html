@@ -555,6 +555,7 @@
                 date: e.date,
                 amount: e.betrag,
                 belegNr: e.belegNr || '',
+                scanFile: e.scanFile || '',
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
             }));
         }
@@ -807,9 +808,16 @@
         // Quittung im scan-Ordner, bei Kasse mit der Notiz aus dem Kassenbuch.
         function buildExpensePageHtml(e, quelle) {
             const beschreibung = e.note || (quelle === 'Bank' ? 'Bankausgabe' : 'Barausgabe');
-            const belegHtml = e.belegNr
+            const belegNrHtml = e.belegNr
                 ? `<span class="folder-label">Beleg-Nr.</span> <strong>${e.belegNr}</strong>`
                 : (quelle === 'Bank' ? '<span style="color:#e74c3c;">⚠ Keine Beleg-Nr. vergeben - in Kontoauszug nachtragen</span>' : '');
+
+            let scanHtml = '';
+            if (quelle === 'Bank') {
+                scanHtml = e.scanFile
+                    ? `<div class="folder-payment"><div>✅ <span class="folder-label">Beleg gescannt</span> - ${e.scanFile}</div></div>`
+                    : `<div class="folder-payment missing"><div>⚠ <span class="folder-label">Kein Scan gefunden</span> im scan-Ordner für diese Buchung.</div></div>`;
+            }
 
             return `<div class="folder-page">
                 <div class="folder-invoice" style="border-left-color:#e74c3c; background:#fdf5f4;">
@@ -817,8 +825,9 @@
                         <span class="folder-label">Ausgabe (${quelle})</span><br>
                         ${e.date || e.dateIso || ''} - ${beschreibung} - <strong>${formatEuro(parseFloat(e.amount) || 0)}</strong>
                     </div>
-                    ${belegHtml ? `<div>${belegHtml}</div>` : ''}
+                    ${belegNrHtml ? `<div>${belegNrHtml}</div>` : ''}
                 </div>
+                ${scanHtml}
             </div>`;
         }
 

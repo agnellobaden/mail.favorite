@@ -439,6 +439,7 @@
                         <div style="display:flex; gap:4px; align-items:center;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
                             ${!e.belegNr ? `<button class="btn btn-secondary btn-sm" title="Nächste Beleg-Nr. vergeben" onclick="assignNextBelegNr('${e.id}', '${e.dateIso}')">🔢</button>` : ''}
+                            ${e.scanFile ? `<span title="Scan gefunden: ${e.scanFile}" style="color:#28a745;">✅</span>` : ''}
                         </div>
                     </td>
                     <td><input type="text" class="note-input" value="${(e.note || '').replace(/"/g, '&quot;')}" onchange="setNote('${e.id}', this.value)" placeholder="optional"></td>
