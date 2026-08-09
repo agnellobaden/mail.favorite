@@ -200,6 +200,13 @@
         .container { padding: 15px; }
         table { font-size: 0.8em; }
         th, td { padding: 8px 6px; }
+
+        /* Kennzahlen-Kacheln auf dem Handy als 2x2-Raster nebeneinander
+           statt einzeln untereinander. */
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .stat-card { min-width: 0; padding: 10px 8px; }
+        .stat-card .label { font-size: 0.65em; }
+        .stat-card .value { font-size: 1.15em; }
     }
 
     @media print {
