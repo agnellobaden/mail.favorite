@@ -723,10 +723,14 @@
             const filtered = allInvoices
                 .map(inv => ({ inv, iso: parseDeDateToIso(inv.invoiceDate || inv.date) }))
                 .filter(x => x.iso && x.iso >= von && x.iso <= bis)
+                // Nur Rechnungen mit Adresse und tatsächlichem Umsatz - leere
+                // Entwürfe ohne Kundenadresse oder ohne Betrag sollen den
+                // Sammeldruck nicht aufblähen.
+                .filter(x => ((x.inv.customerStreet || '').trim() || (x.inv.customerCity || '').trim()) && parseAmountToNumber(x.inv.amount) > 0)
                 .sort((a, b) => a.iso.localeCompare(b.iso));
 
             if (filtered.length === 0) {
-                alert('Keine Rechnungen mit gültigem Datum in diesem Zeitraum gefunden.');
+                alert('Keine Rechnungen mit Adresse und Umsatz in diesem Zeitraum gefunden.');
                 return;
             }
 

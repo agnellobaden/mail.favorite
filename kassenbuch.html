@@ -717,17 +717,27 @@
             if (!von || !bis) { alert('Bitte "von" und "bis" Datum wählen.'); return; }
             if (von > bis) { alert('Das "von"-Datum muss vor dem "bis"-Datum liegen.'); return; }
 
-            const dates = [];
+            const allDates = [];
             let cur = von;
             while (cur <= bis) {
-                dates.push(cur);
+                allDates.push(cur);
                 const d = new Date(cur + 'T00:00:00');
                 d.setDate(d.getDate() + 1);
                 cur = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             }
-            if (dates.length > 62 && !confirm(`${dates.length} Tage im Zeitraum - das ergibt ${dates.length} Seiten. Trotzdem fortfahren?`)) return;
 
-            document.getElementById('kbPrintArea').innerHTML = dates.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
+            // Nur Tage mit tatsächlichen Kassenbuch-Einträgen - Tage ohne
+            // Buchungen (z.B. Ruhetage) sollen den Sammeldruck nicht mit
+            // leeren Berichten aufblähen.
+            const datesWithEntries = allDates.filter(d => allEntries.some(e => e.dateIso === d));
+
+            if (datesWithEntries.length === 0) {
+                alert('Keine Kassenbuch-Einträge in diesem Zeitraum gefunden.');
+                return;
+            }
+            if (datesWithEntries.length > 62 && !confirm(`${datesWithEntries.length} Tage mit Einträgen im Zeitraum - das ergibt ${datesWithEntries.length} Seiten. Trotzdem fortfahren?`)) return;
+
+            document.getElementById('kbPrintArea').innerHTML = datesWithEntries.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
             document.getElementById('kassenberichtModal').style.display = 'block';
         }
 
