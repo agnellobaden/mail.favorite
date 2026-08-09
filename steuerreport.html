@@ -369,9 +369,17 @@
         <div id="folderSection">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <h2 class="section-title" id="sec-ordner" style="margin:0;">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
-                <button class="btn btn-secondary no-print" onclick="printFolderView()">🖨️ Nur diesen Ordner drucken</button>
+                <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <select id="folderKundeFilter" onchange="renderAll()">
+                        <option value="alle">Alle (beide Ordner)</option>
+                        <option value="Snack-Oase">🏪 Nur Snack-Oase</option>
+                        <option value="Mobiler Eisverkauf Agnello">🍦 Nur EisFavorite</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="printFolderView()">🖨️ Ordner drucken</button>
+                    <button class="btn btn-secondary" onclick="exportFolderBundlePdf()">📥 Als PDF mit Belegen</button>
+                </div>
             </div>
-            <p style="color:#666; font-size:0.9em; margin:6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet.</p>
+            <p style="color:#666; font-size:0.9em; margin:6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet. Mit dem Kunde-Filter oben lässt sich getrennt nach Snack-Oase und EisFavorite (Mobiler Eisverkauf Agnello) drucken bzw. exportieren - passend zu deinen zwei Papierordnern.</p>
             <div id="folderView"></div>
         </div>
 
@@ -619,7 +627,10 @@
                 amount: amount,
                 note: 'Event: ' + (b.company || b.name || 'Unbekannt'),
                 paymentMethod: paymentMethod,
-                fromBooking: true
+                fromBooking: true,
+                // Alle Buchungen/Events sind Mobiler Eisverkauf Agnello
+                // (EisFavorite) - Snack-Oase läuft nur über den Kontoauszug.
+                kunde: 'Mobiler Eisverkauf Agnello'
             };
         }
 
@@ -896,17 +907,30 @@
             return `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
 
+        // Alles ohne explizite Snack-Oase-Kennzeichnung gehört zum
+        // Haupt-Geschäft (Mobiler Eisverkauf Agnello / EisFavorite) - das
+        // Kassenbuch und die Buchungen/Events sind ohnehin nur diese Kasse,
+        // nur beim Kontoauszug (gemeinsames Konto) kann es Snack-Oase sein.
+        function entryKunde(e) {
+            return e.kunde || 'Mobiler Eisverkauf Agnello';
+        }
+
         // Baut EINE gemischte, chronologische Liste von "Ordnerseiten":
         // Rechnung+Zahlungseingang für Einnahmen, und je eine Seite pro
         // Ausgabe (egal ob bar aus dem Kassenbuch oder per Bank aus dem
         // Kontoauszug - Metro, Tanken, Netto, Amazon usw.) - so wie ein
-        // echter Buchhaltungsordner, nicht nur die Event-Rechnungen.
+        // echter Buchhaltungsordner, nicht nur die Event-Rechnungen. Mit
+        // dem Kunde-Filter getrennt nach den zwei Papierordnern (Snack-Oase
+        // / EisFavorite) druck-/exportierbar.
         function renderFolderView(revenue, cashExpenses, bankExpenses) {
             const container = document.getElementById('folderView');
+            const kundeFilter = document.getElementById('folderKundeFilter').value;
+            const matchesKunde = e => kundeFilter === 'alle' || entryKunde(e) === kundeFilter;
+
             const pages = [];
 
             const seenInvoiceIds = new Set();
-            revenue.forEach(e => {
+            revenue.filter(matchesKunde).forEach(e => {
                 const inv = invoiceForRevenueEntry(e);
                 if (inv && !seenInvoiceIds.has(inv.id)) {
                     seenInvoiceIds.add(inv.id);
@@ -914,10 +938,10 @@
                     pages.push({ sortIso, html: buildInvoicePageHtml(e, inv) });
                 }
             });
-            cashExpenses.forEach(e => {
+            cashExpenses.filter(matchesKunde).forEach(e => {
                 pages.push({ sortIso: e.dateIso, html: buildExpensePageHtml(e, 'Kasse') });
             });
-            bankExpenses.forEach(e => {
+            bankExpenses.filter(matchesKunde).forEach(e => {
                 pages.push({ sortIso: e.dateIso, html: buildExpensePageHtml(e, 'Bank') });
             });
 
@@ -1119,6 +1143,98 @@
                 link.click();
             } catch (err) {
                 alert('❌ Konnte Rechnungen nicht zusammenfügen: ' + err.message);
+            }
+        }
+
+        // Baut EINE PDF für den gewählten Papierordner (Kunde-Filter oben)
+        // im gewählten Jahr/Quartal: pro Buchung ein kurzes Deckblatt
+        // (Datum/Beschreibung/Betrag), direkt gefolgt von der eigentlichen
+        // Beleg-PDF (Rechnung bzw. gescannte Quittung), chronologisch
+        // sortiert - genau der Inhalt für den physischen Ordner.
+        async function exportFolderBundlePdf() {
+            const revenue = filteredRevenue();
+            const cashExpenses = filteredExpenses();
+            const bankExpenses = filteredBankExpenses();
+            const kundeFilter = document.getElementById('folderKundeFilter').value;
+            const matchesKunde = e => kundeFilter === 'alle' || entryKunde(e) === kundeFilter;
+
+            const items = [];
+            const seenInvoiceIds = new Set();
+            revenue.filter(matchesKunde).forEach(e => {
+                const inv = invoiceForRevenueEntry(e);
+                if (inv && !seenInvoiceIds.has(inv.id)) {
+                    seenInvoiceIds.add(inv.id);
+                    const sortIso = inv.invoiceDate ? parseDeDateToIso(inv.invoiceDate) : e.dateIso;
+                    items.push({
+                        sortIso,
+                        title: `Einnahme - Rechnung ${inv.invoiceNumber || ''}`,
+                        subtitle: `${inv.invoiceDate || e.date || ''}  ·  ${inv.customerName || e.note || ''}  ·  ${formatEuro(parseFloat(e.amount) || 0)}`,
+                        dataUri: inv.pdfDataUri || null
+                    });
+                }
+            });
+            cashExpenses.filter(matchesKunde).forEach(e => {
+                items.push({
+                    sortIso: e.dateIso,
+                    title: `Ausgabe (Kasse) - ${e.kategorie || 'Sonstiges'}`,
+                    subtitle: `${e.date || e.dateIso || ''}  ·  ${e.note || '-'}  ·  ${formatEuro(parseFloat(e.amount) || 0)}`,
+                    dataUri: null
+                });
+            });
+            bankExpenses.filter(matchesKunde).forEach(e => {
+                items.push({
+                    sortIso: e.dateIso,
+                    title: `Ausgabe (Bank) - ${e.kategorie || 'Sonstiges'}${e.belegNr ? ' · Beleg-Nr. ' + e.belegNr : ''}`,
+                    subtitle: `${e.date || e.dateIso || ''}  ·  ${e.note || '-'}  ·  ${formatEuro(parseFloat(e.amount) || 0)}`,
+                    dataUri: e.scanDataUri || null
+                });
+            });
+
+            items.sort((a, b) => (a.sortIso || '').localeCompare(b.sortIso || ''));
+
+            if (items.length === 0) {
+                alert('Keine Buchungen im gewählten Zeitraum/Ordner gefunden.');
+                return;
+            }
+
+            try {
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
+                const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+                const fontRegular = await mergedPdf.embedFont(StandardFonts.Helvetica);
+
+                for (const item of items) {
+                    const page = mergedPdf.addPage([595.28, 841.89]); // A4
+                    page.drawText('EisFavorite', { x: 50, y: 780, size: 12, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+                    page.drawText(item.title, { x: 50, y: 740, size: 16, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
+                    page.drawText(item.subtitle, { x: 50, y: 715, size: 11, font: fontRegular, color: rgb(0.2, 0.2, 0.2) });
+                    if (!item.dataUri) {
+                        page.drawText('(keine gespeicherte Beleg-PDF für diese Buchung)', { x: 50, y: 685, size: 10, font: fontRegular, color: rgb(0.6, 0.6, 0.6) });
+                    }
+
+                    if (item.dataUri) {
+                        try {
+                            const bytes = dataUriToBytes(item.dataUri);
+                            const srcPdf = await PDFDocument.load(bytes);
+                            const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                            pages.forEach(p => mergedPdf.addPage(p));
+                        } catch (err) {
+                            page.drawText('(Beleg-PDF konnte nicht angehängt werden: ' + err.message + ')', { x: 50, y: 685, size: 9, font: fontRegular, color: rgb(0.8, 0.2, 0.2) });
+                        }
+                    }
+                }
+
+                const mergedBytes = await mergedPdf.save();
+                const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                const ordnerName = kundeFilter === 'alle' ? 'Alle' : kundeFilter.replace(/\s+/g, '_');
+                const von = selectedYear() === 'alle' ? 'alle' : selectedYear();
+                const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
+                link.download = `Ordner_${ordnerName}_${von}${quarterSuffix}.pdf`;
+                link.click();
+            } catch (err) {
+                alert('❌ Konnte Ordner-PDF nicht erstellen: ' + err.message);
             }
         }
 
