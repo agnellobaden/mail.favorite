@@ -102,20 +102,22 @@
         gap: 10px;
         flex-wrap: wrap;
         align-items: flex-end;
-        background: #f8f9fa;
+        background: #f1f2f6;
         padding: 18px;
         border-radius: 10px;
         margin-bottom: 20px;
-        border: 2px solid #eee;
+        border: 2px solid #d5d7e0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }
     .add-form .field { display: flex; flex-direction: column; gap: 4px; }
     .add-form label { font-size: 0.8em; font-weight: 700; color: #555; }
     .add-form input {
         padding: 10px 12px;
-        border: 2px solid #ddd;
+        border: 2px solid #b8bcc8;
         border-radius: 8px;
         font-size: 0.95em;
         font-family: inherit;
+        background: white;
     }
     .add-form input#entryNote { min-width: 220px; flex: 1; }
 
@@ -136,7 +138,7 @@
     .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .filter-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-    .filter-row select { padding: 10px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; }
+    .filter-row select { padding: 10px 14px; border: 2px solid #b8bcc8; border-radius: 8px; font-size: 0.95em; background: white; }
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
@@ -199,6 +201,8 @@
             <div class="burger-wrap">
                 <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
                 <div class="burger-dropdown" id="burgerDropdown">
+                    <a href="#" onclick="closeBurgerMenu(); openTagesbericht(); return false;">📄 Tagesbericht (für Steuerberater)</a>
+                    <hr>
                     <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
                     <a href="kassenbuch.html">🧾 Kassenbuch</a>
                     <a href="kontoauszug.html">🏦 Kontoauszug</a>
@@ -261,7 +265,6 @@
                 <option value="bar">Nur Kasse</option>
                 <option value="ueberweisung">Nur Überweisung</option>
             </select>
-            <button class="btn btn-secondary" onclick="openTagesbericht()">📄 Tagesbericht (für Steuerberater)</button>
         </div>
 
         <div class="table-wrap">
