@@ -330,6 +330,7 @@
     <script>
         let db = null;
         let allEntries = [];
+        let allTageseinnahmenEntries = []; // "Kasse"-Einträge aus tageseinnahmen.html (nur Anzeige, Bearbeitung dort)
         let allZaehlungen = {}; // Kassenzählprotokoll je Tag, key = dateIso
 
         const TYPE_LABELS = {
@@ -361,6 +362,30 @@
                 refreshAll();
             }, error => {
                 console.error('Firestore-Fehler:', error);
+            });
+            // Bareinnahmen aus tageseinnahmen.html automatisch übernehmen -
+            // dort als Zahlungsart "Kasse" erfasste Einträge erscheinen hier
+            // als Bareinnahme, ohne sie ein zweites Mal eintippen zu müssen.
+            db.collection('tageseinnahmen').onSnapshot(snapshot => {
+                allTageseinnahmenEntries = [];
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (d.paymentMethod !== 'bar') return;
+                    allTageseinnahmenEntries.push({
+                        id: 'tageseinnahme-' + doc.id,
+                        sourceId: doc.id,
+                        dateIso: d.dateIso,
+                        date: d.date,
+                        type: 'einnahme',
+                        amount: parseFloat(d.amount) || 0,
+                        note: d.note || 'Tageseinnahme',
+                        createdAtMs: d.createdAtMs || 0,
+                        fromTageseinnahmen: true
+                    });
+                });
+                refreshAll();
+            }, error => {
+                console.error('Firestore-Fehler (Tageseinnahmen):', error);
             });
             db.collection('kassenzaehlung').onSnapshot(snapshot => {
                 allZaehlungen = {};
@@ -397,12 +422,16 @@
             return `${d}.${m}.${y}`;
         }
 
+        function combinedEntries() {
+            return allEntries.concat(allTageseinnahmenEntries);
+        }
+
         // Chronologisch sortierte Liste (Datum, dann Erfassungszeitpunkt) -
         // Grundlage für den fortlaufenden Kassenbestand. Wird bei jedem
         // Render frisch berechnet, damit nachträgliches Bearbeiten/Löschen
         // automatisch alle folgenden Salden korrigiert.
         function sortedEntriesChronological() {
-            return [...allEntries].sort((a, b) => {
+            return [...combinedEntries()].sort((a, b) => {
                 const dateCompare = (a.dateIso || '').localeCompare(b.dateIso || '');
                 if (dateCompare !== 0) return dateCompare;
                 return (a.createdAtMs || 0) - (b.createdAtMs || 0);
@@ -429,7 +458,7 @@
 
             const monthPrefix = thisMonthPrefix();
             let einnahmenMonat = 0, ausgabenMonat = 0, entnahmenMonat = 0;
-            allEntries.filter(e => (e.dateIso || '').startsWith(monthPrefix)).forEach(e => {
+            combinedEntries().filter(e => (e.dateIso || '').startsWith(monthPrefix)).forEach(e => {
                 const amount = parseFloat(e.amount) || 0;
                 if (e.type === 'einnahme') einnahmenMonat += amount;
                 if (e.type === 'ausgabe') ausgabenMonat += amount;
@@ -443,7 +472,7 @@
         function updateMonthFilterOptions() {
             const select = document.getElementById('monthFilter');
             const current = select.value;
-            const months = Array.from(new Set(allEntries.map(e => (e.dateIso || '').slice(0, 7)).filter(Boolean))).sort().reverse();
+            const months = Array.from(new Set(combinedEntries().map(e => (e.dateIso || '').slice(0, 7)).filter(Boolean))).sort().reverse();
             select.innerHTML = '<option value="alle">Alle Monate</option>' +
                 months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
             if (months.includes(current)) select.value = current;
@@ -489,17 +518,19 @@
                 const amountClass = t.sign >= 0 ? 'amount-plus' : 'amount-minus';
                 const amountSign = t.sign >= 0 ? '+' : '-';
                 return `
-                <tr>
+                <tr${e.fromTageseinnahmen ? ' style="background:#f0f7ff;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${typeBadge(e.type)}</td>
-                    <td>${e.note || '-'}</td>
+                    <td>${e.note || '-'}${e.fromTageseinnahmen ? ' <span style="color:#667eea; font-size:0.8em;">(aus Tageseinnahmen)</span>' : ''}</td>
                     <td class="${amountClass}">${amountSign} ${formatEuro(amount)}</td>
                     <td class="balance-cell">${formatEuro(e.balance)}</td>
                     <td>
-                        <div class="row-actions">
-                            <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
-                        </div>
+                        ${e.fromTageseinnahmen
+                            ? `<button class="btn btn-danger btn-sm" onclick="deleteTageseinnahmeEntry('${e.id}')" title="Löscht den Eintrag in Tageseinnahmen">🗑️ Tageseinnahme löschen</button>`
+                            : `<div class="row-actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
+                            </div>`}
                     </td>
                 </tr>
             `;
@@ -555,6 +586,18 @@
             });
         }
 
+        // Löscht den zugrundeliegenden Eintrag in tageseinnahmen.html - der
+        // Kassenbuch-Eintrag ist nur eine automatische Ableitung davon,
+        // keine eigene Buchung hier.
+        function deleteTageseinnahmeEntry(entryId) {
+            const entry = allTageseinnahmenEntries.find(e => e.id === entryId);
+            if (!entry) return;
+            if (!confirm(`Das löscht den Tageseinnahmen-Eintrag "${entry.note}" (${entry.date}, ${formatEuro(entry.amount)}) unwiderruflich.\n\nWirklich löschen?`)) return;
+            db.collection('tageseinnahmen').doc(entry.sourceId).delete().catch(err => {
+                alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
+        }
+
         // Kassenbericht für einen einzelnen Tag. Grundlage sind die
         // tatsächlich im Kassenbuch erfassten Buchungen (Bareinnahme,
         // Ausgabe, Einlage, Privatentnahme) - "Kasseneingang" zeigt also
@@ -593,7 +636,7 @@
         // über mehrere Tage - dort macht ein Eingabefeld je Tag keinen Sinn).
         function buildKassenberichtHtmlForDate(dateIso, editable) {
             const withBalance = entriesWithBalance();
-            const dayEntries = allEntries.filter(e => e.dateIso === dateIso);
+            const dayEntries = combinedEntries().filter(e => e.dateIso === dateIso);
             const ausgabenLines = dayEntries.filter(e => e.type === 'ausgabe');
             const privatentnahmen = dayEntries.filter(e => e.type === 'entnahme').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const einlagen = dayEntries.filter(e => e.type === 'einlage').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
@@ -729,7 +772,7 @@
             // Nur Tage mit tatsächlichen Kassenbuch-Einträgen - Tage ohne
             // Buchungen (z.B. Ruhetage) sollen den Sammeldruck nicht mit
             // leeren Berichten aufblähen.
-            const datesWithEntries = allDates.filter(d => allEntries.some(e => e.dateIso === d));
+            const datesWithEntries = allDates.filter(d => combinedEntries().some(e => e.dateIso === d));
 
             if (datesWithEntries.length === 0) {
                 alert('Keine Kassenbuch-Einträge in diesem Zeitraum gefunden.');
