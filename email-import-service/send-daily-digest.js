@@ -41,7 +41,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const EMAIL = 'eisfavorit@gmail.com';
-const DIGEST_RECIPIENT = 'agnello.baden@gmail.com';
+const DIGEST_RECIPIENT = 'eisfavorit@gmail.com';
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
