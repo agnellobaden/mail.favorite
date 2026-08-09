@@ -267,7 +267,7 @@
         </div>
 
         <h2 class="section-title">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
-        <p style="color:#666; font-size:0.9em; margin:-6px 0 10px;">Jede Rechnung mit dem passenden Zahlungseingang aus dem Kontoauszug darunter - wie eine Seite im Ordner für den Steuerberater. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet (setzt voraus, dass der passende Kontoauszug-Zeitraum in <a href="kontoauszug.html">Kontoauszug</a> importiert wurde).</p>
+        <p style="color:#666; font-size:0.9em; margin:-6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet.</p>
         <div id="folderView"></div>
 
         <h2 class="section-title">Betriebseinnahmen-Liste (mit Rechnung)</h2>
@@ -591,7 +591,7 @@
             document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
 
             renderJournal(revenue, cashExpenses, bankExpenses);
-            renderFolderView(revenue);
+            renderFolderView(revenue, cashExpenses, bankExpenses);
             renderRevenueTable(revenue);
             renderQuarterTable(revenue, allExpenses);
             renderMonthTable(revenue, allExpenses);
@@ -731,59 +731,95 @@
             return `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
 
-        function renderFolderView(revenue) {
+        // Baut EINE gemischte, chronologische Liste von "Ordnerseiten":
+        // Rechnung+Zahlungseingang für Einnahmen, und je eine Seite pro
+        // Ausgabe (egal ob bar aus dem Kassenbuch oder per Bank aus dem
+        // Kontoauszug - Metro, Tanken, Netto, Amazon usw.) - so wie ein
+        // echter Buchhaltungsordner, nicht nur die Event-Rechnungen.
+        function renderFolderView(revenue, cashExpenses, bankExpenses) {
             const container = document.getElementById('folderView');
-            const withInvoice = [];
-            const seenIds = new Set();
+            const pages = [];
+
+            const seenInvoiceIds = new Set();
             revenue.forEach(e => {
                 const inv = invoiceForRevenueEntry(e);
-                if (inv && !seenIds.has(inv.id)) {
-                    seenIds.add(inv.id);
-                    withInvoice.push({ entry: e, inv });
+                if (inv && !seenInvoiceIds.has(inv.id)) {
+                    seenInvoiceIds.add(inv.id);
+                    const sortIso = inv.invoiceDate ? parseDeDateToIso(inv.invoiceDate) : e.dateIso;
+                    pages.push({ sortIso, html: buildInvoicePageHtml(e, inv) });
                 }
             });
-            withInvoice.sort((a, b) => (a.inv.invoiceDate ? parseDeDateToIso(a.inv.invoiceDate) : '').localeCompare(b.inv.invoiceDate ? parseDeDateToIso(b.inv.invoiceDate) : ''));
+            cashExpenses.forEach(e => {
+                pages.push({ sortIso: e.dateIso, html: buildExpensePageHtml(e, 'Kasse') });
+            });
+            bankExpenses.forEach(e => {
+                pages.push({ sortIso: e.dateIso, html: buildExpensePageHtml(e, 'Bank') });
+            });
 
-            if (withInvoice.length === 0) {
-                container.innerHTML = '<div class="empty-state">Keine Rechnungen im gewählten Zeitraum.</div>';
+            pages.sort((a, b) => (a.sortIso || '').localeCompare(b.sortIso || ''));
+
+            if (pages.length === 0) {
+                container.innerHTML = '<div class="empty-state">Keine Buchungen im gewählten Zeitraum.</div>';
                 return;
             }
 
-            container.innerHTML = withInvoice.map(({ entry, inv }) => {
-                const invoiceBtn = inv.pdfDataUri
-                    ? `<button class="btn btn-secondary" style="padding:5px 10px; font-size:0.8em;" onclick="openInvoicePdf('${inv.id}')">📄 PDF öffnen</button>`
-                    : '';
+            container.innerHTML = pages.map(p => p.html).join('');
+        }
 
-                let paymentHtml;
-                if (entry.paymentMethod === 'bar') {
+        function buildInvoicePageHtml(entry, inv) {
+            const invoiceBtn = inv.pdfDataUri
+                ? `<button class="btn btn-secondary" style="padding:5px 10px; font-size:0.8em;" onclick="openInvoicePdf('${inv.id}')">📄 PDF öffnen</button>`
+                : '';
+
+            let paymentHtml;
+            if (entry.paymentMethod === 'bar') {
+                paymentHtml = `<div class="folder-payment">
+                    <div><span class="folder-label">Zahlung</span><br>💵 Barzahlung - kein Kontoauszug-Beleg nötig</div>
+                </div>`;
+            } else {
+                const match = kontoauszugEinnahmeForInvoice(inv);
+                if (match) {
                     paymentHtml = `<div class="folder-payment">
-                        <div><span class="folder-label">Zahlung</span><br>💵 Barzahlung - kein Kontoauszug-Beleg nötig</div>
+                        <div><span class="folder-label">Zahlungseingang (Kontoauszug)</span><br>${match.date} - ${(match.empfaenger ? match.empfaenger + ' - ' : '') + (match.verwendungszweck || '')}</div>
+                        <div style="font-weight:700; color:#28a745;">+ ${formatEuro(parseFloat(match.betrag) || 0)}</div>
                     </div>`;
                 } else {
-                    const match = kontoauszugEinnahmeForInvoice(inv);
-                    if (match) {
-                        paymentHtml = `<div class="folder-payment">
-                            <div><span class="folder-label">Zahlungseingang (Kontoauszug)</span><br>${match.date} - ${(match.empfaenger ? match.empfaenger + ' - ' : '') + (match.verwendungszweck || '')}</div>
-                            <div style="font-weight:700; color:#28a745;">+ ${formatEuro(parseFloat(match.betrag) || 0)}</div>
-                        </div>`;
-                    } else {
-                        paymentHtml = `<div class="folder-payment missing">
-                            <div><span class="folder-label">Zahlungseingang</span><br>⚠ Kein passender Kontoauszug-Eintrag gefunden - fehlender Zeitraum importieren oder noch nicht bezahlt.</div>
-                        </div>`;
-                    }
+                    paymentHtml = `<div class="folder-payment missing">
+                        <div><span class="folder-label">Zahlungseingang</span><br>⚠ Kein passender Kontoauszug-Eintrag gefunden - fehlender Zeitraum importieren oder noch nicht bezahlt.</div>
+                    </div>`;
                 }
+            }
 
-                return `<div class="folder-page">
-                    <div class="folder-invoice">
-                        <div>
-                            <span class="folder-label">Rechnung ${inv.invoiceNumber || ''}</span><br>
-                            ${inv.invoiceDate || entry.date || ''} - ${inv.customerName || entry.note || ''} - <strong>${formatEuro(parseFloat(entry.amount) || 0)}</strong>
-                        </div>
-                        ${invoiceBtn}
+            return `<div class="folder-page">
+                <div class="folder-invoice">
+                    <div>
+                        <span class="folder-label">Rechnung ${inv.invoiceNumber || ''}</span><br>
+                        ${inv.invoiceDate || entry.date || ''} - ${inv.customerName || entry.note || ''} - <strong>${formatEuro(parseFloat(entry.amount) || 0)}</strong>
                     </div>
-                    ${paymentHtml}
-                </div>`;
-            }).join('');
+                    ${invoiceBtn}
+                </div>
+                ${paymentHtml}
+            </div>`;
+        }
+
+        // Eine Ordnerseite pro Ausgabe (Metro, Tanken, Netto, Amazon, ...) -
+        // bei Bankausgaben mit Beleg-Nr. als Verweis auf die eingescannte
+        // Quittung im scan-Ordner, bei Kasse mit der Notiz aus dem Kassenbuch.
+        function buildExpensePageHtml(e, quelle) {
+            const beschreibung = e.note || (quelle === 'Bank' ? 'Bankausgabe' : 'Barausgabe');
+            const belegHtml = e.belegNr
+                ? `<span class="folder-label">Beleg-Nr.</span> <strong>${e.belegNr}</strong>`
+                : (quelle === 'Bank' ? '<span style="color:#e74c3c;">⚠ Keine Beleg-Nr. vergeben - in Kontoauszug nachtragen</span>' : '');
+
+            return `<div class="folder-page">
+                <div class="folder-invoice" style="border-left-color:#e74c3c; background:#fdf5f4;">
+                    <div>
+                        <span class="folder-label">Ausgabe (${quelle})</span><br>
+                        ${e.date || e.dateIso || ''} - ${beschreibung} - <strong>${formatEuro(parseFloat(e.amount) || 0)}</strong>
+                    </div>
+                    ${belegHtml ? `<div>${belegHtml}</div>` : ''}
+                </div>
+            </div>`;
         }
 
         function renderRevenueTable(revenue) {
