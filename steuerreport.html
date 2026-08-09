@@ -55,6 +55,9 @@
     }
     .sticky-header .stats { margin-bottom: 0; }
 
+    /* Immer sichtbar, auch beim Scrollen - eigene Zeile über der
+       Kennzahlen-Leiste, beides zusammen im sticky-header. */
+    .burger-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
     .burger-wrap { position: relative; }
     .burger-btn {
         padding: 8px 14px;
@@ -264,26 +267,6 @@
     <div class="container">
         <div class="top-bar no-print">
             <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
-            <div class="burger-wrap">
-                <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
-                <div class="burger-dropdown" id="burgerDropdown">
-                    <a href="#sec-journal" onclick="closeBurgerMenu()">📖 Buchungsjournal</a>
-                    <a href="#sec-ordner" onclick="closeBurgerMenu()">🗂️ Buchhaltungsordner-Ansicht</a>
-                    <a href="#sec-einnahmen" onclick="closeBurgerMenu()">Betriebseinnahmen-Liste</a>
-                    <a href="#sec-quartal" onclick="closeBurgerMenu()">Quartalsübersicht</a>
-                    <a href="#sec-monat" onclick="closeBurgerMenu()">Monatsübersicht</a>
-                    <a href="#sec-kategorie" onclick="closeBurgerMenu()">Ausgaben nach Kategorie</a>
-                    <a href="#sec-ausgaben-kasse" onclick="closeBurgerMenu()">Ausgaben (Kassenbuch)</a>
-                    <a href="#sec-bank-quartal" onclick="closeBurgerMenu()">Kontoauszug-Ausgaben nach Quartal</a>
-                    <a href="#sec-ausgaben-bank" onclick="closeBurgerMenu()">Ausgaben (Kontoauszug)</a>
-                    <a href="#sec-privat" onclick="closeBurgerMenu()">Privatentnahmen &amp; Einlagen</a>
-                    <hr>
-                    <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
-                    <a href="kassenbuch.html">🧾 Kassenbuch</a>
-                    <a href="kontoauszug.html">🏦 Kontoauszug</a>
-                    <a href="rechnungsarchiv.html">🗂️ Rechnungsarchiv</a>
-                </div>
-            </div>
         </div>
         <h1>📊 Steuerreport</h1>
         <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
@@ -311,6 +294,28 @@
         </div>
 
         <div class="sticky-header">
+            <div class="burger-bar no-print">
+                <div class="burger-wrap">
+                    <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
+                    <div class="burger-dropdown" id="burgerDropdown">
+                        <a href="#sec-journal" onclick="closeBurgerMenu()">📖 Buchungsjournal</a>
+                        <a href="#sec-ordner" onclick="closeBurgerMenu()">🗂️ Buchhaltungsordner-Ansicht</a>
+                        <a href="#sec-einnahmen" onclick="closeBurgerMenu()">Betriebseinnahmen-Liste</a>
+                        <a href="#sec-quartal" onclick="closeBurgerMenu()">Quartalsübersicht</a>
+                        <a href="#sec-monat" onclick="closeBurgerMenu()">Monatsübersicht</a>
+                        <a href="#sec-kategorie" onclick="closeBurgerMenu()">Ausgaben nach Kategorie</a>
+                        <a href="#sec-ausgaben-kasse" onclick="closeBurgerMenu()">Ausgaben (Kassenbuch)</a>
+                        <a href="#sec-bank-quartal" onclick="closeBurgerMenu()">Kontoauszug-Ausgaben nach Quartal</a>
+                        <a href="#sec-ausgaben-bank" onclick="closeBurgerMenu()">Ausgaben (Kontoauszug)</a>
+                        <a href="#sec-privat" onclick="closeBurgerMenu()">Privatentnahmen &amp; Einlagen</a>
+                        <hr>
+                        <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
+                        <a href="kassenbuch.html">🧾 Kassenbuch</a>
+                        <a href="kontoauszug.html">🏦 Kontoauszug</a>
+                        <a href="rechnungsarchiv.html">🗂️ Rechnungsarchiv</a>
+                    </div>
+                </div>
+            </div>
             <div class="stats">
                 <div class="stat-card einnahmen">
                     <div class="label">Betriebseinnahmen (brutto)</div>
