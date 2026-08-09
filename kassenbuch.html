@@ -304,6 +304,14 @@
 
     <style>
         @media print {
+            /* Chrome zeigt Datum/Titel/URL als Kopf-/Fußzeile nur, wenn am
+               Seitenrand Platz dafür reserviert ist. Mit @page margin:0
+               verschwindet dieser Platz und damit auch die Kopf-/Fußzeile
+               automatisch - ohne dass man das Häkchen im Druckdialog jedes
+               Mal von Hand abschalten muss. Der Innenabstand unten am
+               Druckbereich sorgt dafür, dass der Inhalt trotzdem nicht am
+               Papierrand klebt. */
+            @page { margin: 0; }
             body > *:not(#kassenberichtModal) { display: none !important; }
             #kassenberichtModal {
                 position: static;
@@ -315,7 +323,7 @@
             #kassenberichtModal > div {
                 max-width: 100%;
                 margin: 0;
-                padding: 0;
+                padding: 15mm;
                 box-shadow: none;
                 border-radius: 0;
             }
