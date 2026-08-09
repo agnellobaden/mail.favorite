@@ -201,6 +201,17 @@
             </div>
         </div>
 
+        <h2 class="section-title">Betriebseinnahmen-Liste (mit Rechnung)</h2>
+        <div class="table-wrap">
+            <table id="revenueTable">
+                <thead>
+                    <tr><th>Datum</th><th>Zahlungsart</th><th>Notiz</th><th>Betrag</th><th>Rechnung</th></tr>
+                </thead>
+                <tbody id="revenueBody"></tbody>
+            </table>
+            <div class="empty-state" id="revenueEmpty" style="display:none;">Keine Einnahmen im gewählten Zeitraum.</div>
+        </div>
+
         <h2 class="section-title">Quartalsübersicht (für die Umsatzsteuervoranmeldung)</h2>
         <div class="table-wrap">
             <table id="quarterTable" class="summary-table">
@@ -295,6 +306,7 @@
         let allBookingEntries = [];
         let allKassenbuch = [];
         let allKontoauszug = [];
+        let invoicesByBookingId = {};
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -337,6 +349,19 @@
                 snapshot.forEach(doc => allKontoauszug.push({ ...doc.data(), id: doc.id }));
                 refreshAll();
             }, error => console.error('Firestore-Fehler (Kontoauszug):', error));
+
+            // Rechnungsarchiv - beim Erstellen einer Rechnung wird die
+            // bookingId mitgespeichert (siehe rechnung-erstellen.html), damit
+            // sich jede aus einer Buchung abgeleitete Einnahme direkt der
+            // passenden Rechnungs-PDF zuordnen lässt.
+            db.collection('rechnungsarchiv').onSnapshot(snapshot => {
+                invoicesByBookingId = {};
+                snapshot.forEach(doc => {
+                    const inv = { ...doc.data(), id: doc.id };
+                    if (inv.bookingId) invoicesByBookingId[inv.bookingId] = inv;
+                });
+                refreshAll();
+            }, error => console.error('Firestore-Fehler (Rechnungsarchiv):', error));
         }
 
         function refreshAll() {
@@ -496,12 +521,64 @@
             document.getElementById('statAusgaben').textContent = formatEuro(totalExpenses);
             document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
 
+            renderRevenueTable(revenue);
             renderQuarterTable(revenue, allExpenses);
             renderMonthTable(revenue, allExpenses);
             renderExpensesTable(cashExpenses);
             renderBankQuarterTable(bankExpenses);
             renderBankExpensesTable(bankExpenses);
             renderPrivateTable(privateMovements);
+        }
+
+        function paymentBadge(method) {
+            if (method === 'bar') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#fff3cd; color:#856404;">💵 Kasse</span>';
+            if (method === 'ueberweisung') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#cce5ff; color:#004085;">🏦 Überweisung</span>';
+            return '<span style="color:#bbb;">-</span>';
+        }
+
+        // Für aus einer Buchung abgeleitete Einnahmen (Notiz "Event: ...")
+        // die zugehörige Rechnung im Archiv suchen - verknüpft über die
+        // bookingId, die rechnung-erstellen.html beim Archivieren mitspeichert.
+        function invoiceForRevenueEntry(e) {
+            if (!e.fromBooking) return null;
+            const bookingId = String(e.id || '').replace(/^booking-/, '');
+            return invoicesByBookingId[bookingId] || null;
+        }
+
+        function renderRevenueTable(revenue) {
+            const tbody = document.getElementById('revenueBody');
+            const empty = document.getElementById('revenueEmpty');
+            const sorted = [...revenue].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+            if (sorted.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = sorted.map(e => {
+                const inv = invoiceForRevenueEntry(e);
+                const invoiceCell = inv && inv.pdfDataUri
+                    ? `<button class="btn btn-secondary" style="padding:5px 10px; font-size:0.8em;" onclick="openInvoicePdf('${inv.id}')">📄 ${inv.invoiceNumber || 'Rechnung'}</button>`
+                    : '-';
+                return `<tr>
+                    <td>${e.date || e.dateIso || '-'}</td>
+                    <td>${paymentBadge(e.paymentMethod)}</td>
+                    <td>${e.note || '-'}</td>
+                    <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
+                    <td>${invoiceCell}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function openInvoicePdf(invId) {
+            const inv = Object.values(invoicesByBookingId).find(i => i.id === invId);
+            if (!inv || !inv.pdfDataUri) { alert('❌ Für diese Rechnung liegt kein gespeichertes PDF vor.'); return; }
+            const win = window.open();
+            if (win) {
+                win.document.write('<iframe src="' + inv.pdfDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
+            } else {
+                alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+            }
         }
 
         function monthLabel(yyyyMm) {
@@ -689,13 +766,15 @@
             lines.push(['Steuerreport EisFavorite', selectedYear() === 'alle' ? 'Alle Jahre' : selectedYear()]);
             lines.push([]);
             lines.push(['Betriebseinnahmen']);
-            lines.push(['Datum', 'Zahlungsart', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Zahlungsart', 'Notiz', 'Betrag (€)', 'Rechnungsnummer']);
             [...revenue].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
+                const inv = invoiceForRevenueEntry(e);
                 lines.push([
                     e.date || e.dateIso || '',
                     e.paymentMethod === 'bar' ? 'Kasse' : e.paymentMethod === 'ueberweisung' ? 'Überweisung' : '-',
                     e.note || '',
-                    (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
+                    (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','),
+                    (inv && inv.invoiceNumber) || ''
                 ]);
             });
             lines.push([]);
