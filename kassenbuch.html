@@ -117,38 +117,40 @@
 
     /* Kassenbericht-Blatt im Excel-Vorlagen-Look: durchgehendes graues
        Tabellenraster wie in einer Kalkulationstabelle, mit gezielten
-       schwarzen Rahmen für die Summenboxen. */
+       schwarzen Rahmen für die Summenboxen. Klassenbasiert (nicht ID), damit
+       beim Sammeldruck mehrere Tages-Blöcke dieselbe Optik bekommen. */
     #kbPrintArea { font-family: 'Calibri', 'Segoe UI', Tahoma, sans-serif; }
     #kbPrintArea h2 { font-size: 1.3em; margin: 0 0 16px; }
-    #kbSummaryTable, #kbZaehlTable {
+    .kb-day-block { margin-bottom: 40px; }
+    .kb-summary-table, .kb-zaehl-table {
         border-collapse: collapse;
         width: 100%;
         table-layout: fixed;
         margin-top: 0;
         font-size: 0.95em;
     }
-    #kbSummaryTable col.kb-col-a { width: 58%; }
-    #kbSummaryTable col.kb-col-b { width: 21%; }
-    #kbSummaryTable col.kb-col-c { width: 21%; }
-    #kbSummaryTable td {
+    .kb-summary-table col.kb-col-a { width: 58%; }
+    .kb-summary-table col.kb-col-b { width: 21%; }
+    .kb-summary-table col.kb-col-c { width: 21%; }
+    .kb-summary-table td {
         border: 1px solid #d5d5d5;
         padding: 5px 10px;
         text-align: left;
         font-size: inherit;
     }
-    #kbSummaryTable td.kb-amount { text-align: right; }
-    #kbSummaryTable td.kb-bold { font-weight: 700; }
-    #kbSummaryTable td.kb-box-top { border-top: 1.5px solid #000; }
-    #kbSummaryTable td.kb-box-bottom { border-bottom: 3px double #000; }
-    #kbZaehlTable th, #kbZaehlTable td {
+    .kb-summary-table td.kb-amount { text-align: right; }
+    .kb-summary-table td.kb-bold { font-weight: 700; }
+    .kb-summary-table td.kb-box-top { border-top: 1.5px solid #000; }
+    .kb-summary-table td.kb-box-bottom { border-bottom: 3px double #000; }
+    .kb-zaehl-table th, .kb-zaehl-table td {
         border: 1px solid #d5d5d5;
         padding: 5px 10px;
         font-size: 0.95em;
     }
-    #kbZaehlTable th { background: #f0f0f0; font-weight: 700; text-align: left; }
-    #kbZaehlTable td:first-child { text-align: right; }
-    #kbZaehlTable td:last-child { text-align: right; }
-    #kbZaehlTable tfoot td { border-top: 1.5px solid #000; font-weight: 700; }
+    .kb-zaehl-table th { background: #f0f0f0; font-weight: 700; text-align: left; }
+    .kb-zaehl-table td:first-child { text-align: right; }
+    .kb-zaehl-table td:last-child { text-align: right; }
+    .kb-zaehl-table tfoot td { border-top: 1.5px solid #000; font-weight: 700; }
 
     @media (max-width: 700px) {
         .container { padding: 15px; }
@@ -254,6 +256,15 @@
             <button class="btn btn-secondary" onclick="openKassenbericht()">🖨️ Kassenbericht für diesen Tag</button>
         </div>
 
+        <div class="filter-row">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Sammeldruck:</span>
+            <span style="align-self:center; font-size:0.85em; color:#666;">von</span>
+            <input type="date" id="kbVonDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+            <span style="align-self:center; font-size:0.85em; color:#666;">bis</span>
+            <input type="date" id="kbBisDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+            <button class="btn btn-secondary" onclick="openSammeldruck()">📦 Sammeldruck (alle Tage im Zeitraum)</button>
+        </div>
+
         <div class="table-wrap">
             <table id="entriesTable">
                 <thead>
@@ -282,32 +293,8 @@
                 <button class="btn btn-secondary btn-sm" onclick="closeKassenbericht()">✖ Schließen</button>
             </div>
 
-            <div id="kbPrintArea">
-                <h2 style="margin:10px 0 20px;">Kassenbericht vom <span id="kbReportDateLabel"></span></h2>
-
-                <table id="kbSummaryTable">
-                    <colgroup>
-                        <col class="kb-col-a"><col class="kb-col-b"><col class="kb-col-c">
-                    </colgroup>
-                    <tbody id="kbSummaryBody"></tbody>
-                </table>
-
-                <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
-                <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 10px;">Menge je Stückelung eintragen (tatsächlich gezähltes Bargeld) - wird automatisch gespeichert und mit dem Kassenbestand laut Kassenbuch oben verglichen (Kassensturz).</p>
-                <table id="kbZaehlTable">
-                    <thead>
-                        <tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr>
-                    </thead>
-                    <tbody id="kbZaehlBody"></tbody>
-                    <tfoot>
-                        <tr style="font-weight:800; border-top:2px solid #333;">
-                            <td colspan="2">Kassenendbestand (gezählt)</td>
-                            <td id="kbZaehlEndbestand" style="text-align:right;"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-                <p id="kbZaehlDifferenz" style="font-size:0.9em; margin-top:8px;"></p>
-            </div>
+            <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 15px;">Menge je Stückelung eintragen (tatsächlich gezähltes Bargeld) - wird automatisch gespeichert und mit dem Kassenbestand laut Kassenbuch verglichen (Kassensturz).</p>
+            <div id="kbPrintArea"></div>
 
             <div class="no-print" style="display:flex; gap:10px; margin-top:20px;">
                 <button class="btn" onclick="printKassenbericht()">🖨️ Drucken / Als PDF speichern</button>
@@ -332,8 +319,9 @@
                 box-shadow: none;
                 border-radius: 0;
             }
-            #kbSummaryTable, #kbZaehlTable { page-break-inside: auto; }
-            #kbSummaryTable tr, #kbZaehlTable tr { page-break-inside: avoid; }
+            .kb-summary-table, .kb-zaehl-table { page-break-inside: auto; }
+            .kb-summary-table tr, .kb-zaehl-table tr { page-break-inside: avoid; }
+            .kb-day-block + .kb-day-block { page-break-before: always; }
             .no-print { display: none !important; }
             .print-only { display: inline !important; }
         }
@@ -595,8 +583,15 @@
 
         function renderKassenbericht() {
             const dateIso = document.getElementById('kbReportDate').value;
-            document.getElementById('kbReportDateLabel').textContent = isoToDe(dateIso);
+            document.getElementById('kbPrintArea').innerHTML = buildKassenberichtHtmlForDate(dateIso, true);
+        }
 
+        // Baut den kompletten Kassenbericht (Titel, Summentabelle,
+        // Kassenzählprotokoll, Kassensturz-Vergleich) für EINEN Tag als
+        // HTML-String. editable=true zeigt Eingabefelder für die Zählung
+        // (Einzeltag-Ansicht), editable=false zeigt nur Text (Sammeldruck
+        // über mehrere Tage - dort macht ein Eingabefeld je Tag keinen Sinn).
+        function buildKassenberichtHtmlForDate(dateIso, editable) {
             const withBalance = entriesWithBalance();
             const dayEntries = allEntries.filter(e => e.dateIso === dateIso);
             const ausgabenLines = dayEntries.filter(e => e.type === 'ausgabe');
@@ -644,41 +639,50 @@
             rows.push(`<tr><td>Einnahmen 7% USt</td><td class="kb-amount">${formatEuro(kasseneingang)}</td><td></td></tr>`);
             rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
             rows.push(`<tr><td>Einlagen (durch Eigenbeleg nachzuweisen)</td><td class="kb-amount">${formatEuro(einlagen)}</td><td></td></tr>`);
-            document.getElementById('kbSummaryBody').innerHTML = rows.join('');
 
-            renderZaehlprotokoll(dateIso, kassenbestandSchluss);
-        }
-
-        function renderZaehlprotokoll(dateIso, kassenbestandSchluss) {
             const counts = currentZaehlungCounts(dateIso);
-            const tbody = document.getElementById('kbZaehlBody');
-            tbody.innerHTML = DENOMINATIONS.map(d => {
+            const zaehlRows = DENOMINATIONS.map(d => {
                 const menge = counts[d] || '';
                 const betrag = (parseFloat(counts[d]) || 0) * d;
-                return `
-                <tr>
-                    <td>${formatEuro(d)}</td>
-                    <td><input type="number" min="0" step="1" value="${menge}" class="no-print" style="width:80px; padding:6px 8px; border:2px solid #ddd; border-radius:6px;" onchange="updateZaehlungMenge('${dateIso}', ${d}, this.value)"><span class="print-only" style="display:none;">${menge}</span></td>
-                    <td style="text-align:right;">${formatEuro(betrag)}</td>
-                </tr>`;
+                const mengeCell = editable
+                    ? `<input type="number" min="0" step="1" value="${menge}" class="no-print" style="width:80px; padding:6px 8px; border:2px solid #ddd; border-radius:6px;" onchange="updateZaehlungMenge('${dateIso}', ${d}, this.value)"><span class="print-only" style="display:none;">${menge}</span>`
+                    : (menge || '-');
+                return `<tr><td>${formatEuro(d)}</td><td>${mengeCell}</td><td style="text-align:right;">${formatEuro(betrag)}</td></tr>`;
             }).join('');
-            const gezaehlt = zaehlungTotal(dateIso);
-            document.getElementById('kbZaehlEndbestand').textContent = formatEuro(gezaehlt);
 
+            const gezaehlt = zaehlungTotal(dateIso);
             const hasCount = Object.keys(counts).length > 0;
-            const differenzEl = document.getElementById('kbZaehlDifferenz');
-            if (!hasCount) {
-                differenzEl.textContent = '';
-            } else {
+            let differenzHtml = '';
+            if (hasCount) {
                 const differenz = gezaehlt - kassenbestandSchluss;
                 if (Math.abs(differenz) < 0.005) {
-                    differenzEl.style.color = '#28a745';
-                    differenzEl.textContent = '✓ Kassensturz stimmt: gezählter Bestand entspricht dem Kassenbuch.';
+                    differenzHtml = `<p style="font-size:0.9em; margin-top:8px; color:#28a745;">✓ Kassensturz stimmt: gezählter Bestand entspricht dem Kassenbuch.</p>`;
                 } else {
-                    differenzEl.style.color = '#e74c3c';
-                    differenzEl.textContent = `⚠ Differenz zum Kassenbuch: ${differenz > 0 ? '+' : ''}${formatEuro(differenz)} (Soll laut Kassenbuch: ${formatEuro(kassenbestandSchluss)}).`;
+                    differenzHtml = `<p style="font-size:0.9em; margin-top:8px; color:#e74c3c;">⚠ Differenz zum Kassenbuch: ${differenz > 0 ? '+' : ''}${formatEuro(differenz)} (Soll laut Kassenbuch: ${formatEuro(kassenbestandSchluss)}).</p>`;
                 }
             }
+
+            return `
+                <div class="kb-day-block">
+                    <h2 style="margin:10px 0 20px;">Kassenbericht vom ${isoToDe(dateIso)}</h2>
+                    <table class="kb-summary-table">
+                        <colgroup><col class="kb-col-a"><col class="kb-col-b"><col class="kb-col-c"></colgroup>
+                        <tbody>${rows.join('')}</tbody>
+                    </table>
+                    <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
+                    <table class="kb-zaehl-table">
+                        <thead><tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr></thead>
+                        <tbody>${zaehlRows}</tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2">Kassenendbestand (gezählt)</td>
+                                <td style="text-align:right;">${formatEuro(gezaehlt)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    ${differenzHtml}
+                </div>
+            `;
         }
 
         function updateZaehlungMenge(dateIso, denomination, value) {
@@ -701,6 +705,30 @@
 
         function closeKassenbericht() {
             document.getElementById('kassenberichtModal').style.display = 'none';
+        }
+
+        // Sammeldruck: alle Tage in einem Von-Bis-Zeitraum als EIN
+        // durchgängiges Dokument (ein Kassenbericht pro Tag, jeweils auf
+        // einer neuen Seite) - zum Ausdrucken/als PDF für mehrere Tage
+        // auf einmal (z.B. für den Steuerberater/Finanzamt am Monatsende).
+        function openSammeldruck() {
+            const von = document.getElementById('kbVonDate').value;
+            const bis = document.getElementById('kbBisDate').value;
+            if (!von || !bis) { alert('Bitte "von" und "bis" Datum wählen.'); return; }
+            if (von > bis) { alert('Das "von"-Datum muss vor dem "bis"-Datum liegen.'); return; }
+
+            const dates = [];
+            let cur = von;
+            while (cur <= bis) {
+                dates.push(cur);
+                const d = new Date(cur + 'T00:00:00');
+                d.setDate(d.getDate() + 1);
+                cur = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+            if (dates.length > 62 && !confirm(`${dates.length} Tage im Zeitraum - das ergibt ${dates.length} Seiten. Trotzdem fortfahren?`)) return;
+
+            document.getElementById('kbPrintArea').innerHTML = dates.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
+            document.getElementById('kassenberichtModal').style.display = 'block';
         }
 
         // Chrome "merkt" sich beim Drucken die aktuelle Scroll-Position des

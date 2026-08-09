@@ -216,6 +216,15 @@
             <input type="text" id="searchFilter" placeholder="Rechnungsnummer, Kunde suchen..." oninput="renderArchive()">
         </div>
 
+        <div class="filter-row">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Sammeldruck:</span>
+            <span style="align-self:center; font-size:0.85em; color:#666;">von</span>
+            <input type="date" id="archivVonDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+            <span style="align-self:center; font-size:0.85em; color:#666;">bis</span>
+            <input type="date" id="archivBisDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+            <button class="btn btn-secondary" onclick="openSammeldruckArchiv()">📦 Sammeldruck (alle Rechnungen im Zeitraum als eine PDF)</button>
+        </div>
+
         <div class="table-wrap">
             <table id="archiveTable">
                 <thead>
@@ -534,6 +543,15 @@
         function buildArchivePDF(f) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
+            drawInvoicePage(doc, f);
+            return doc;
+        }
+
+        // Zeichnet eine Rechnungsseite auf ein BESTEHENDES jsPDF-Dokument
+        // (aktuelle Seite) - für Einzel-PDFs (buildArchivePDF) und für den
+        // Sammeldruck (mehrere Rechnungen in einem Dokument, jeweils per
+        // doc.addPage() vor dem nächsten Aufruf) gleichermaßen nutzbar.
+        function drawInvoicePage(doc, f) {
             let y = 20;
 
             doc.setFontSize(24);
@@ -671,8 +689,6 @@
                 y += 4;
                 doc.text(`BIC/SWIFT: ${ARCHIV_SENDER.bic}`, 20, y);
             }
-
-            return doc;
         }
 
         function deleteInvoice(id) {
@@ -682,6 +698,46 @@
             db.collection('rechnungsarchiv').doc(id).delete().catch(err => {
                 alert('❌ Konnte nicht gelöscht werden: ' + err.message);
             });
+        }
+
+        // "TT.MM.JJJJ" -> "JJJJ-MM-TT" zum Vergleichen mit den <input type="date">
+        // Feldern des Sammeldrucks. Gibt null zurück, wenn das Format nicht passt.
+        function parseDeDateToIso(deDate) {
+            const parts = String(deDate || '').trim().split('.');
+            if (parts.length !== 3) return null;
+            const [d, m, y] = parts;
+            if (!d || !m || !y) return null;
+            return `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+
+        // Sammeldruck: alle Rechnungen im gewählten Von-Bis-Zeitraum als EIN
+        // PDF-Dokument (eine Rechnung pro Seite) zusammenfassen und
+        // herunterladen - für den Steuerberater/das Finanzamt am
+        // Monats-/Jahresende, statt jede Rechnung einzeln zu drucken.
+        function openSammeldruckArchiv() {
+            const von = document.getElementById('archivVonDate').value;
+            const bis = document.getElementById('archivBisDate').value;
+            if (!von || !bis) { alert('Bitte "von" und "bis" Datum wählen.'); return; }
+            if (von > bis) { alert('Das "von"-Datum muss vor dem "bis"-Datum liegen.'); return; }
+
+            const filtered = allInvoices
+                .map(inv => ({ inv, iso: parseDeDateToIso(inv.invoiceDate || inv.date) }))
+                .filter(x => x.iso && x.iso >= von && x.iso <= bis)
+                .sort((a, b) => a.iso.localeCompare(b.iso));
+
+            if (filtered.length === 0) {
+                alert('Keine Rechnungen mit gültigem Datum in diesem Zeitraum gefunden.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            filtered.forEach((x, i) => {
+                if (i > 0) doc.addPage();
+                drawInvoicePage(doc, x.inv);
+            });
+
+            doc.save(`Sammeldruck_Rechnungen_${von}_bis_${bis}.pdf`);
         }
 
         function openInvoicePdf(id) {
