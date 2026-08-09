@@ -10,6 +10,8 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- pdf-lib: zum Zusammenfügen mehrerer bereits gespeicherter Rechnungs-PDFs zu einer Sammel-PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
 <style>
     * { box-sizing: border-box; }
@@ -99,6 +101,9 @@
     .amount-cell { text-align: right; font-weight: 700; }
     .summary-table { table-layout: fixed; }
     .summary-table th:not(:first-child) { text-align: right; }
+    #journalTable { table-layout: fixed; }
+    #journalTable th:nth-child(4), #journalTable th:nth-child(5), #journalTable th:nth-child(6) { text-align: right; }
+    #journalTable .saldo-cell { text-align: right; font-weight: 700; color: #333; }
     .table-wrap { overflow-x: auto; }
     .empty-state { text-align: center; padding: 40px 20px; color: #888; }
 
@@ -180,6 +185,7 @@
             </select>
             <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
             <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+            <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
         </div>
 
         <div class="stats">
@@ -199,6 +205,28 @@
                 <div class="label">Vorläufiges Ergebnis</div>
                 <div class="value" id="statErgebnis">0,00 €</div>
             </div>
+        </div>
+
+        <h2 class="section-title">📖 Buchungsjournal (chronologisch, für die Buchhaltung)</h2>
+        <p style="color:#666; font-size:0.9em; margin:-6px 0 10px;">Alle Einnahmen und Ausgaben in einer Zeile, chronologisch nach Datum sortiert - direkt für die Verbuchung durch den Steuerberater. "Beleg" verlinkt die Rechnung (bei Einnahmen aus Buchungen) bzw. zeigt die Beleg-Nr. aus dem Kontoauszug (siehe <a href="kontoauszug.html">Kontoauszug</a> und Papierordner/Scans).</p>
+        <div class="table-wrap">
+            <table id="journalTable">
+                <colgroup><col style="width:11%;"><col><col style="width:12%;"><col style="width:12%;"><col style="width:12%;"><col style="width:12%;"><col style="width:13%;"></colgroup>
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Beschreibung</th>
+                        <th>Zahlungsart</th>
+                        <th>Einnahme</th>
+                        <th>Ausgabe</th>
+                        <th>Saldo</th>
+                        <th>Beleg</th>
+                    </tr>
+                </thead>
+                <tbody id="journalBody"></tbody>
+                <tfoot id="journalFoot" style="font-weight:700;"></tfoot>
+            </table>
+            <div class="empty-state" id="journalEmpty" style="display:none;">Keine Buchungen im gewählten Zeitraum.</div>
         </div>
 
         <h2 class="section-title">Betriebseinnahmen-Liste (mit Rechnung)</h2>
@@ -521,6 +549,7 @@
             document.getElementById('statAusgaben').textContent = formatEuro(totalExpenses);
             document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
 
+            renderJournal(revenue, cashExpenses, bankExpenses);
             renderRevenueTable(revenue);
             renderQuarterTable(revenue, allExpenses);
             renderMonthTable(revenue, allExpenses);
@@ -534,6 +563,86 @@
             if (method === 'bar') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#fff3cd; color:#856404;">💵 Kasse</span>';
             if (method === 'ueberweisung') return '<span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.8em; font-weight:700; background:#cce5ff; color:#004085;">🏦 Überweisung</span>';
             return '<span style="color:#bbb;">-</span>';
+        }
+
+        // Chronologisches Buchungsjournal: alle Einnahmen und Ausgaben in
+        // EINER Zeitleiste, sortiert nach Datum - so wie ein Steuerberater
+        // Belege der Reihe nach verbucht. "Beleg" zeigt bei Einnahmen aus
+        // Buchungen einen Link zur Rechnung, bei Bankausgaben die Beleg-Nr.
+        function renderJournal(revenue, cashExpenses, bankExpenses) {
+            const rows = [];
+            revenue.forEach(e => {
+                const inv = invoiceForRevenueEntry(e);
+                rows.push({
+                    dateIso: e.dateIso,
+                    date: e.date || e.dateIso,
+                    beschreibung: e.note || 'Einnahme',
+                    zahlungsartHtml: paymentBadge(e.paymentMethod),
+                    einnahme: parseFloat(e.amount) || 0,
+                    ausgabe: 0,
+                    belegHtml: inv && inv.pdfDataUri
+                        ? `<button class="btn btn-secondary" style="padding:4px 8px; font-size:0.78em;" onclick="openInvoicePdf('${inv.id}')">📄 ${inv.invoiceNumber || 'Rechnung'}</button>`
+                        : '-'
+                });
+            });
+            cashExpenses.forEach(e => {
+                rows.push({
+                    dateIso: e.dateIso,
+                    date: e.date || e.dateIso,
+                    beschreibung: e.note || 'Ausgabe',
+                    zahlungsartHtml: '<span style="color:#856404; font-size:0.85em;">Kasse</span>',
+                    einnahme: 0,
+                    ausgabe: parseFloat(e.amount) || 0,
+                    belegHtml: '-'
+                });
+            });
+            bankExpenses.forEach(e => {
+                rows.push({
+                    dateIso: e.dateIso,
+                    date: e.date || e.dateIso,
+                    beschreibung: e.note || 'Ausgabe',
+                    zahlungsartHtml: '<span style="color:#004085; font-size:0.85em;">Bank</span>',
+                    einnahme: 0,
+                    ausgabe: parseFloat(e.amount) || 0,
+                    belegHtml: e.belegNr ? `<span style="font-weight:700;">${e.belegNr}</span>` : '-'
+                });
+            });
+
+            rows.sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+
+            const tbody = document.getElementById('journalBody');
+            const empty = document.getElementById('journalEmpty');
+            if (rows.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                document.getElementById('journalFoot').innerHTML = '';
+                return;
+            }
+            empty.style.display = 'none';
+
+            let saldo = 0;
+            tbody.innerHTML = rows.map(r => {
+                saldo += r.einnahme - r.ausgabe;
+                return `<tr>
+                    <td>${r.date}</td>
+                    <td>${r.beschreibung}</td>
+                    <td>${r.zahlungsartHtml}</td>
+                    <td class="amount-cell">${r.einnahme > 0 ? formatEuro(r.einnahme) : ''}</td>
+                    <td class="amount-cell">${r.ausgabe > 0 ? formatEuro(r.ausgabe) : ''}</td>
+                    <td class="saldo-cell">${formatEuro(saldo)}</td>
+                    <td>${r.belegHtml}</td>
+                </tr>`;
+            }).join('');
+
+            const totalEinnahme = rows.reduce((s, r) => s + r.einnahme, 0);
+            const totalAusgabe = rows.reduce((s, r) => s + r.ausgabe, 0);
+            document.getElementById('journalFoot').innerHTML = `<tr>
+                <td colspan="3">Summe</td>
+                <td class="amount-cell">${formatEuro(totalEinnahme)}</td>
+                <td class="amount-cell">${formatEuro(totalAusgabe)}</td>
+                <td class="saldo-cell">${formatEuro(totalEinnahme - totalAusgabe)}</td>
+                <td></td>
+            </tr>`;
         }
 
         // Für aus einer Buchung abgeleitete Einnahmen (Notiz "Event: ...")
@@ -579,6 +688,59 @@
             } else {
                 alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
             }
+        }
+
+        // Alle Event-Rechnungen, die im aktuell gewählten Zeitraum als
+        // Einnahme auftauchen, zu EINER PDF zusammenfügen (die bereits als
+        // fertige PDF im Rechnungsarchiv gespeicherten Dateien werden mit
+        // pdf-lib direkt zusammengefügt, nicht neu erzeugt).
+        async function exportInvoicesBundlePdf() {
+            const revenue = filteredRevenue();
+            const invoices = [];
+            const seenIds = new Set();
+            revenue.forEach(e => {
+                const inv = invoiceForRevenueEntry(e);
+                if (inv && inv.pdfDataUri && !seenIds.has(inv.id)) {
+                    seenIds.add(inv.id);
+                    invoices.push(inv);
+                }
+            });
+
+            if (invoices.length === 0) {
+                alert('Keine Rechnungen mit gespeichertem PDF im gewählten Zeitraum gefunden.');
+                return;
+            }
+
+            invoices.sort((a, b) => (a.invoiceDate || '').localeCompare(b.invoiceDate || ''));
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
+                for (const inv of invoices) {
+                    const bytes = dataUriToBytes(inv.pdfDataUri);
+                    const srcPdf = await PDFDocument.load(bytes);
+                    const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                    pages.forEach(p => mergedPdf.addPage(p));
+                }
+                const mergedBytes = await mergedPdf.save();
+                const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                const von = selectedYear() === 'alle' ? 'alle' : selectedYear();
+                const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
+                link.download = `Rechnungen_EisFavorite_${von}${quarterSuffix}.pdf`;
+                link.click();
+            } catch (err) {
+                alert('❌ Konnte Rechnungen nicht zusammenfügen: ' + err.message);
+            }
+        }
+
+        function dataUriToBytes(dataUri) {
+            const base64 = dataUri.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
         }
 
         function monthLabel(yyyyMm) {
