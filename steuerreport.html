@@ -130,6 +130,8 @@
     .stat-card.ust { background: linear-gradient(135deg, #f39c12 0%, #f7b733 100%); }
     .stat-card.ausgaben { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
     .stat-card.ergebnis { background: linear-gradient(135deg, #333 0%, #555 100%); }
+    .stat-card.vorsteuer { background: linear-gradient(135deg, #17a2b8 0%, #0f7a8c 100%); }
+    .stat-card.zahllast { background: linear-gradient(135deg, #8e44ad 0%, #6c3483 100%); }
 
     h2.section-title { font-size: 1.2em; color: #333; margin: 30px 0 12px; }
 
@@ -322,6 +324,14 @@
                     <div class="label">Betriebsausgaben (Kasse)</div>
                     <div class="value" id="statAusgaben">0,00 €</div>
                 </div>
+                <div class="stat-card vorsteuer">
+                    <div class="label">Vorsteuer (abziehbar)</div>
+                    <div class="value" id="statVorsteuer">0,00 €</div>
+                </div>
+                <div class="stat-card zahllast">
+                    <div class="label">USt-Zahllast (an Finanzamt)</div>
+                    <div class="value" id="statZahllast">0,00 €</div>
+                </div>
                 <div class="stat-card ergebnis">
                     <div class="label">Vorläufiges Ergebnis</div>
                     <div class="value" id="statErgebnis">0,00 €</div>
@@ -429,7 +439,7 @@
         <div class="table-wrap">
             <table id="expensesTable">
                 <thead>
-                    <tr><th>Datum</th><th>Kategorie</th><th>Notiz</th><th>Betrag</th></tr>
+                    <tr><th>Datum</th><th>Kategorie</th><th>Notiz</th><th>MwSt</th><th>Betrag</th></tr>
                 </thead>
                 <tbody id="expensesBody"></tbody>
             </table>
@@ -452,7 +462,7 @@
         <div class="table-wrap">
             <table id="bankExpensesTable">
                 <thead>
-                    <tr><th>Datum</th><th>Kategorie</th><th>Beleg-Nr.</th><th>Notiz</th><th>Betrag</th></tr>
+                    <tr><th>Datum</th><th>Kategorie</th><th>MwSt</th><th>Beleg-Nr.</th><th>Notiz</th><th>Betrag</th></tr>
                 </thead>
                 <tbody id="bankExpensesBody"></tbody>
             </table>
@@ -671,8 +681,20 @@
                 belegNr: e.belegNr || '',
                 scanFile: e.scanFile || '',
                 kategorie: e.kategorie || 'Sonstiges',
+                mwstSatz: e.mwstSatz != null ? e.mwstSatz : 19,
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
             }));
+        }
+
+        // Vorsteuer (abziehbare MwSt aus Einkäufen) - z.B. beim Kauf einer
+        // Sahnemaschine mit 19% MwSt: Vorsteuer = Brutto x 19/119. Ohne
+        // angegebenen Satz wird konservativ 19% angenommen (Standardsatz).
+        function calcVorsteuer(expenses) {
+            return expenses.reduce((s, e) => {
+                const satz = e.mwstSatz != null ? e.mwstSatz : 19;
+                if (satz <= 0) return s;
+                return s + (parseFloat(e.amount) || 0) * satz / (100 + satz);
+            }, 0);
         }
 
         let userChangedFilters = false;
@@ -714,10 +736,14 @@
             const totalUst = totalBrutto - (totalBrutto / 1.07);
             const totalExpenses = allExpenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const ergebnis = totalBrutto - totalExpenses;
+            const vorsteuer = calcVorsteuer(allExpenses);
+            const zahllast = totalUst - vorsteuer;
 
             document.getElementById('statEinnahmen').textContent = formatEuro(totalBrutto);
             document.getElementById('statUst').textContent = formatEuro(totalUst);
             document.getElementById('statAusgaben').textContent = formatEuro(totalExpenses);
+            document.getElementById('statVorsteuer').textContent = formatEuro(vorsteuer);
+            document.getElementById('statZahllast').textContent = formatEuro(zahllast);
             document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
 
             renderJournal(revenue, cashExpenses, bankExpenses);
@@ -1167,6 +1193,7 @@
                 <td>${e.date || e.dateIso || '-'}</td>
                 <td>${e.kategorie || 'Sonstiges'}</td>
                 <td>${e.note || '-'}</td>
+                <td>${e.mwstSatz != null ? e.mwstSatz : 19}%</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
             </tr>`).join('');
         }
@@ -1184,6 +1211,7 @@
             tbody.innerHTML = sorted.map(e => `<tr>
                 <td>${e.date || e.dateIso || '-'}</td>
                 <td>${e.kategorie || 'Sonstiges'}</td>
+                <td>${e.mwstSatz != null ? e.mwstSatz : 19}%</td>
                 <td>${e.belegNr || '-'}</td>
                 <td>${e.note || '-'}</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
@@ -1272,8 +1300,17 @@
             const bankExpenses = filteredBankExpenses();
             const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
 
+            const totalBrutto = revenue.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const totalUst = totalBrutto - (totalBrutto / 1.07);
+            const vorsteuer = calcVorsteuer(cashExpenses.concat(bankExpenses));
+
             const lines = [];
             lines.push(['Steuerreport EisFavorite', selectedYear() === 'alle' ? 'Alle Jahre' : selectedYear()]);
+            lines.push([]);
+            lines.push(['USt-Zusammenfassung']);
+            lines.push(['Umsatzsteuer aus Einnahmen (€)', totalUst.toFixed(2).replace('.', ',')]);
+            lines.push(['Vorsteuer aus Ausgaben (€)', vorsteuer.toFixed(2).replace('.', ',')]);
+            lines.push(['USt-Zahllast an Finanzamt (€)', (totalUst - vorsteuer).toFixed(2).replace('.', ',')]);
             lines.push([]);
             lines.push(['Betriebseinnahmen']);
             lines.push(['Datum', 'Zahlungsart', 'Notiz', 'Betrag (€)', 'Rechnungsnummer']);
@@ -1289,22 +1326,24 @@
             });
             lines.push([]);
             lines.push(['Betriebsausgaben (Kassenbuch, bar)']);
-            lines.push(['Datum', 'Kategorie', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Kategorie', 'Notiz', 'MwSt-Satz', 'Betrag (€)']);
             [...cashExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
                     e.kategorie || 'Sonstiges',
                     e.note || '',
+                    (e.mwstSatz != null ? e.mwstSatz : 19) + '%',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
                 ]);
             });
             lines.push([]);
             lines.push(['Betriebsausgaben (Kontoauszug, per Bank)']);
-            lines.push(['Datum', 'Kategorie', 'Beleg-Nr.', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Kategorie', 'MwSt-Satz', 'Beleg-Nr.', 'Notiz', 'Betrag (€)']);
             [...bankExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
                     e.kategorie || 'Sonstiges',
+                    (e.mwstSatz != null ? e.mwstSatz : 19) + '%',
                     e.belegNr || '',
                     e.note || '',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')

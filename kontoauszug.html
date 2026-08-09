@@ -201,6 +201,7 @@
                         <th>Betrag</th>
                         <th>Art</th>
                         <th>EÜR-Kategorie</th>
+                        <th>MwSt</th>
                         <th>Beleg-Nr.</th>
                         <th>Notiz</th>
                         <th>Aktion</th>
@@ -362,6 +363,8 @@
                 const docId = hashId(`${dateIso}_${betrag.toFixed(2)}_${verwendungszweck}_${empfaenger}`);
                 if (allEntries.some(e => e.id === docId)) { skippedDuplicate++; continue; }
 
+                const guessedKategorie = richtung === 'ausgabe' ? guessKategorie(buchungstext + ' ' + verwendungszweck + ' ' + empfaenger) : '';
+
                 const docRef = db.collection('kontoauszug').doc(docId);
                 batch.set(docRef, {
                     dateIso: dateIso,
@@ -376,7 +379,8 @@
                     // bekommen automatisch "Zahlungseingang" und tauchen
                     // nicht in der Kategorie-Auswahl auf.
                     category: richtung === 'ausgabe' ? 'geschaeft' : 'zahlungseingang',
-                    kategorie: richtung === 'ausgabe' ? guessKategorie(buchungstext + ' ' + verwendungszweck + ' ' + empfaenger) : '',
+                    kategorie: guessedKategorie,
+                    mwstSatz: richtung === 'ausgabe' ? defaultMwstSatzForKategorie(guessedKategorie) : null,
                     note: '',
                     importedAtMs: Date.now()
                 }, { merge: true });
@@ -445,6 +449,13 @@
                 const kategorieHtml = (!isEinnahme && e.category === 'geschaeft')
                     ? `<select class="cat-select" onchange="setKategorie('${e.id}', this.value)">${EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === e.kategorie ? 'selected' : ''}>${k}</option>`).join('')}</select>`
                     : '-';
+                const mwstHtml = (!isEinnahme && e.category === 'geschaeft')
+                    ? `<select class="cat-select" onchange="setMwstSatz('${e.id}', this.value)">
+                        <option value="19" ${e.mwstSatz === 19 ? 'selected' : ''}>19%</option>
+                        <option value="7" ${e.mwstSatz === 7 ? 'selected' : ''}>7%</option>
+                        <option value="0" ${e.mwstSatz === 0 ? 'selected' : ''}>0%</option>
+                      </select>`
+                    : '-';
                 return `
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
@@ -453,6 +464,7 @@
                     <td class="amount-cell">${amountHtml}</td>
                     <td>${categoryHtml}</td>
                     <td>${kategorieHtml}</td>
+                    <td>${mwstHtml}</td>
                     <td>
                         <div style="display:flex; gap:4px; align-items:center;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
@@ -482,8 +494,26 @@
             return 'Sonstiges';
         }
 
+        // Lebensmittel-Wareneinkauf ist i.d.R. 7% MwSt, alles andere
+        // (Ausrüstung, Kfz, Werbung, Büro...) i.d.R. 19% - nur eine
+        // Vorauswahl, im Zweifel bitte mit dem Steuerberater abstimmen.
+        function defaultMwstSatzForKategorie(kategorie) {
+            return kategorie === 'Wareneinkauf' ? 7 : 19;
+        }
+
         function setKategorie(id, kategorie) {
-            db.collection('kontoauszug').doc(id).set({ kategorie: kategorie }, { merge: true }).catch(err => {
+            // MwSt-Vorschlag bei Kategoriewechsel mit anpassen, damit sie
+            // zusammen passen (z.B. Wareneinkauf -> 7%).
+            db.collection('kontoauszug').doc(id).set({
+                kategorie: kategorie,
+                mwstSatz: defaultMwstSatzForKategorie(kategorie)
+            }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function setMwstSatz(id, mwstSatz) {
+            db.collection('kontoauszug').doc(id).set({ mwstSatz: parseInt(mwstSatz, 10) }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }
@@ -493,6 +523,7 @@
             const entry = allEntries.find(e => e.id === id);
             if (category === 'geschaeft' && entry && !entry.kategorie) {
                 fields.kategorie = guessKategorie(entry.buchungstext + ' ' + entry.verwendungszweck + ' ' + entry.empfaenger);
+                fields.mwstSatz = defaultMwstSatzForKategorie(fields.kategorie);
             }
             db.collection('kontoauszug').doc(id).set(fields, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);

@@ -239,7 +239,15 @@
             </div>
             <div class="field" id="entryKategorieField" style="display:none;">
                 <label for="entryKategorie">Kategorie</label>
-                <select id="entryKategorie"></select>
+                <select id="entryKategorie" onchange="updateDefaultMwstSatz()"></select>
+            </div>
+            <div class="field" id="entryMwstField" style="display:none;">
+                <label for="entryMwstSatz">MwSt-Satz (Einkauf)</label>
+                <select id="entryMwstSatz">
+                    <option value="19">19%</option>
+                    <option value="7">7%</option>
+                    <option value="0">0% (steuerfrei)</option>
+                </select>
             </div>
             <div class="field">
                 <label for="entryAmount">Betrag (€)</label>
@@ -277,6 +285,7 @@
                         <th>Art</th>
                         <th>Notiz</th>
                         <th>Kategorie</th>
+                        <th>MwSt</th>
                         <th>Betrag</th>
                         <th>Kassenbestand</th>
                         <th>Aktion</th>
@@ -374,9 +383,24 @@
             select.innerHTML = EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === selected ? 'selected' : ''}>${k}</option>`).join('');
         }
 
+        // Lebensmittel-Wareneinkauf ist i.d.R. 7% MwSt, alles andere
+        // (Ausrüstung wie eine Sahnemaschine, Kfz, Werbung, Büro...) i.d.R.
+        // 19% - nur eine Vorauswahl, im Zweifel bitte mit dem Steuerberater
+        // abstimmen und den Satz pro Einkauf anpassen.
+        function defaultMwstSatzForKategorie(kategorie) {
+            return kategorie === 'Wareneinkauf' ? '7' : '19';
+        }
+
+        function updateDefaultMwstSatz() {
+            const kategorie = document.getElementById('entryKategorie').value;
+            document.getElementById('entryMwstSatz').value = defaultMwstSatzForKategorie(kategorie);
+        }
+
         function toggleKategorieField() {
             const type = document.getElementById('entryType').value;
-            document.getElementById('entryKategorieField').style.display = type === 'ausgabe' ? 'flex' : 'none';
+            const show = type === 'ausgabe' ? 'flex' : 'none';
+            document.getElementById('entryKategorieField').style.display = show;
+            document.getElementById('entryMwstField').style.display = show;
         }
 
         function initFirebase() {
@@ -561,6 +585,13 @@
                     <td>${e.type === 'ausgabe'
                         ? `<select class="cat-select" style="padding:4px 6px; border:2px solid #ddd; border-radius:6px; font-size:0.8em; font-family:inherit;" onchange="setEntryKategorie('${e.id}', this.value)">${EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === e.kategorie ? 'selected' : ''}>${k}</option>`).join('')}</select>`
                         : '-'}</td>
+                    <td>${e.type === 'ausgabe'
+                        ? `<select class="cat-select" style="padding:4px 6px; border:2px solid #ddd; border-radius:6px; font-size:0.8em; font-family:inherit;" onchange="setEntryMwstSatz('${e.id}', this.value)">
+                            <option value="19" ${e.mwstSatz === 19 ? 'selected' : ''}>19%</option>
+                            <option value="7" ${e.mwstSatz === 7 ? 'selected' : ''}>7%</option>
+                            <option value="0" ${e.mwstSatz === 0 ? 'selected' : ''}>0%</option>
+                        </select>`
+                        : '-'}</td>
                     <td class="${amountClass}">${amountSign} ${formatEuro(amount)}</td>
                     <td class="balance-cell">${formatEuro(e.balance)}</td>
                     <td>
@@ -582,6 +613,7 @@
             const amount = parseFloat(document.getElementById('entryAmount').value);
             const note = document.getElementById('entryNote').value.trim();
             const kategorie = type === 'ausgabe' ? document.getElementById('entryKategorie').value : '';
+            const mwstSatz = type === 'ausgabe' ? parseInt(document.getElementById('entryMwstSatz').value, 10) : null;
 
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
             if (isNaN(amount) || amount < 0) { alert('Bitte einen gültigen Betrag eintragen.'); return; }
@@ -593,6 +625,7 @@
                 amount: amount,
                 note: note,
                 kategorie: kategorie,
+                mwstSatz: mwstSatz,
                 createdAtMs: Date.now()
             }).then(() => {
                 document.getElementById('entryAmount').value = '';
@@ -629,6 +662,12 @@
 
         function setEntryKategorie(id, kategorie) {
             db.collection('kassenbuch').doc(id).set({ kategorie: kategorie }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function setEntryMwstSatz(id, mwstSatz) {
+            db.collection('kassenbuch').doc(id).set({ mwstSatz: parseInt(mwstSatz, 10) }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }
@@ -845,6 +884,7 @@
         document.getElementById('entryDate').value = todayIso();
         document.getElementById('kbReportDate').value = todayIso();
         populateKategorieSelect(document.getElementById('entryKategorie'), 'Wareneinkauf');
+        updateDefaultMwstSatz();
         initFirebase();
     </script>
 </body>
