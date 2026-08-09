@@ -199,7 +199,8 @@
                         <th>Buchungstext</th>
                         <th>Verwendungszweck / Empfänger</th>
                         <th>Betrag</th>
-                        <th>Kategorie</th>
+                        <th>Art</th>
+                        <th>EÜR-Kategorie</th>
                         <th>Beleg-Nr.</th>
                         <th>Notiz</th>
                         <th>Aktion</th>
@@ -216,6 +217,18 @@
     <script>
         let db = null;
         let allEntries = [];
+
+        // EÜR-taugliche Ausgaben-Kategorien - dieselbe Liste wie in
+        // kassenbuch.html und steuerreport.html.
+        const EXPENSE_CATEGORIES = [
+            'Wareneinkauf',
+            'Kfz-Kosten',
+            'Miete/Nebenkosten',
+            'Versicherungen',
+            'Werbung/Marketing',
+            'Büro/Verwaltung',
+            'Sonstiges'
+        ];
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -363,6 +376,7 @@
                     // bekommen automatisch "Zahlungseingang" und tauchen
                     // nicht in der Kategorie-Auswahl auf.
                     category: richtung === 'ausgabe' ? 'geschaeft' : 'zahlungseingang',
+                    kategorie: richtung === 'ausgabe' ? guessKategorie(buchungstext + ' ' + verwendungszweck + ' ' + empfaenger) : '',
                     note: '',
                     importedAtMs: Date.now()
                 }, { merge: true });
@@ -428,6 +442,9 @@
                             <option value="geschaeft" ${e.category === 'geschaeft' ? 'selected' : ''}>🧾 Geschäftsausgabe</option>
                             <option value="privat" ${e.category === 'privat' ? 'selected' : ''}>🏠 Privat</option>
                         </select>`;
+                const kategorieHtml = (!isEinnahme && e.category === 'geschaeft')
+                    ? `<select class="cat-select" onchange="setKategorie('${e.id}', this.value)">${EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === e.kategorie ? 'selected' : ''}>${k}</option>`).join('')}</select>`
+                    : '-';
                 return `
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
@@ -435,6 +452,7 @@
                     <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}</td>
                     <td class="amount-cell">${amountHtml}</td>
                     <td>${categoryHtml}</td>
+                    <td>${kategorieHtml}</td>
                     <td>
                         <div style="display:flex; gap:4px; align-items:center;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
@@ -449,8 +467,34 @@
             }).join('');
         }
 
+        // Einfache Stichwort-Erkennung für eine sinnvolle Vorauswahl der
+        // EÜR-Kategorie (Metro/Netto -> Wareneinkauf, Tankstelle ->
+        // Kfz-Kosten usw.) - spart beim Nachkategorisieren Zeit, kann aber
+        // jederzeit per Dropdown korrigiert werden.
+        function guessKategorie(text) {
+            const t = (text || '').toLowerCase();
+            if (/versicherung/.test(t)) return 'Versicherungen';
+            if (/tank|shell|aral|esso|jet\s|star\s|avia/.test(t)) return 'Kfz-Kosten';
+            if (/metro|netto|rewe|lidl|aldi|kaufland|edeka|großmarkt|grossmarkt|amazon/.test(t)) return 'Wareneinkauf';
+            if (/werbung|marketing|facebook|google ads|insta/.test(t)) return 'Werbung/Marketing';
+            if (/miete|nebenkosten|weg |hausgeld|energie|stadtwerke|strom|gas /.test(t)) return 'Miete/Nebenkosten';
+            if (/telekom|vodafone|internet|telefon|software|microsoft|adobe|o2\b|1&1/.test(t)) return 'Büro/Verwaltung';
+            return 'Sonstiges';
+        }
+
+        function setKategorie(id, kategorie) {
+            db.collection('kontoauszug').doc(id).set({ kategorie: kategorie }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
         function setCategory(id, category) {
-            db.collection('kontoauszug').doc(id).set({ category: category || null }, { merge: true }).catch(err => {
+            const fields = { category: category || null };
+            const entry = allEntries.find(e => e.id === id);
+            if (category === 'geschaeft' && entry && !entry.kategorie) {
+                fields.kategorie = guessKategorie(entry.buchungstext + ' ' + entry.verwendungszweck + ' ' + entry.empfaenger);
+            }
+            db.collection('kontoauszug').doc(id).set(fields, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }

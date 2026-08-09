@@ -270,6 +270,7 @@
                     <a href="#sec-einnahmen" onclick="closeBurgerMenu()">Betriebseinnahmen-Liste</a>
                     <a href="#sec-quartal" onclick="closeBurgerMenu()">Quartalsübersicht</a>
                     <a href="#sec-monat" onclick="closeBurgerMenu()">Monatsübersicht</a>
+                    <a href="#sec-kategorie" onclick="closeBurgerMenu()">Ausgaben nach Kategorie</a>
                     <a href="#sec-ausgaben-kasse" onclick="closeBurgerMenu()">Ausgaben (Kassenbuch)</a>
                     <a href="#sec-bank-quartal" onclick="closeBurgerMenu()">Kontoauszug-Ausgaben nach Quartal</a>
                     <a href="#sec-ausgaben-bank" onclick="closeBurgerMenu()">Ausgaben (Kontoauszug)</a>
@@ -412,11 +413,23 @@
             </table>
         </div>
 
+        <h2 class="section-title" id="sec-kategorie">Ausgaben nach Kategorie (für die EÜR)</h2>
+        <div class="table-wrap">
+            <table id="kategorieTable" class="summary-table">
+                <colgroup><col style="width:40%;"><col></colgroup>
+                <thead>
+                    <tr><th>Kategorie</th><th>Betrag</th></tr>
+                </thead>
+                <tbody id="kategorieBody"></tbody>
+                <tfoot id="kategorieFoot" style="font-weight:700;"></tfoot>
+            </table>
+        </div>
+
         <h2 class="section-title" id="sec-ausgaben-kasse">Betriebsausgaben-Liste (aus Kassenbuch, bar bezahlt)</h2>
         <div class="table-wrap">
             <table id="expensesTable">
                 <thead>
-                    <tr><th>Datum</th><th>Notiz</th><th>Betrag</th></tr>
+                    <tr><th>Datum</th><th>Kategorie</th><th>Notiz</th><th>Betrag</th></tr>
                 </thead>
                 <tbody id="expensesBody"></tbody>
             </table>
@@ -439,7 +452,7 @@
         <div class="table-wrap">
             <table id="bankExpensesTable">
                 <thead>
-                    <tr><th>Datum</th><th>Beleg-Nr.</th><th>Notiz</th><th>Betrag</th></tr>
+                    <tr><th>Datum</th><th>Kategorie</th><th>Beleg-Nr.</th><th>Notiz</th><th>Betrag</th></tr>
                 </thead>
                 <tbody id="bankExpensesBody"></tbody>
             </table>
@@ -465,6 +478,18 @@
         let allKassenbuch = [];
         let allKontoauszug = [];
         let invoicesByBookingId = {};
+
+        // EÜR-taugliche Ausgaben-Kategorien - dieselbe Liste wie in
+        // kassenbuch.html und kontoauszug.html.
+        const EXPENSE_CATEGORIES = [
+            'Wareneinkauf',
+            'Kfz-Kosten',
+            'Miete/Nebenkosten',
+            'Versicherungen',
+            'Werbung/Marketing',
+            'Büro/Verwaltung',
+            'Sonstiges'
+        ];
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -645,6 +670,7 @@
                 amount: e.betrag,
                 belegNr: e.belegNr || '',
                 scanFile: e.scanFile || '',
+                kategorie: e.kategorie || 'Sonstiges',
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
             }));
         }
@@ -699,6 +725,7 @@
             renderRevenueTable(revenue);
             renderQuarterTable(revenue, allExpenses);
             renderMonthTable(revenue, allExpenses);
+            renderKategorieTable(cashExpenses, bankExpenses);
             renderExpensesTable(cashExpenses);
             renderBankQuarterTable(bankExpenses);
             renderBankExpensesTable(bankExpenses);
@@ -925,7 +952,7 @@
             return `<div class="folder-page">
                 <div class="folder-invoice" style="border-left-color:#e74c3c; background:#fdf5f4;">
                     <div>
-                        <span class="folder-label">Ausgabe (${quelle})</span><br>
+                        <span class="folder-label">Ausgabe (${quelle})${e.kategorie ? ' · ' + e.kategorie : ''}</span><br>
                         ${e.date || e.dateIso || ''} - ${beschreibung} - <strong>${formatEuro(parseFloat(e.amount) || 0)}</strong>
                     </div>
                     ${belegNrHtml ? `<div>${belegNrHtml}</div>` : ''}
@@ -1138,6 +1165,7 @@
             empty.style.display = 'none';
             tbody.innerHTML = sorted.map(e => `<tr>
                 <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.kategorie || 'Sonstiges'}</td>
                 <td>${e.note || '-'}</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
             </tr>`).join('');
@@ -1155,10 +1183,31 @@
             empty.style.display = 'none';
             tbody.innerHTML = sorted.map(e => `<tr>
                 <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.kategorie || 'Sonstiges'}</td>
                 <td>${e.belegNr || '-'}</td>
                 <td>${e.note || '-'}</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
             </tr>`).join('');
+        }
+
+        function renderKategorieTable(cashExpenses, bankExpenses) {
+            const totals = new Map();
+            EXPENSE_CATEGORIES.forEach(k => totals.set(k, 0));
+            cashExpenses.concat(bankExpenses).forEach(e => {
+                const k = e.kategorie || 'Sonstiges';
+                totals.set(k, (totals.get(k) || 0) + (parseFloat(e.amount) || 0));
+            });
+
+            const tbody = document.getElementById('kategorieBody');
+            const rows = EXPENSE_CATEGORIES.filter(k => totals.get(k) > 0);
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#888;">Keine Ausgaben im gewählten Zeitraum.</td></tr>';
+                document.getElementById('kategorieFoot').innerHTML = '';
+                return;
+            }
+            tbody.innerHTML = rows.map(k => `<tr><td>${k}</td><td class="amount-cell">${formatEuro(totals.get(k))}</td></tr>`).join('');
+            const total = rows.reduce((s, k) => s + totals.get(k), 0);
+            document.getElementById('kategorieFoot').innerHTML = `<tr><td>Summe</td><td class="amount-cell">${formatEuro(total)}</td></tr>`;
         }
 
         function renderBankQuarterTable(bankExpenses) {
@@ -1240,20 +1289,22 @@
             });
             lines.push([]);
             lines.push(['Betriebsausgaben (Kassenbuch, bar)']);
-            lines.push(['Datum', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Kategorie', 'Notiz', 'Betrag (€)']);
             [...cashExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
+                    e.kategorie || 'Sonstiges',
                     e.note || '',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
                 ]);
             });
             lines.push([]);
             lines.push(['Betriebsausgaben (Kontoauszug, per Bank)']);
-            lines.push(['Datum', 'Beleg-Nr.', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Kategorie', 'Beleg-Nr.', 'Notiz', 'Betrag (€)']);
             [...bankExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
+                    e.kategorie || 'Sonstiges',
                     e.belegNr || '',
                     e.note || '',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')

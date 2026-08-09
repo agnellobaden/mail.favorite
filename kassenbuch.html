@@ -230,12 +230,16 @@
             </div>
             <div class="field">
                 <label for="entryType">Art</label>
-                <select id="entryType">
+                <select id="entryType" onchange="toggleKategorieField()">
                     <option value="einnahme">💵 Bareinnahme (Verkauf)</option>
                     <option value="ausgabe">🧾 Barausgabe (z.B. Einkauf)</option>
                     <option value="einlage">➕ Einlage (z.B. Kleingeld/Wechselgeld)</option>
                     <option value="entnahme">🏦 Entnahme / zur Bank gebracht</option>
                 </select>
+            </div>
+            <div class="field" id="entryKategorieField" style="display:none;">
+                <label for="entryKategorie">Kategorie</label>
+                <select id="entryKategorie"></select>
             </div>
             <div class="field">
                 <label for="entryAmount">Betrag (€)</label>
@@ -272,6 +276,7 @@
                         <th>Datum</th>
                         <th>Art</th>
                         <th>Notiz</th>
+                        <th>Kategorie</th>
                         <th>Betrag</th>
                         <th>Kassenbestand</th>
                         <th>Aktion</th>
@@ -350,6 +355,29 @@
 
         // Übliche Stückelung für das Kassenzählprotokoll (Scheine + Münzen).
         const DENOMINATIONS = [500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1];
+
+        // EÜR-taugliche Ausgaben-Kategorien - dieselbe Liste wie in
+        // kontoauszug.html und steuerreport.html, damit die Zuordnung
+        // überall gleich aussieht und der Steuerberater sie direkt
+        // übernehmen kann.
+        const EXPENSE_CATEGORIES = [
+            'Wareneinkauf',
+            'Kfz-Kosten',
+            'Miete/Nebenkosten',
+            'Versicherungen',
+            'Werbung/Marketing',
+            'Büro/Verwaltung',
+            'Sonstiges'
+        ];
+
+        function populateKategorieSelect(select, selected) {
+            select.innerHTML = EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === selected ? 'selected' : ''}>${k}</option>`).join('');
+        }
+
+        function toggleKategorieField() {
+            const type = document.getElementById('entryType').value;
+            document.getElementById('entryKategorieField').style.display = type === 'ausgabe' ? 'flex' : 'none';
+        }
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -530,6 +558,9 @@
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${typeBadge(e.type)}</td>
                     <td>${e.note || '-'}${e.fromTageseinnahmen ? ' <span style="color:#667eea; font-size:0.8em;">(aus Tageseinnahmen)</span>' : ''}</td>
+                    <td>${e.type === 'ausgabe'
+                        ? `<select class="cat-select" style="padding:4px 6px; border:2px solid #ddd; border-radius:6px; font-size:0.8em; font-family:inherit;" onchange="setEntryKategorie('${e.id}', this.value)">${EXPENSE_CATEGORIES.map(k => `<option value="${k}" ${k === e.kategorie ? 'selected' : ''}>${k}</option>`).join('')}</select>`
+                        : '-'}</td>
                     <td class="${amountClass}">${amountSign} ${formatEuro(amount)}</td>
                     <td class="balance-cell">${formatEuro(e.balance)}</td>
                     <td>
@@ -550,6 +581,7 @@
             const type = document.getElementById('entryType').value;
             const amount = parseFloat(document.getElementById('entryAmount').value);
             const note = document.getElementById('entryNote').value.trim();
+            const kategorie = type === 'ausgabe' ? document.getElementById('entryKategorie').value : '';
 
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
             if (isNaN(amount) || amount < 0) { alert('Bitte einen gültigen Betrag eintragen.'); return; }
@@ -560,6 +592,7 @@
                 type: type,
                 amount: amount,
                 note: note,
+                kategorie: kategorie,
                 createdAtMs: Date.now()
             }).then(() => {
                 document.getElementById('entryAmount').value = '';
@@ -591,6 +624,12 @@
             if (!confirm(`Eintrag vom ${entry.date || entry.dateIso} (${formatEuro(parseFloat(entry.amount) || 0)}) wirklich löschen?`)) return;
             db.collection('kassenbuch').doc(id).delete().catch(err => {
                 alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
+        }
+
+        function setEntryKategorie(id, kategorie) {
+            db.collection('kassenbuch').doc(id).set({ kategorie: kategorie }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }
 
@@ -805,6 +844,7 @@
 
         document.getElementById('entryDate').value = todayIso();
         document.getElementById('kbReportDate').value = todayIso();
+        populateKategorieSelect(document.getElementById('entryKategorie'), 'Wareneinkauf');
         initFirebase();
     </script>
 </body>
