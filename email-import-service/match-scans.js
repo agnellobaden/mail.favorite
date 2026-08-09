@@ -2,7 +2,9 @@
 // Datum aus dem PDF-Text extrahiert) mit den Kontoauszug-Buchungen in
 // Firestore ab und trägt bei Treffern den Dateinamen ein (Feld "scanFile"),
 // damit die Buchhaltungsordner-Ansicht anzeigen kann, ob der Beleg
-// tatsächlich eingescannt vorliegt.
+// tatsächlich eingescannt vorliegt. Die PDF selbst wird als Base64-Data-URI
+// mitgespeichert (Feld "scanDataUri"), damit man sie direkt im Browser
+// öffnen kann - genau wie die Rechnungs-PDFs im Rechnungsarchiv.
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -14,18 +16,33 @@ const db = admin.firestore();
 
 const scanDir = path.join(__dirname, '..', 'scan');
 
+// Läuft auch außerhalb von Git Bash (z.B. über die Windows-Aufgabenplanung),
+// wo "pdftotext" nicht automatisch im PATH ist - dort liegt es als Teil von
+// Git for Windows mit, deshalb der konkrete Pfad als Fallback.
+const PDFTOTEXT_CANDIDATES = [
+    'pdftotext',
+    'C:\\Users\\aagne\\AppData\\Local\\Programs\\Git\\mingw64\\bin\\pdftotext.exe'
+];
+
 function deToIso(deDate) {
     const [d, m, y] = deDate.split('.');
     return `${y}-${m}-${d}`;
 }
 
-function extractDateAndAmount(filePath) {
-    let text;
-    try {
-        text = execSync(`pdftotext -layout "${filePath}" -`, { encoding: 'utf8' });
-    } catch (err) {
-        return null;
+function runPdftotext(filePath) {
+    for (const cmd of PDFTOTEXT_CANDIDATES) {
+        try {
+            return execSync(`"${cmd}" -layout "${filePath}" -`, { encoding: 'utf8' });
+        } catch (err) {
+            continue;
+        }
     }
+    return null;
+}
+
+function extractDateAndAmount(filePath) {
+    const text = runPdftotext(filePath);
+    if (!text) return null;
     const dateMatch = text.match(/LIEFERDATUM:\s*(\d{2}\.\d{2}\.\d{4})/) || text.match(/RECHNUNGSDATUM:\s*(\d{2}\.\d{2}\.\d{4})/);
     const amountMatches = [...text.matchAll(/SUMME EUR\s*([\d.]+,\d{2})/g)];
     if (!dateMatch || amountMatches.length === 0) return null;
@@ -72,7 +89,20 @@ async function main() {
         }
 
         const match = candidates[0];
-        await db.collection('kontoauszug').doc(match.id).set({ scanFile: file }, { merge: true });
+        const pdfPath = path.join(scanDir, file);
+        const pdfBytes = fs.readFileSync(pdfPath);
+        const fields = { scanFile: file };
+
+        // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
+        // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen
+        // speichern, keine Data-URI.
+        if (pdfBytes.length < 700 * 1024) {
+            fields.scanDataUri = 'data:application/pdf;base64,' + pdfBytes.toString('base64');
+        } else {
+            console.log(`ℹ "${file}" ist zu groß (${(pdfBytes.length / 1024).toFixed(0)} KB) - nur Dateiname gespeichert, keine Data-URI.`);
+        }
+
+        await db.collection('kontoauszug').doc(match.id).set(fields, { merge: true });
         console.log(`✅ "${file}" -> ${match.date} ${match.betrag} € (${match.empfaenger || match.verwendungszweck || ''})`);
         matched++;
     }

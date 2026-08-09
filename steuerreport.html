@@ -675,11 +675,13 @@
             let entries = allKontoauszug.filter(e => e.category === 'geschaeft');
             entries = filterByYearAndQuarter(entries);
             return entries.map(e => ({
+                id: e.id,
                 dateIso: e.dateIso,
                 date: e.date,
                 amount: e.betrag,
                 belegNr: e.belegNr || '',
                 scanFile: e.scanFile || '',
+                scanDataUri: e.scanDataUri || '',
                 kategorie: e.kategorie || 'Sonstiges',
                 mwstSatz: e.mwstSatz != null ? e.mwstSatz : 19,
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
@@ -970,9 +972,13 @@
 
             let scanHtml = '';
             if (quelle === 'Bank') {
-                scanHtml = e.scanFile
-                    ? `<div class="folder-payment"><div>✅ <span class="folder-label">Beleg gescannt</span> - ${e.scanFile}</div></div>`
-                    : `<div class="folder-payment missing"><div>⚠ <span class="folder-label">Kein Scan gefunden</span> im scan-Ordner für diese Buchung.</div></div>`;
+                if (e.scanFile && e.scanDataUri) {
+                    scanHtml = `<div class="folder-payment"><div>✅ <span class="folder-label">Beleg gescannt</span> - ${e.scanFile}</div><button class="btn btn-secondary" style="padding:5px 10px; font-size:0.8em;" onclick="openScanPdf('${e.id}')">📄 PDF öffnen</button></div>`;
+                } else if (e.scanFile) {
+                    scanHtml = `<div class="folder-payment"><div>✅ <span class="folder-label">Beleg gescannt</span> - ${e.scanFile} (zu groß zum Anzeigen, Datei lokal im scan-Ordner öffnen)</div></div>`;
+                } else {
+                    scanHtml = `<div class="folder-payment missing"><div>⚠ <span class="folder-label">Kein Scan gefunden</span> im scan-Ordner für diese Buchung.</div></div>`;
+                }
             }
 
             return `<div class="folder-page">
@@ -1018,6 +1024,17 @@
             const win = window.open();
             if (win) {
                 win.document.write('<iframe src="' + inv.pdfDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
+            } else {
+                alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+            }
+        }
+
+        function openScanPdf(id) {
+            const entry = allKontoauszug.find(e => e.id === id);
+            if (!entry || !entry.scanDataUri) { alert('❌ Für diesen Beleg liegt kein gespeicherter Scan vor.'); return; }
+            const win = window.open();
+            if (win) {
+                win.document.write('<iframe src="' + entry.scanDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
             } else {
                 alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
             }

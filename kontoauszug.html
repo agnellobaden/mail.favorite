@@ -469,7 +469,7 @@
                         <div style="display:flex; gap:4px; align-items:center;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
                             ${!e.belegNr ? `<button class="btn btn-secondary btn-sm" title="Nächste Beleg-Nr. vergeben" onclick="assignNextBelegNr('${e.id}', '${e.dateIso}')">🔢</button>` : ''}
-                            ${e.scanFile ? `<span title="Scan gefunden: ${e.scanFile}" style="color:#28a745;">✅</span>` : ''}
+                            ${e.scanFile && e.scanDataUri ? `<button class="btn btn-secondary btn-sm" title="${e.scanFile}" onclick="openScanPdf('${e.id}')">✅ 📄</button>` : e.scanFile ? `<span title="Scan gefunden: ${e.scanFile}" style="color:#28a745;">✅</span>` : ''}
                         </div>
                     </td>
                     <td><input type="text" class="note-input" value="${(e.note || '').replace(/"/g, '&quot;')}" onchange="setNote('${e.id}', this.value)" placeholder="optional"></td>
@@ -603,6 +603,17 @@
             db.collection('kontoauszug').doc(id).delete().catch(err => {
                 alert('❌ Konnte nicht gelöscht werden: ' + err.message);
             });
+        }
+
+        function openScanPdf(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry || !entry.scanDataUri) { alert('❌ Für diesen Beleg liegt kein gespeicherter Scan vor.'); return; }
+            const win = window.open();
+            if (win) {
+                win.document.write('<iframe src="' + entry.scanDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
+            } else {
+                alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+            }
         }
 
         initFirebase();
