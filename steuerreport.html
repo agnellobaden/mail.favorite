@@ -988,7 +988,7 @@
             return `<div class="folder-page">
                 <div class="folder-invoice">
                     <div>
-                        <span class="folder-label">Rechnung ${inv.invoiceNumber || ''}</span><br>
+                        <span class="folder-label">Rechnung ${inv.invoiceNumber || ''}</span>${kundeBadge(entryKunde(entry))}<br>
                         ${inv.invoiceDate || entry.date || ''} - ${inv.customerName || entry.note || ''} - <strong>${formatEuro(parseFloat(entry.amount) || 0)}</strong>
                     </div>
                     ${invoiceBtn}
