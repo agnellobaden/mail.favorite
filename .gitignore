@@ -10,3 +10,6 @@ email-import-service/backups/
 email-import-service/*-log.txt
 _ARCHIV-ALTE-BACKUPS-*/
 .env
+
+# Niemals committen: hochgeladene Kontoauszüge (enthalten IBAN/Kontodaten)
+kontoauszuege/

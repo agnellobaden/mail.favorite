@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Kontoauszug - EisFavorite</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link { color: #667eea; text-decoration: none; font-weight: 600; }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .upload-box {
+        background: #f8f9fa;
+        border: 2px dashed #ccc;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    .upload-box input[type="file"] { flex: 1; min-width: 200px; }
+    .upload-hint { font-size: 0.85em; color: #666; margin-top: 8px; }
+
+    .stats {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        flex: 1;
+        min-width: 160px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 16px;
+        text-align: center;
+    }
+    .stat-card .label { font-size: 0.78em; text-transform: uppercase; opacity: 0.9; font-weight: 600; }
+    .stat-card .value { font-size: 1.5em; font-weight: 800; margin-top: 4px; }
+    .stat-card.offen { background: linear-gradient(135deg, #f39c12 0%, #f7b733 100%); }
+    .stat-card.geschaeft { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .stat-card.privat { background: linear-gradient(135deg, #888 0%, #aaa 100%); }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .btn-sm { padding: 6px 10px; font-size: 0.8em; }
+
+    .filter-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-row select { padding: 10px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.87em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; }
+    tr:hover { background: #f8f9fa; }
+    .amount-cell { font-weight: 700; color: #e74c3c; text-align: right; }
+    .table-wrap { overflow-x: auto; }
+    .empty-state { text-align: center; padding: 40px 20px; color: #888; }
+    .cat-select { padding: 5px 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 0.85em; font-family: inherit; }
+    .cat-select.offen { border-color: #f39c12; background: #fff8ec; }
+    .cat-select.geschaeft { border-color: #e74c3c; background: #fdecea; }
+    .cat-select.privat { border-color: #999; background: #f2f2f2; }
+    .note-input { padding: 5px 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 0.85em; font-family: inherit; width: 100%; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.78em; }
+        th, td { padding: 6px 5px; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>🏦 Kontoauszug</h1>
+        <p class="subtitle">Sparkassen-Kontoauszug (CSV) importieren, Buchungen als "Geschäftsausgabe" oder "Privat" markieren - Geschäftsausgaben fließen automatisch in den Steuerreport mit ein.</p>
+
+        <div class="upload-box">
+            <input type="file" id="csvFile" accept=".csv,.CSV" onchange="handleFileUpload(event)">
+            <button class="btn" onclick="document.getElementById('csvFile').click()">📤 CSV-Datei auswählen</button>
+        </div>
+        <p class="upload-hint">Export aus dem Sparkassen-Onlinebanking: Umsätze → Exportieren → "Excel (CSV-CAMT V2)". Bereits importierte Buchungen werden beim erneuten Hochladen (z.B. bei überlappendem Zeitraum) automatisch übersprungen.</p>
+
+        <div class="stats">
+            <div class="stat-card offen">
+                <div class="label">Noch zu kategorisieren</div>
+                <div class="value" id="statOffen">0</div>
+            </div>
+            <div class="stat-card geschaeft">
+                <div class="label">Geschäftsausgaben</div>
+                <div class="value" id="statGeschaeft">0,00 €</div>
+            </div>
+            <div class="stat-card privat">
+                <div class="label">Privat (ausgeschlossen)</div>
+                <div class="value" id="statPrivat">0,00 €</div>
+            </div>
+        </div>
+
+        <div class="filter-row">
+            <select id="catFilter" onchange="renderTable()">
+                <option value="alle">Alle Buchungen</option>
+                <option value="offen" selected>Nur noch zu kategorisieren</option>
+                <option value="geschaeft">Nur Geschäftsausgaben</option>
+                <option value="privat">Nur Privat</option>
+            </select>
+        </div>
+
+        <div class="table-wrap">
+            <table id="entriesTable">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Buchungstext</th>
+                        <th>Verwendungszweck / Empfänger</th>
+                        <th>Betrag</th>
+                        <th>Kategorie</th>
+                        <th>Notiz</th>
+                        <th>Aktion</th>
+                    </tr>
+                </thead>
+                <tbody id="entriesBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <p>Noch keine Kontoauszüge importiert. Lade oben eine CSV-Datei hoch.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allEntries = [];
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            db = firebase.firestore();
+            db.collection('kontoauszug').onSnapshot(snapshot => {
+                allEntries = [];
+                snapshot.forEach(doc => allEntries.push({ ...doc.data(), id: doc.id }));
+                renderAll();
+            }, error => console.error('Firestore-Fehler:', error));
+        }
+
+        function formatEuro(n) {
+            return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+
+        // "10.08.26" (TT.MM.JJ) -> "2026-08-10"
+        function sparkasseDateToIso(d) {
+            const parts = String(d || '').trim().split('.');
+            if (parts.length !== 3) return null;
+            const [dd, mm, yy] = parts;
+            const yyyy = yy.length === 2 ? '20' + yy : yy;
+            return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+
+        function isoToDe(iso) {
+            const [y, m, d] = iso.split('-');
+            return `${d}.${m}.${y}`;
+        }
+
+        // Einfacher CSV-Parser für das Sparkassen-Format: jedes Feld in
+        // Anführungszeichen, Semikolon als Trennzeichen zwischen den
+        // Feldern (Standardformat "CSV-CAMT").
+        function parseCsvLine(line) {
+            const result = [];
+            let cur = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+                    else inQuotes = !inQuotes;
+                } else if (ch === ';' && !inQuotes) {
+                    result.push(cur);
+                    cur = '';
+                } else {
+                    cur += ch;
+                }
+            }
+            result.push(cur);
+            return result;
+        }
+
+        // Kurzer, stabiler Hash als Firestore-Dokument-ID, damit dieselbe
+        // Buchung beim erneuten Import (z.B. überlappender Exportzeitraum)
+        // nicht doppelt gespeichert wird.
+        function hashId(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+            }
+            return 'ka-' + Math.abs(hash).toString(36);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = new TextDecoder('windows-1252').decode(e.target.result);
+                    importCsvText(text);
+                } catch (err) {
+                    alert('❌ Konnte Datei nicht lesen: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        function importCsvText(text) {
+            const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+            if (lines.length < 2) { alert('❌ Datei enthält keine Buchungen.'); return; }
+
+            const header = parseCsvLine(lines[0]).map(h => h.trim());
+            const idx = {};
+            header.forEach((h, i) => { idx[h] = i; });
+
+            const required = ['Buchungstag', 'Verwendungszweck', 'Betrag'];
+            const missing = required.filter(r => !(r in idx));
+            if (missing.length > 0) {
+                alert('❌ Unerwartetes CSV-Format - fehlende Spalten: ' + missing.join(', '));
+                return;
+            }
+
+            let imported = 0, skippedIncome = 0, skippedDuplicate = 0;
+            const batch = db.batch();
+            let batchCount = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = parseCsvLine(lines[i]);
+                if (cols.length < 3) continue;
+
+                const buchungstag = cols[idx['Buchungstag']];
+                const dateIso = sparkasseDateToIso(buchungstag);
+                if (!dateIso) continue;
+
+                const betragStr = (cols[idx['Betrag']] || '').replace(/\./g, '').replace(',', '.');
+                const betrag = parseFloat(betragStr);
+                if (isNaN(betrag)) continue;
+
+                // Nur Ausgaben (negative Beträge) importieren - Einnahmen
+                // per Überweisung werden bereits über Tageseinnahmen erfasst.
+                if (betrag >= 0) { skippedIncome++; continue; }
+
+                const buchungstext = idx['Buchungstext'] != null ? cols[idx['Buchungstext']] : '';
+                const verwendungszweck = idx['Verwendungszweck'] != null ? cols[idx['Verwendungszweck']].trim() : '';
+                const empfaenger = idx['Beguenstigter/Zahlungspflichtiger'] != null ? cols[idx['Beguenstigter/Zahlungspflichtiger']].trim() : '';
+
+                const docId = hashId(`${dateIso}_${betrag.toFixed(2)}_${verwendungszweck}_${empfaenger}`);
+                if (allEntries.some(e => e.id === docId)) { skippedDuplicate++; continue; }
+
+                const docRef = db.collection('kontoauszug').doc(docId);
+                batch.set(docRef, {
+                    dateIso: dateIso,
+                    date: isoToDe(dateIso),
+                    betrag: Math.abs(betrag),
+                    buchungstext: buchungstext,
+                    verwendungszweck: verwendungszweck,
+                    empfaenger: empfaenger,
+                    category: null,
+                    note: '',
+                    importedAtMs: Date.now()
+                }, { merge: true });
+                batchCount++;
+                imported++;
+
+                // Firestore erlaubt max. 500 Schreibvorgänge pro Batch.
+                if (batchCount >= 450) {
+                    batch.commit();
+                    batchCount = 0;
+                }
+            }
+
+            if (batchCount > 0) {
+                batch.commit().then(() => {
+                    alert(`✅ ${imported} Buchung(en) importiert.\n${skippedDuplicate} bereits vorhanden (übersprungen).\n${skippedIncome} Einnahmen ignoriert (nur Ausgaben werden importiert).`);
+                }).catch(err => {
+                    alert('❌ Fehler beim Speichern: ' + err.message);
+                });
+            } else if (imported === 0) {
+                alert(`Keine neuen Ausgaben gefunden.\n${skippedDuplicate} bereits vorhanden, ${skippedIncome} Einnahmen ignoriert.`);
+            }
+        }
+
+        function renderAll() {
+            const geschaeft = allEntries.filter(e => e.category === 'geschaeft').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
+            const privat = allEntries.filter(e => e.category === 'privat').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
+            const offen = allEntries.filter(e => !e.category).length;
+
+            document.getElementById('statOffen').textContent = offen;
+            document.getElementById('statGeschaeft').textContent = formatEuro(geschaeft);
+            document.getElementById('statPrivat').textContent = formatEuro(privat);
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const filter = document.getElementById('catFilter').value;
+            let entries = [...allEntries].sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
+            if (filter === 'offen') entries = entries.filter(e => !e.category);
+            else if (filter !== 'alle') entries = entries.filter(e => e.category === filter);
+
+            const tbody = document.getElementById('entriesBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (entries.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            tbody.innerHTML = entries.map(e => {
+                const catClass = e.category === 'geschaeft' ? 'geschaeft' : e.category === 'privat' ? 'privat' : 'offen';
+                return `
+                <tr>
+                    <td>${e.date || e.dateIso || '-'}</td>
+                    <td>${e.buchungstext || '-'}</td>
+                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}</td>
+                    <td class="amount-cell">- ${formatEuro(parseFloat(e.betrag) || 0)}</td>
+                    <td>
+                        <select class="cat-select ${catClass}" onchange="setCategory('${e.id}', this.value)">
+                            <option value="" ${!e.category ? 'selected' : ''}>- wählen -</option>
+                            <option value="geschaeft" ${e.category === 'geschaeft' ? 'selected' : ''}>🧾 Geschäftsausgabe</option>
+                            <option value="privat" ${e.category === 'privat' ? 'selected' : ''}>🏠 Privat</option>
+                        </select>
+                    </td>
+                    <td><input type="text" class="note-input" value="${(e.note || '').replace(/"/g, '&quot;')}" onchange="setNote('${e.id}', this.value)" placeholder="optional"></td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button></td>
+                </tr>
+            `;
+            }).join('');
+        }
+
+        function setCategory(id, category) {
+            db.collection('kontoauszug').doc(id).set({ category: category || null }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function setNote(id, note) {
+            db.collection('kontoauszug').doc(id).set({ note: note.trim() }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function deleteEntry(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) return;
+            if (!confirm(`Buchung vom ${entry.date} (${formatEuro(parseFloat(entry.betrag) || 0)}) wirklich löschen?`)) return;
+            db.collection('kontoauszug').doc(id).delete().catch(err => {
+                alert('❌ Konnte nicht gelöscht werden: ' + err.message);
+            });
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>

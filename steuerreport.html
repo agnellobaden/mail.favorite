@@ -161,8 +161,8 @@
 
         <div class="disclaimer">
             <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
-            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch.<br>
-            <strong>Nicht enthalten:</strong> per Überweisung/Karte bezahlte Betriebsausgaben (z.B. Versicherung, Wareneinkauf per Überweisung), die nicht im Kassenbuch erfasst sind - dafür bitte zusätzlich Kontoauszüge/Belege sammeln.
+            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch, sowie per Kontoauszug importierte und als "Geschäftsausgabe" markierte Bankbuchungen (siehe <a href="kontoauszug.html">Kontoauszug</a>).<br>
+            <strong>Nicht enthalten:</strong> Bankbuchungen, die noch nicht in <a href="kontoauszug.html">Kontoauszug</a> importiert oder dort noch nicht als "Geschäftsausgabe"/"Privat" kategorisiert wurden.
         </div>
 
         <div class="filter-row no-print">
@@ -210,7 +210,7 @@
             </table>
         </div>
 
-        <h2 class="section-title">Betriebsausgaben-Liste (aus Kassenbuch)</h2>
+        <h2 class="section-title">Betriebsausgaben-Liste (aus Kassenbuch, bar bezahlt)</h2>
         <div class="table-wrap">
             <table id="expensesTable">
                 <thead>
@@ -219,6 +219,17 @@
                 <tbody id="expensesBody"></tbody>
             </table>
             <div class="empty-state" id="expensesEmpty" style="display:none;">Keine Ausgaben im gewählten Zeitraum.</div>
+        </div>
+
+        <h2 class="section-title">Betriebsausgaben-Liste (aus Kontoauszug, per Bank bezahlt)</h2>
+        <div class="table-wrap">
+            <table id="bankExpensesTable">
+                <thead>
+                    <tr><th>Datum</th><th>Notiz</th><th>Betrag</th></tr>
+                </thead>
+                <tbody id="bankExpensesBody"></tbody>
+            </table>
+            <div class="empty-state" id="bankExpensesEmpty" style="display:none;">Keine als Geschäftsausgabe markierten Kontoauszug-Buchungen im gewählten Zeitraum. <a href="kontoauszug.html">Kontoauszug importieren/kategorisieren →</a></div>
         </div>
 
         <h2 class="section-title">Sonstige Kassenbewegungen (Privatentnahmen &amp; Einlagen, zur Info)</h2>
@@ -238,6 +249,7 @@
         let allTageseinnahmen = [];
         let allBookingEntries = [];
         let allKassenbuch = [];
+        let allKontoauszug = [];
 
         function initFirebase() {
             if (!firebase.apps.length) {
@@ -272,6 +284,14 @@
                 snapshot.forEach(doc => allKassenbuch.push({ ...doc.data(), id: doc.id }));
                 refreshAll();
             }, error => console.error('Firestore-Fehler (Kassenbuch):', error));
+
+            // Als "Geschäftsausgabe" markierte Kontoauszug-Buchungen (siehe
+            // kontoauszug.html) zählen zusätzlich zu den Betriebsausgaben.
+            db.collection('kontoauszug').onSnapshot(snapshot => {
+                allKontoauszug = [];
+                snapshot.forEach(doc => allKontoauszug.push({ ...doc.data(), id: doc.id }));
+                refreshAll();
+            }, error => console.error('Firestore-Fehler (Kontoauszug):', error));
         }
 
         function refreshAll() {
@@ -368,12 +388,29 @@
             return entries;
         }
 
+        // Als "Geschäftsausgabe" markierte Kontoauszug-Buchungen (aus
+        // kontoauszug.html) - auf dasselbe Format wie die Kassenbuch-
+        // Ausgaben gebracht (dateIso/date/amount/note), damit beide
+        // zusammen in Summen und Monatsübersicht einfließen können.
+        function filteredBankExpenses() {
+            const year = selectedYear();
+            let entries = allKontoauszug.filter(e => e.category === 'geschaeft');
+            if (year !== 'alle') entries = entries.filter(e => (e.dateIso || '').startsWith(year));
+            return entries.map(e => ({
+                dateIso: e.dateIso,
+                date: e.date,
+                amount: e.betrag,
+                note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
+            }));
+        }
+
         function updateYearFilterOptions() {
             const select = document.getElementById('yearFilter');
             const current = select.value;
             const years = Array.from(new Set(
                 combinedRevenueEntries().map(e => (e.dateIso || '').slice(0, 4))
                     .concat(allKassenbuch.map(e => (e.dateIso || '').slice(0, 4)))
+                    .concat(allKontoauszug.map(e => (e.dateIso || '').slice(0, 4)))
                     .filter(Boolean)
             )).sort().reverse();
             select.innerHTML = '<option value="alle">Alle Jahre</option>' +
@@ -383,12 +420,14 @@
 
         function renderAll() {
             const revenue = filteredRevenue();
-            const expenses = filteredExpenses();
+            const cashExpenses = filteredExpenses();
+            const bankExpenses = filteredBankExpenses();
+            const allExpenses = cashExpenses.concat(bankExpenses);
             const privateMovements = filteredPrivateMovements();
 
             const totalBrutto = revenue.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const totalUst = totalBrutto - (totalBrutto / 1.07);
-            const totalExpenses = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const totalExpenses = allExpenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const ergebnis = totalBrutto - totalExpenses;
 
             document.getElementById('statEinnahmen').textContent = formatEuro(totalBrutto);
@@ -396,8 +435,9 @@
             document.getElementById('statAusgaben').textContent = formatEuro(totalExpenses);
             document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
 
-            renderMonthTable(revenue, expenses);
-            renderExpensesTable(expenses);
+            renderMonthTable(revenue, allExpenses);
+            renderExpensesTable(cashExpenses);
+            renderBankExpensesTable(bankExpenses);
             renderPrivateTable(privateMovements);
         }
 
@@ -481,6 +521,23 @@
             </tr>`).join('');
         }
 
+        function renderBankExpensesTable(expenses) {
+            const tbody = document.getElementById('bankExpensesBody');
+            const empty = document.getElementById('bankExpensesEmpty');
+            const sorted = [...expenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+            if (sorted.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = sorted.map(e => `<tr>
+                <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.note || '-'}</td>
+                <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
+            </tr>`).join('');
+        }
+
         function renderPrivateTable(entries) {
             const tbody = document.getElementById('privateBody');
             const empty = document.getElementById('privateEmpty');
@@ -501,7 +558,8 @@
 
         function exportCsv() {
             const revenue = filteredRevenue();
-            const expenses = filteredExpenses();
+            const cashExpenses = filteredExpenses();
+            const bankExpenses = filteredBankExpenses();
             const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
 
             const lines = [];
@@ -518,9 +576,19 @@
                 ]);
             });
             lines.push([]);
-            lines.push(['Betriebsausgaben (Kassenbuch)']);
+            lines.push(['Betriebsausgaben (Kassenbuch, bar)']);
             lines.push(['Datum', 'Notiz', 'Betrag (€)']);
-            [...expenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
+            [...cashExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
+                lines.push([
+                    e.date || e.dateIso || '',
+                    e.note || '',
+                    (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
+                ]);
+            });
+            lines.push([]);
+            lines.push(['Betriebsausgaben (Kontoauszug, per Bank)']);
+            lines.push(['Datum', 'Notiz', 'Betrag (€)']);
+            [...bankExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
                     e.note || '',
