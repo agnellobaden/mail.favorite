@@ -42,6 +42,59 @@
     h1 { color: #333; margin: 0; font-size: 1.8em; }
     .subtitle { color: #666; margin-bottom: 20px; }
 
+    /* Titel/Hinweis/Filter/Kennzahlen bleiben beim Scrollen sichtbar. */
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: white;
+        margin: -25px -25px 20px -25px;
+        padding: 20px 25px 15px;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+    }
+    .sticky-header .subtitle { margin-bottom: 12px; }
+    .sticky-header .disclaimer { margin-bottom: 14px; }
+    .sticky-header .stats { margin-bottom: 0; }
+
+    .burger-wrap { position: relative; }
+    .burger-btn {
+        padding: 8px 14px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        color: #333;
+    }
+    .burger-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        min-width: 260px;
+        padding: 8px;
+        z-index: 200;
+    }
+    .burger-dropdown.open { display: block; }
+    .burger-dropdown a {
+        display: block;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #333;
+        text-decoration: none;
+        font-size: 0.9em;
+    }
+    .burger-dropdown a:hover { background: #f0f0f8; }
+    .burger-dropdown hr { border: none; border-top: 1px solid #eee; margin: 6px 0; }
+
+    /* Anker sollen nicht unter dem sticky Header verschwinden. */
+    h2.section-title { scroll-margin-top: 340px; }
+
     .disclaimer {
         background: #fff3cd;
         border: 2px solid #ffe08a;
@@ -201,54 +254,75 @@
         })();
     </script>
     <div class="container">
-        <div class="top-bar no-print">
-            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
-        </div>
-        <h1>📊 Steuerreport</h1>
-        <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
-
-        <div class="disclaimer">
-            <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
-            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch, sowie per Kontoauszug importierte und als "Geschäftsausgabe" markierte Bankbuchungen (siehe <a href="kontoauszug.html">Kontoauszug</a>).<br>
-            <strong>Nicht enthalten:</strong> Bankbuchungen, die noch nicht in <a href="kontoauszug.html">Kontoauszug</a> importiert oder dort noch nicht als "Geschäftsausgabe"/"Privat" kategorisiert wurden.
-        </div>
-
-        <div class="filter-row no-print">
-            <select id="yearFilter" onchange="userChangedFilters = true; renderAll();">
-                <option value="alle">Alle Jahre</option>
-            </select>
-            <select id="quarterFilter" onchange="userChangedFilters = true; renderAll();">
-                <option value="alle">Alle Quartale</option>
-                <option value="1">Q1 (Jan - Mär)</option>
-                <option value="2">Q2 (Apr - Jun)</option>
-                <option value="3">Q3 (Jul - Sep)</option>
-                <option value="4">Q4 (Okt - Dez)</option>
-            </select>
-            <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
-            <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
-            <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
-        </div>
-
-        <div class="stats">
-            <div class="stat-card einnahmen">
-                <div class="label">Betriebseinnahmen (brutto)</div>
-                <div class="value" id="statEinnahmen">0,00 €</div>
+        <div class="sticky-header">
+            <div class="top-bar no-print">
+                <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+                <div class="burger-wrap">
+                    <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
+                    <div class="burger-dropdown" id="burgerDropdown">
+                        <a href="#sec-journal" onclick="closeBurgerMenu()">📖 Buchungsjournal</a>
+                        <a href="#sec-ordner" onclick="closeBurgerMenu()">🗂️ Buchhaltungsordner-Ansicht</a>
+                        <a href="#sec-einnahmen" onclick="closeBurgerMenu()">Betriebseinnahmen-Liste</a>
+                        <a href="#sec-quartal" onclick="closeBurgerMenu()">Quartalsübersicht</a>
+                        <a href="#sec-monat" onclick="closeBurgerMenu()">Monatsübersicht</a>
+                        <a href="#sec-ausgaben-kasse" onclick="closeBurgerMenu()">Ausgaben (Kassenbuch)</a>
+                        <a href="#sec-bank-quartal" onclick="closeBurgerMenu()">Kontoauszug-Ausgaben nach Quartal</a>
+                        <a href="#sec-ausgaben-bank" onclick="closeBurgerMenu()">Ausgaben (Kontoauszug)</a>
+                        <a href="#sec-privat" onclick="closeBurgerMenu()">Privatentnahmen &amp; Einlagen</a>
+                        <hr>
+                        <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
+                        <a href="kassenbuch.html">🧾 Kassenbuch</a>
+                        <a href="kontoauszug.html">🏦 Kontoauszug</a>
+                        <a href="rechnungsarchiv.html">🗂️ Rechnungsarchiv</a>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card ust">
-                <div class="label">Darin Umsatzsteuer (7%)</div>
-                <div class="value" id="statUst">0,00 €</div>
+            <h1>📊 Steuerreport</h1>
+            <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
+
+            <div class="disclaimer">
+                <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
+                <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch, sowie per Kontoauszug importierte und als "Geschäftsausgabe" markierte Bankbuchungen (siehe <a href="kontoauszug.html">Kontoauszug</a>).<br>
+                <strong>Nicht enthalten:</strong> Bankbuchungen, die noch nicht in <a href="kontoauszug.html">Kontoauszug</a> importiert oder dort noch nicht als "Geschäftsausgabe"/"Privat" kategorisiert wurden.
             </div>
-            <div class="stat-card ausgaben">
-                <div class="label">Betriebsausgaben (Kasse)</div>
-                <div class="value" id="statAusgaben">0,00 €</div>
+
+            <div class="filter-row no-print">
+                <select id="yearFilter" onchange="userChangedFilters = true; renderAll();">
+                    <option value="alle">Alle Jahre</option>
+                </select>
+                <select id="quarterFilter" onchange="userChangedFilters = true; renderAll();">
+                    <option value="alle">Alle Quartale</option>
+                    <option value="1">Q1 (Jan - Mär)</option>
+                    <option value="2">Q2 (Apr - Jun)</option>
+                    <option value="3">Q3 (Jul - Sep)</option>
+                    <option value="4">Q4 (Okt - Dez)</option>
+                </select>
+                <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
+                <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+                <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
             </div>
-            <div class="stat-card ergebnis">
-                <div class="label">Vorläufiges Ergebnis</div>
-                <div class="value" id="statErgebnis">0,00 €</div>
+
+            <div class="stats">
+                <div class="stat-card einnahmen">
+                    <div class="label">Betriebseinnahmen (brutto)</div>
+                    <div class="value" id="statEinnahmen">0,00 €</div>
+                </div>
+                <div class="stat-card ust">
+                    <div class="label">Darin Umsatzsteuer (7%)</div>
+                    <div class="value" id="statUst">0,00 €</div>
+                </div>
+                <div class="stat-card ausgaben">
+                    <div class="label">Betriebsausgaben (Kasse)</div>
+                    <div class="value" id="statAusgaben">0,00 €</div>
+                </div>
+                <div class="stat-card ergebnis">
+                    <div class="label">Vorläufiges Ergebnis</div>
+                    <div class="value" id="statErgebnis">0,00 €</div>
+                </div>
             </div>
         </div>
 
-        <h2 class="section-title">📖 Buchungsjournal (chronologisch, für die Buchhaltung)</h2>
+        <h2 class="section-title" id="sec-journal">📖 Buchungsjournal (chronologisch, für die Buchhaltung)</h2>
         <p style="color:#666; font-size:0.9em; margin:-6px 0 10px;">Alle Einnahmen und Ausgaben in einer Zeile, chronologisch nach Datum sortiert - direkt für die Verbuchung durch den Steuerberater. "Beleg" verlinkt die Rechnung (bei Einnahmen aus Buchungen) bzw. zeigt die Beleg-Nr. aus dem Kontoauszug (siehe <a href="kontoauszug.html">Kontoauszug</a> und Papierordner/Scans).</p>
         <div class="table-wrap">
             <table id="journalTable">
@@ -272,14 +346,14 @@
 
         <div id="folderSection">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <h2 class="section-title" style="margin:0;">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
+                <h2 class="section-title" id="sec-ordner" style="margin:0;">🗂️ Buchhaltungsordner-Ansicht (Rechnung + Kontoauszug)</h2>
                 <button class="btn btn-secondary no-print" onclick="printFolderView()">🖨️ Nur diesen Ordner drucken</button>
             </div>
             <p style="color:#666; font-size:0.9em; margin:6px 0 10px;">Alle Belege chronologisch als eigene Seite: Rechnungen mit passendem Zahlungseingang, UND jede Ausgabe (Metro, Tanken, Netto, Amazon usw. aus Kontoauszug/Kassenbuch) einzeln mit Beleg-Nr. zum Nachschlagen im Papierordner/Scan-Ordner. Zahlungseingänge werden über Betrag + Zeitraum automatisch zugeordnet.</p>
             <div id="folderView"></div>
         </div>
 
-        <h2 class="section-title">Betriebseinnahmen-Liste (mit Rechnung)</h2>
+        <h2 class="section-title" id="sec-einnahmen">Betriebseinnahmen-Liste (mit Rechnung)</h2>
         <div class="table-wrap">
             <table id="revenueTable">
                 <thead>
@@ -290,7 +364,7 @@
             <div class="empty-state" id="revenueEmpty" style="display:none;">Keine Einnahmen im gewählten Zeitraum.</div>
         </div>
 
-        <h2 class="section-title">Quartalsübersicht (für die Umsatzsteuervoranmeldung)</h2>
+        <h2 class="section-title" id="sec-quartal">Quartalsübersicht (für die Umsatzsteuervoranmeldung)</h2>
         <div class="table-wrap">
             <table id="quarterTable" class="summary-table">
                 <colgroup>
@@ -311,7 +385,7 @@
             </table>
         </div>
 
-        <h2 class="section-title">Monatsübersicht</h2>
+        <h2 class="section-title" id="sec-monat">Monatsübersicht</h2>
         <div class="table-wrap">
             <table id="monthTable" class="summary-table">
                 <colgroup>
@@ -332,7 +406,7 @@
             </table>
         </div>
 
-        <h2 class="section-title">Betriebsausgaben-Liste (aus Kassenbuch, bar bezahlt)</h2>
+        <h2 class="section-title" id="sec-ausgaben-kasse">Betriebsausgaben-Liste (aus Kassenbuch, bar bezahlt)</h2>
         <div class="table-wrap">
             <table id="expensesTable">
                 <thead>
@@ -343,7 +417,7 @@
             <div class="empty-state" id="expensesEmpty" style="display:none;">Keine Ausgaben im gewählten Zeitraum.</div>
         </div>
 
-        <h2 class="section-title">Kontoauszug-Ausgaben nach Quartal (zum Nachvollziehen)</h2>
+        <h2 class="section-title" id="sec-bank-quartal">Kontoauszug-Ausgaben nach Quartal (zum Nachvollziehen)</h2>
         <div class="table-wrap">
             <table id="bankQuarterTable" class="summary-table">
                 <colgroup><col style="width:16%;"><col><col></colgroup>
@@ -355,7 +429,7 @@
             </table>
         </div>
 
-        <h2 class="section-title">Betriebsausgaben-Liste (aus Kontoauszug, per Bank bezahlt)</h2>
+        <h2 class="section-title" id="sec-ausgaben-bank">Betriebsausgaben-Liste (aus Kontoauszug, per Bank bezahlt)</h2>
         <div class="table-wrap">
             <table id="bankExpensesTable">
                 <thead>
@@ -366,7 +440,7 @@
             <div class="empty-state" id="bankExpensesEmpty" style="display:none;">Keine als Geschäftsausgabe markierten Kontoauszug-Buchungen im gewählten Zeitraum. <a href="kontoauszug.html">Kontoauszug importieren/kategorisieren →</a></div>
         </div>
 
-        <h2 class="section-title">Sonstige Kassenbewegungen (Privatentnahmen &amp; Einlagen, zur Info)</h2>
+        <h2 class="section-title" id="sec-privat">Sonstige Kassenbewegungen (Privatentnahmen &amp; Einlagen, zur Info)</h2>
         <div class="table-wrap">
             <table id="privateTable">
                 <thead>
@@ -894,6 +968,17 @@
         // Einnahme auftauchen, zu EINER PDF zusammenfügen (die bereits als
         // fertige PDF im Rechnungsarchiv gespeicherten Dateien werden mit
         // pdf-lib direkt zusammengefügt, nicht neu erzeugt).
+        function toggleBurgerMenu() {
+            document.getElementById('burgerDropdown').classList.toggle('open');
+        }
+        function closeBurgerMenu() {
+            document.getElementById('burgerDropdown').classList.remove('open');
+        }
+        document.addEventListener('click', (e) => {
+            const wrap = document.querySelector('.burger-wrap');
+            if (wrap && !wrap.contains(e.target)) closeBurgerMenu();
+        });
+
         function printFolderView() {
             document.body.classList.add('printing-folder-only');
             window.print();
