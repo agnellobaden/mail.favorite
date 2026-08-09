@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Steuerreport - EisFavorite</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 98%;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        padding: 25px;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .back-link { color: #667eea; text-decoration: none; font-weight: 600; }
+    h1 { color: #333; margin: 0; font-size: 1.8em; }
+    .subtitle { color: #666; margin-bottom: 20px; }
+
+    .disclaimer {
+        background: #fff3cd;
+        border: 2px solid #ffe08a;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 22px;
+        font-size: 0.92em;
+        color: #6b5300;
+        line-height: 1.5;
+    }
+    .disclaimer strong { color: #4a3900; }
+
+    .filter-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .filter-row select { padding: 10px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95em; }
+
+    .stats {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 25px;
+    }
+    .stat-card {
+        flex: 1;
+        min-width: 170px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+    }
+    .stat-card .label { font-size: 0.8em; text-transform: uppercase; opacity: 0.9; font-weight: 600; }
+    .stat-card .value { font-size: 1.6em; font-weight: 800; margin-top: 4px; }
+    .stat-card.einnahmen { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .stat-card.ust { background: linear-gradient(135deg, #f39c12 0%, #f7b733 100%); }
+    .stat-card.ausgaben { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+    .stat-card.ergebnis { background: linear-gradient(135deg, #333 0%, #555 100%); }
+
+    h2.section-title { font-size: 1.2em; color: #333; margin: 30px 0 12px; }
+
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9em;
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9em; }
+    th { background: #f8f9fa; color: #555; font-weight: 700; }
+    tr:hover { background: #f8f9fa; }
+    .amount-cell { text-align: right; font-weight: 700; }
+    .table-wrap { overflow-x: auto; }
+    .empty-state { text-align: center; padding: 40px 20px; color: #888; }
+
+    @media (max-width: 700px) {
+        .container { padding: 15px; }
+        table { font-size: 0.8em; }
+        th, td { padding: 8px 6px; }
+    }
+
+    @media print {
+        body > *:not(.container) { display: none !important; }
+        body { background: white; padding: 0; }
+        .container { box-shadow: none; border-radius: 0; max-width: 100%; padding: 10mm; }
+        .no-print { display: none !important; }
+        @page { margin: 10mm; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+    <div class="container">
+        <div class="top-bar no-print">
+            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        </div>
+        <h1>📊 Steuerreport</h1>
+        <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
+
+        <div class="disclaimer">
+            <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
+            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch.<br>
+            <strong>Nicht enthalten:</strong> per Überweisung/Karte bezahlte Betriebsausgaben (z.B. Versicherung, Wareneinkauf per Überweisung), die nicht im Kassenbuch erfasst sind - dafür bitte zusätzlich Kontoauszüge/Belege sammeln.
+        </div>
+
+        <div class="filter-row no-print">
+            <select id="yearFilter" onchange="renderAll()">
+                <option value="alle">Alle Jahre</option>
+            </select>
+            <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
+            <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card einnahmen">
+                <div class="label">Betriebseinnahmen (brutto)</div>
+                <div class="value" id="statEinnahmen">0,00 €</div>
+            </div>
+            <div class="stat-card ust">
+                <div class="label">Darin Umsatzsteuer (7%)</div>
+                <div class="value" id="statUst">0,00 €</div>
+            </div>
+            <div class="stat-card ausgaben">
+                <div class="label">Betriebsausgaben (Kasse)</div>
+                <div class="value" id="statAusgaben">0,00 €</div>
+            </div>
+            <div class="stat-card ergebnis">
+                <div class="label">Vorläufiges Ergebnis</div>
+                <div class="value" id="statErgebnis">0,00 €</div>
+            </div>
+        </div>
+
+        <h2 class="section-title">Monatsübersicht</h2>
+        <div class="table-wrap">
+            <table id="monthTable">
+                <thead>
+                    <tr>
+                        <th>Monat</th>
+                        <th>Einnahmen Kasse</th>
+                        <th>Einnahmen Überweisung</th>
+                        <th>Einnahmen gesamt</th>
+                        <th>Ausgaben</th>
+                        <th>Ergebnis</th>
+                    </tr>
+                </thead>
+                <tbody id="monthBody"></tbody>
+                <tfoot id="monthFoot" style="font-weight:700;"></tfoot>
+            </table>
+        </div>
+
+        <h2 class="section-title">Betriebsausgaben-Liste (aus Kassenbuch)</h2>
+        <div class="table-wrap">
+            <table id="expensesTable">
+                <thead>
+                    <tr><th>Datum</th><th>Notiz</th><th>Betrag</th></tr>
+                </thead>
+                <tbody id="expensesBody"></tbody>
+            </table>
+            <div class="empty-state" id="expensesEmpty" style="display:none;">Keine Ausgaben im gewählten Zeitraum.</div>
+        </div>
+
+        <h2 class="section-title">Sonstige Kassenbewegungen (Privatentnahmen &amp; Einlagen, zur Info)</h2>
+        <div class="table-wrap">
+            <table id="privateTable">
+                <thead>
+                    <tr><th>Datum</th><th>Art</th><th>Notiz</th><th>Betrag</th></tr>
+                </thead>
+                <tbody id="privateBody"></tbody>
+            </table>
+            <div class="empty-state" id="privateEmpty" style="display:none;">Keine Privatentnahmen/Einlagen im gewählten Zeitraum.</div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let allTageseinnahmen = [];
+        let allBookingEntries = [];
+        let allKassenbuch = [];
+
+        function initFirebase() {
+            if (!firebase.apps.length) {
+                firebase.initializeApp({
+                    apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                    authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                    projectId: "mailfavorite-e8f49",
+                    storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                    messagingSenderId: "73719715044",
+                    appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                    measurementId: "G-WGRT5L3NCX"
+                });
+            }
+            db = firebase.firestore();
+            db.collection('tageseinnahmen').onSnapshot(snapshot => {
+                allTageseinnahmen = [];
+                snapshot.forEach(doc => allTageseinnahmen.push({ ...doc.data(), id: doc.id }));
+                refreshAll();
+            }, error => console.error('Firestore-Fehler (Tageseinnahmen):', error));
+
+            db.collection('buchungen').onSnapshot(snapshot => {
+                allBookingEntries = [];
+                snapshot.forEach(doc => {
+                    const entry = bookingToEntry(doc.id, doc.data());
+                    if (entry) allBookingEntries.push(entry);
+                });
+                refreshAll();
+            }, error => console.error('Firestore-Fehler (Buchungen):', error));
+
+            db.collection('kassenbuch').onSnapshot(snapshot => {
+                allKassenbuch = [];
+                snapshot.forEach(doc => allKassenbuch.push({ ...doc.data(), id: doc.id }));
+                refreshAll();
+            }, error => console.error('Firestore-Fehler (Kassenbuch):', error));
+        }
+
+        function refreshAll() {
+            updateYearFilterOptions();
+            renderAll();
+        }
+
+        // Deutsches "246,15 €" (oder "246.15") in eine Zahl umwandeln.
+        function parseAmountToNumber(str) {
+            if (!str) return null;
+            const cleaned = String(str).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? null : n;
+        }
+
+        // Gleiche Anfahrtskosten-Formel wie in buchungen-uebersicht.html.
+        function calculateTravelCost(distance) {
+            const km = parseFloat(distance) || 0;
+            if (km < 6) return 0;
+            if (km < 10) return 45;
+            const additionalKm = km - 10;
+            const additionalCost = Math.floor(additionalKm / 10) * 10;
+            return 55 + additionalCost;
+        }
+
+        // Identische Ableitung wie in tageseinnahmen.html, damit dieser
+        // Report exakt dieselben Zahlen zeigt wie die Tageseinnahmen-Seite.
+        function bookingToEntry(id, b) {
+            if (!b.date) return null;
+            if (b.status === 'Storniert') return null;
+            const dateParts = b.date.split('.');
+            if (dateParts.length !== 3) return null;
+            const dateIso = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+
+            let amount = null;
+            if (b.invoiceAmount) {
+                amount = parseAmountToNumber(b.invoiceAmount);
+            } else if (b.invoiceData && Array.isArray(b.invoiceData.items) && b.invoiceData.items.length > 0) {
+                amount = b.invoiceData.items.reduce((sum, item) => {
+                    const qty = parseFloat(item.quantity) || 0;
+                    const price = parseFloat(String(item.bruttoPrice).replace(',', '.')) || 0;
+                    return sum + qty * price;
+                }, 0);
+            } else if (b.tallyTotal != null) {
+                amount = (parseFloat(b.tallyTotal) || 0) + calculateTravelCost(b.distance) * 1.07;
+            }
+            if (amount == null) return null;
+
+            const paymentMethod = b.invoiceData && b.invoiceData.paymentMethod === 'bar' ? 'bar'
+                : b.invoiceData && b.invoiceData.paymentMethod === 'ueberweisung' ? 'ueberweisung'
+                : null;
+
+            return {
+                id: 'booking-' + id,
+                dateIso: dateIso,
+                date: b.date,
+                amount: amount,
+                note: 'Event: ' + (b.company || b.name || 'Unbekannt'),
+                paymentMethod: paymentMethod,
+                fromBooking: true
+            };
+        }
+
+        function combinedRevenueEntries() {
+            return allTageseinnahmen.concat(allBookingEntries);
+        }
+
+        function formatEuro(n) {
+            return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+
+        function selectedYear() {
+            return document.getElementById('yearFilter').value;
+        }
+
+        function filteredRevenue() {
+            const year = selectedYear();
+            let entries = combinedRevenueEntries();
+            if (year !== 'alle') entries = entries.filter(e => (e.dateIso || '').startsWith(year));
+            return entries;
+        }
+
+        function filteredExpenses() {
+            const year = selectedYear();
+            let entries = allKassenbuch.filter(e => e.type === 'ausgabe');
+            if (year !== 'alle') entries = entries.filter(e => (e.dateIso || '').startsWith(year));
+            return entries;
+        }
+
+        function filteredPrivateMovements() {
+            const year = selectedYear();
+            let entries = allKassenbuch.filter(e => e.type === 'entnahme' || e.type === 'einlage');
+            if (year !== 'alle') entries = entries.filter(e => (e.dateIso || '').startsWith(year));
+            return entries;
+        }
+
+        function updateYearFilterOptions() {
+            const select = document.getElementById('yearFilter');
+            const current = select.value;
+            const years = Array.from(new Set(
+                combinedRevenueEntries().map(e => (e.dateIso || '').slice(0, 4))
+                    .concat(allKassenbuch.map(e => (e.dateIso || '').slice(0, 4)))
+                    .filter(Boolean)
+            )).sort().reverse();
+            select.innerHTML = '<option value="alle">Alle Jahre</option>' +
+                years.map(y => `<option value="${y}">${y}</option>`).join('');
+            if (years.includes(current)) select.value = current;
+        }
+
+        function renderAll() {
+            const revenue = filteredRevenue();
+            const expenses = filteredExpenses();
+            const privateMovements = filteredPrivateMovements();
+
+            const totalBrutto = revenue.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const totalUst = totalBrutto - (totalBrutto / 1.07);
+            const totalExpenses = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const ergebnis = totalBrutto - totalExpenses;
+
+            document.getElementById('statEinnahmen').textContent = formatEuro(totalBrutto);
+            document.getElementById('statUst').textContent = formatEuro(totalUst);
+            document.getElementById('statAusgaben').textContent = formatEuro(totalExpenses);
+            document.getElementById('statErgebnis').textContent = formatEuro(ergebnis);
+
+            renderMonthTable(revenue, expenses);
+            renderExpensesTable(expenses);
+            renderPrivateTable(privateMovements);
+        }
+
+        function monthLabel(yyyyMm) {
+            const [y, m] = yyyyMm.split('-');
+            const names = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            return names[parseInt(m, 10) - 1] + ' ' + y;
+        }
+
+        function renderMonthTable(revenue, expenses) {
+            const months = new Map();
+            const ensure = (key) => {
+                if (!months.has(key)) months.set(key, { kasse: 0, ueberweisung: 0, ausgaben: 0 });
+                return months.get(key);
+            };
+            revenue.forEach(e => {
+                const key = (e.dateIso || '').slice(0, 7);
+                if (!key) return;
+                const amount = parseFloat(e.amount) || 0;
+                const m = ensure(key);
+                if (e.paymentMethod === 'bar') m.kasse += amount;
+                else if (e.paymentMethod === 'ueberweisung') m.ueberweisung += amount;
+                else m.kasse += amount; // unbekannte Zahlungsart wird konservativ als Kasse gezählt
+            });
+            expenses.forEach(e => {
+                const key = (e.dateIso || '').slice(0, 7);
+                if (!key) return;
+                ensure(key).ausgaben += parseFloat(e.amount) || 0;
+            });
+
+            const keys = Array.from(months.keys()).sort();
+            const tbody = document.getElementById('monthBody');
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Keine Daten im gewählten Zeitraum.</td></tr>';
+                document.getElementById('monthFoot').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = keys.map(key => {
+                const m = months.get(key);
+                const gesamt = m.kasse + m.ueberweisung;
+                const ergebnis = gesamt - m.ausgaben;
+                return `<tr>
+                    <td>${monthLabel(key)}</td>
+                    <td class="amount-cell">${formatEuro(m.kasse)}</td>
+                    <td class="amount-cell">${formatEuro(m.ueberweisung)}</td>
+                    <td class="amount-cell">${formatEuro(gesamt)}</td>
+                    <td class="amount-cell">${formatEuro(m.ausgaben)}</td>
+                    <td class="amount-cell">${formatEuro(ergebnis)}</td>
+                </tr>`;
+            }).join('');
+
+            const totalKasse = keys.reduce((s, k) => s + months.get(k).kasse, 0);
+            const totalUeberweisung = keys.reduce((s, k) => s + months.get(k).ueberweisung, 0);
+            const totalGesamt = totalKasse + totalUeberweisung;
+            const totalAusgaben = keys.reduce((s, k) => s + months.get(k).ausgaben, 0);
+            document.getElementById('monthFoot').innerHTML = `<tr>
+                <td>Summe</td>
+                <td class="amount-cell">${formatEuro(totalKasse)}</td>
+                <td class="amount-cell">${formatEuro(totalUeberweisung)}</td>
+                <td class="amount-cell">${formatEuro(totalGesamt)}</td>
+                <td class="amount-cell">${formatEuro(totalAusgaben)}</td>
+                <td class="amount-cell">${formatEuro(totalGesamt - totalAusgaben)}</td>
+            </tr>`;
+        }
+
+        function renderExpensesTable(expenses) {
+            const tbody = document.getElementById('expensesBody');
+            const empty = document.getElementById('expensesEmpty');
+            const sorted = [...expenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+            if (sorted.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = sorted.map(e => `<tr>
+                <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.note || '-'}</td>
+                <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
+            </tr>`).join('');
+        }
+
+        function renderPrivateTable(entries) {
+            const tbody = document.getElementById('privateBody');
+            const empty = document.getElementById('privateEmpty');
+            const sorted = [...entries].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+            if (sorted.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = sorted.map(e => `<tr>
+                <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.type === 'entnahme' ? 'Privatentnahme' : 'Einlage'}</td>
+                <td>${e.note || '-'}</td>
+                <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
+            </tr>`).join('');
+        }
+
+        function exportCsv() {
+            const revenue = filteredRevenue();
+            const expenses = filteredExpenses();
+            const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+
+            const lines = [];
+            lines.push(['Steuerreport EisFavorite', selectedYear() === 'alle' ? 'Alle Jahre' : selectedYear()]);
+            lines.push([]);
+            lines.push(['Betriebseinnahmen']);
+            lines.push(['Datum', 'Zahlungsart', 'Notiz', 'Betrag (€)']);
+            [...revenue].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
+                lines.push([
+                    e.date || e.dateIso || '',
+                    e.paymentMethod === 'bar' ? 'Kasse' : e.paymentMethod === 'ueberweisung' ? 'Überweisung' : '-',
+                    e.note || '',
+                    (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
+                ]);
+            });
+            lines.push([]);
+            lines.push(['Betriebsausgaben (Kassenbuch)']);
+            lines.push(['Datum', 'Notiz', 'Betrag (€)']);
+            [...expenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
+                lines.push([
+                    e.date || e.dateIso || '',
+                    e.note || '',
+                    (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
+                ]);
+            });
+
+            const csv = lines.map(row => row.map(csvEscape).join(';')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Steuerreport_EisFavorite_${selectedYear() === 'alle' ? 'alle' : selectedYear()}.csv`;
+            link.click();
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>
