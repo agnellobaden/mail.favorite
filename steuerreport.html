@@ -682,6 +682,7 @@
                 belegNr: e.belegNr || '',
                 scanFile: e.scanFile || '',
                 scanDataUri: e.scanDataUri || '',
+                kunde: e.kunde || '',
                 kategorie: e.kategorie || 'Sonstiges',
                 mwstSatz: e.mwstSatz != null ? e.mwstSatz : 19,
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
@@ -964,6 +965,18 @@
         // Eine Ordnerseite pro Ausgabe (Metro, Tanken, Netto, Amazon, ...) -
         // bei Bankausgaben mit Beleg-Nr. als Verweis auf die eingescannte
         // Quittung im scan-Ordner, bei Kasse mit der Notiz aus dem Kassenbuch.
+        // Manche Lieferanten (z.B. Metro) beliefern zwei verschiedene
+        // Kunden-Konten des Inhabers - farbiges Label, damit man auf einen
+        // Blick sieht, zu welchem Geschäft eine Ausgabe gehört.
+        function kundeBadge(kunde) {
+            if (!kunde) return '';
+            const isSnackOase = /snack-?oase/i.test(kunde);
+            const isEisFavorite = /mobiler eisverkauf|eisfavorite/i.test(kunde);
+            if (isSnackOase) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#fff3cd; color:#856404; margin-left:6px;">🏪 ${kunde}</span>`;
+            if (isEisFavorite) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#d4edda; color:#155724; margin-left:6px;">🍦 ${kunde}</span>`;
+            return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#e2e3e5; color:#383d41; margin-left:6px;">${kunde}</span>`;
+        }
+
         function buildExpensePageHtml(e, quelle) {
             const beschreibung = e.note || (quelle === 'Bank' ? 'Bankausgabe' : 'Barausgabe');
             const belegNrHtml = e.belegNr
@@ -984,7 +997,7 @@
             return `<div class="folder-page">
                 <div class="folder-invoice" style="border-left-color:#e74c3c; background:#fdf5f4;">
                     <div>
-                        <span class="folder-label">Ausgabe (${quelle})${e.kategorie ? ' · ' + e.kategorie : ''}</span><br>
+                        <span class="folder-label">Ausgabe (${quelle})${e.kategorie ? ' · ' + e.kategorie : ''}</span>${kundeBadge(e.kunde)}<br>
                         ${e.date || e.dateIso || ''} - ${beschreibung} - <strong>${formatEuro(parseFloat(e.amount) || 0)}</strong>
                     </div>
                     ${belegNrHtml ? `<div>${belegNrHtml}</div>` : ''}

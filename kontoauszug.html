@@ -460,7 +460,7 @@
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.buchungstext || '-'}</td>
-                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}</td>
+                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${kundeBadge(e.kunde)}</td>
                     <td class="amount-cell">${amountHtml}</td>
                     <td>${categoryHtml}</td>
                     <td>${kategorieHtml}</td>
@@ -483,6 +483,19 @@
         // EÜR-Kategorie (Metro/Netto -> Wareneinkauf, Tankstelle ->
         // Kfz-Kosten usw.) - spart beim Nachkategorisieren Zeit, kann aber
         // jederzeit per Dropdown korrigiert werden.
+        // Manche Lieferanten (z.B. Metro) beliefern zwei verschiedene
+        // Kunden-Konten des Inhabers - farbiges Label, damit man auf einen
+        // Blick sieht, zu welchem Geschäft eine Ausgabe gehört (wird beim
+        // Scan-Abgleich in match-scans.js aus der PDF ausgelesen).
+        function kundeBadge(kunde) {
+            if (!kunde) return '';
+            const isSnackOase = /snack-?oase/i.test(kunde);
+            const isEisFavorite = /mobiler eisverkauf|eisfavorite/i.test(kunde);
+            if (isSnackOase) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#fff3cd; color:#856404; margin-left:6px;">🏪 ${kunde}</span>`;
+            if (isEisFavorite) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#d4edda; color:#155724; margin-left:6px;">🍦 ${kunde}</span>`;
+            return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#e2e3e5; color:#383d41; margin-left:6px;">${kunde}</span>`;
+        }
+
         function guessKategorie(text) {
             const t = (text || '').toLowerCase();
             if (/versicherung/.test(t)) return 'Versicherungen';

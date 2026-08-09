@@ -40,6 +40,14 @@ function runPdftotext(filePath) {
     return null;
 }
 
+// Metro (und ähnliche Lieferanten) beliefern zwei verschiedene Kunden-
+// Konten des Inhabers - "Snack-Oase 24/7" und "Mobiler Eisverkauf Agnello"
+// (= EisFavorite). Der Kundenname steht auf derselben Zeile wie "KUNDE:".
+function extractKunde(text) {
+    const match = text.match(/^(.*?)\s{2,}KUNDE:/m);
+    return match ? match[1].trim() : null;
+}
+
 function extractDateAndAmount(filePath) {
     const text = runPdftotext(filePath);
     if (!text) return null;
@@ -47,7 +55,7 @@ function extractDateAndAmount(filePath) {
     const amountMatches = [...text.matchAll(/SUMME EUR\s*([\d.]+,\d{2})/g)];
     if (!dateMatch || amountMatches.length === 0) return null;
     const amountStr = amountMatches[amountMatches.length - 1][1].replace(/\./g, '').replace(',', '.');
-    return { dateIso: deToIso(dateMatch[1]), amount: parseFloat(amountStr) };
+    return { dateIso: deToIso(dateMatch[1]), amount: parseFloat(amountStr), kunde: extractKunde(text) };
 }
 
 async function main() {
@@ -92,6 +100,7 @@ async function main() {
         const pdfPath = path.join(scanDir, file);
         const pdfBytes = fs.readFileSync(pdfPath);
         const fields = { scanFile: file };
+        if (info.kunde) fields.kunde = info.kunde;
 
         // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
         // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen
@@ -103,7 +112,7 @@ async function main() {
         }
 
         await db.collection('kontoauszug').doc(match.id).set(fields, { merge: true });
-        console.log(`✅ "${file}" -> ${match.date} ${match.betrag} € (${match.empfaenger || match.verwendungszweck || ''})`);
+        console.log(`✅ "${file}" -> ${match.date} ${match.betrag} € (${match.empfaenger || match.verwendungszweck || ''})${info.kunde ? ' [' + info.kunde + ']' : ''}`);
         matched++;
     }
 
