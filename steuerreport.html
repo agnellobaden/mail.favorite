@@ -97,6 +97,8 @@
     th { background: #f8f9fa; color: #555; font-weight: 700; }
     tr:hover { background: #f8f9fa; }
     .amount-cell { text-align: right; font-weight: 700; }
+    .summary-table { table-layout: fixed; }
+    .summary-table th:not(:first-child) { text-align: right; }
     .table-wrap { overflow-x: auto; }
     .empty-state { text-align: center; padding: 40px 20px; color: #888; }
 
@@ -201,7 +203,10 @@
 
         <h2 class="section-title">Quartalsübersicht (für die Umsatzsteuervoranmeldung)</h2>
         <div class="table-wrap">
-            <table id="quarterTable">
+            <table id="quarterTable" class="summary-table">
+                <colgroup>
+                    <col style="width:16%;"><col><col><col><col><col>
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Quartal</th>
@@ -219,7 +224,10 @@
 
         <h2 class="section-title">Monatsübersicht</h2>
         <div class="table-wrap">
-            <table id="monthTable">
+            <table id="monthTable" class="summary-table">
+                <colgroup>
+                    <col style="width:16%;"><col><col><col><col><col>
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Monat</th>
