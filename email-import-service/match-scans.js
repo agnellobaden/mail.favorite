@@ -40,12 +40,20 @@ function runPdftotext(filePath) {
     return null;
 }
 
-// Metro (und ähnliche Lieferanten) beliefern zwei verschiedene Kunden-
-// Konten des Inhabers - "Snack-Oase 24/7" und "Mobiler Eisverkauf Agnello"
-// (= EisFavorite). Der Kundenname steht auf derselben Zeile wie "KUNDE:".
+// Manche Lieferanten (z.B. Metro) beliefern zwei verschiedene Kunden-Konten
+// des Inhabers - "Snack-Oase" und "Mobiler Eisverkauf Agnello"/EisFavorite.
+// Funktioniert für JEDEN Beleg, nicht nur Metro: zuerst das exakte
+// Metro-Format (Name auf derselben Zeile wie "KUNDE:"), sonst als Fallback
+// eine einfache Stichwortsuche über den ganzen Belegtext - damit auch
+// Tankquittungen, Amazon-Rechnungen usw. erkannt werden, sofern einer der
+// beiden Namen irgendwo drauf steht.
 function extractKunde(text) {
-    const match = text.match(/^(.*?)\s{2,}KUNDE:/m);
-    return match ? match[1].trim() : null;
+    const kundeLine = text.match(/^(.*?)\s{2,}KUNDE:/m);
+    if (kundeLine) return kundeLine[1].trim();
+
+    if (/snack-?oase/i.test(text)) return 'Snack-Oase';
+    if (/mobiler eisverkauf|eisfavorite/i.test(text)) return 'Mobiler Eisverkauf Agnello';
+    return null;
 }
 
 function extractDateAndAmount(filePath) {
@@ -100,7 +108,10 @@ async function main() {
         const pdfPath = path.join(scanDir, file);
         const pdfBytes = fs.readFileSync(pdfPath);
         const fields = { scanFile: file };
-        if (info.kunde) fields.kunde = info.kunde;
+        if (info.kunde) {
+            fields.kunde = info.kunde;
+            fields.kundeSource = 'scan'; // erkannt aus dem Beleg - im UI nicht überschreibbar
+        }
 
         // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
         // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen

@@ -460,7 +460,7 @@
                 <tr>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.buchungstext || '-'}</td>
-                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${kundeBadge(e.kunde)}</td>
+                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${(!isEinnahme && e.category === 'geschaeft') ? kundeCell(e) : ''}</td>
                     <td class="amount-cell">${amountHtml}</td>
                     <td>${categoryHtml}</td>
                     <td>${kategorieHtml}</td>
@@ -494,6 +494,26 @@
             if (isSnackOase) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#fff3cd; color:#856404; margin-left:6px;">🏪 ${kunde}</span>`;
             if (isEisFavorite) return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#d4edda; color:#155724; margin-left:6px;">🍦 ${kunde}</span>`;
             return `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:700; background:#e2e3e5; color:#383d41; margin-left:6px;">${kunde}</span>`;
+        }
+
+        // Wenn der Kunde (Snack-Oase/EisFavorite) aus einem gescannten Beleg
+        // erkannt wurde (kundeSource === 'scan'), wird nur das Label
+        // angezeigt - steht ja fest auf dem Beleg. Wurde nichts erkannt
+        // (z.B. kein Scan vorhanden oder Beleg ohne Hinweis), kann man es
+        // hier manuell nachtragen.
+        function kundeCell(e) {
+            if (e.kunde && e.kundeSource === 'scan') return kundeBadge(e.kunde);
+            return `<select class="cat-select" style="margin-left:6px;" onchange="setKunde('${e.id}', this.value)">
+                <option value="" ${!e.kunde ? 'selected' : ''}>- Kunde? -</option>
+                <option value="Snack-Oase" ${e.kunde === 'Snack-Oase' ? 'selected' : ''}>🏪 Snack-Oase</option>
+                <option value="Mobiler Eisverkauf Agnello" ${e.kunde === 'Mobiler Eisverkauf Agnello' ? 'selected' : ''}>🍦 EisFavorite</option>
+            </select>`;
+        }
+
+        function setKunde(id, kunde) {
+            db.collection('kontoauszug').doc(id).set({ kunde: kunde || null, kundeSource: 'manual' }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
         }
 
         function guessKategorie(text) {
