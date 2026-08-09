@@ -186,7 +186,9 @@
                 <option value="privat">Nur Privat</option>
             </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
+            <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
         </div>
+        <p class="upload-hint">Tipp für den Papierordner: Die vergebene Beleg-Nr. (z.B. "2026-001") mit Stift auf die passende Quittung/Rechnung schreiben, bevor du sie einscannst - und die Scan-Datei genauso benennen (z.B. "2026-001.pdf"). So findet der Steuerberater über die Nummer den richtigen Beleg, auch im Papierordner.</p>
 
         <div class="table-wrap">
             <table id="entriesTable">
@@ -197,6 +199,7 @@
                         <th>Verwendungszweck / Empfänger</th>
                         <th>Betrag</th>
                         <th>Kategorie</th>
+                        <th>Beleg-Nr.</th>
                         <th>Notiz</th>
                         <th>Aktion</th>
                     </tr>
@@ -422,6 +425,12 @@
                             <option value="privat" ${e.category === 'privat' ? 'selected' : ''}>🏠 Privat</option>
                         </select>
                     </td>
+                    <td>
+                        <div style="display:flex; gap:4px; align-items:center;">
+                            <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
+                            ${!e.belegNr ? `<button class="btn btn-secondary btn-sm" title="Nächste Beleg-Nr. vergeben" onclick="assignNextBelegNr('${e.id}', '${e.dateIso}')">🔢</button>` : ''}
+                        </div>
+                    </td>
                     <td><input type="text" class="note-input" value="${(e.note || '').replace(/"/g, '&quot;')}" onchange="setNote('${e.id}', this.value)" placeholder="optional"></td>
                     <td><button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button></td>
                 </tr>
@@ -433,6 +442,54 @@
             db.collection('kontoauszug').doc(id).set({ category: category || null }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
+        }
+
+        function setBelegNr(id, value) {
+            db.collection('kontoauszug').doc(id).set({ belegNr: value.trim() }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        // Vergibt die nächste freie fortlaufende Beleg-Nr. für das Jahr der
+        // Buchung (z.B. "2026-001", "2026-002", ...) - diese Nummer schreibst
+        // du mit Stift auf die passende Quittung/Rechnung, bevor du sie
+        // einscannst, und benennst die Scan-Datei genauso. So findet der
+        // Steuerberater über die Nummer den passenden Beleg im Papierordner.
+        function assignNextBelegNr(id, dateIso) {
+            const year = (dateIso || '').slice(0, 4) || new Date().getFullYear().toString();
+            const existingNumbers = allEntries
+                .map(e => e.belegNr || '')
+                .filter(n => n.startsWith(year + '-'))
+                .map(n => parseInt(n.split('-')[1], 10))
+                .filter(n => !isNaN(n));
+            const next = (existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0) + 1;
+            const belegNr = `${year}-${String(next).padStart(3, '0')}`;
+            setBelegNr(id, belegNr);
+        }
+
+        // Vergibt in einem Rutsch fortlaufende Beleg-Nummern (chronologisch
+        // nach Datum) für alle Buchungen, die noch keine haben.
+        function assignAllMissingBelegNr() {
+            const missing = allEntries.filter(e => !e.belegNr).sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+            if (missing.length === 0) { alert('Alle Buchungen haben bereits eine Beleg-Nr.'); return; }
+            if (!confirm(`${missing.length} Buchung(en) bekommen jetzt eine fortlaufende Beleg-Nr. (chronologisch nach Datum). Fortfahren?`)) return;
+
+            const countersByYear = {};
+            allEntries.forEach(e => {
+                if (!e.belegNr) return;
+                const [year, num] = e.belegNr.split('-');
+                const n = parseInt(num, 10);
+                if (!isNaN(n)) countersByYear[year] = Math.max(countersByYear[year] || 0, n);
+            });
+
+            const batch = db.batch();
+            missing.forEach(e => {
+                const year = (e.dateIso || '').slice(0, 4) || new Date().getFullYear().toString();
+                countersByYear[year] = (countersByYear[year] || 0) + 1;
+                const belegNr = `${year}-${String(countersByYear[year]).padStart(3, '0')}`;
+                batch.set(db.collection('kontoauszug').doc(e.id), { belegNr }, { merge: true });
+            });
+            batch.commit().catch(err => alert('❌ Konnte nicht gespeichert werden: ' + err.message));
         }
 
         // Für bereits vor dieser Änderung importierte, noch unkategorisierte

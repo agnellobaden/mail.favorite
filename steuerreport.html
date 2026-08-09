@@ -254,11 +254,23 @@
             <div class="empty-state" id="expensesEmpty" style="display:none;">Keine Ausgaben im gewählten Zeitraum.</div>
         </div>
 
+        <h2 class="section-title">Kontoauszug-Ausgaben nach Quartal (zum Nachvollziehen)</h2>
+        <div class="table-wrap">
+            <table id="bankQuarterTable" class="summary-table">
+                <colgroup><col style="width:16%;"><col><col></colgroup>
+                <thead>
+                    <tr><th>Quartal</th><th>Anzahl Buchungen</th><th>Betrag</th></tr>
+                </thead>
+                <tbody id="bankQuarterBody"></tbody>
+                <tfoot id="bankQuarterFoot" style="font-weight:700;"></tfoot>
+            </table>
+        </div>
+
         <h2 class="section-title">Betriebsausgaben-Liste (aus Kontoauszug, per Bank bezahlt)</h2>
         <div class="table-wrap">
             <table id="bankExpensesTable">
                 <thead>
-                    <tr><th>Datum</th><th>Notiz</th><th>Betrag</th></tr>
+                    <tr><th>Datum</th><th>Beleg-Nr.</th><th>Notiz</th><th>Betrag</th></tr>
                 </thead>
                 <tbody id="bankExpensesBody"></tbody>
             </table>
@@ -448,6 +460,7 @@
                 dateIso: e.dateIso,
                 date: e.date,
                 amount: e.betrag,
+                belegNr: e.belegNr || '',
                 note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
             }));
         }
@@ -486,6 +499,7 @@
             renderQuarterTable(revenue, allExpenses);
             renderMonthTable(revenue, allExpenses);
             renderExpensesTable(cashExpenses);
+            renderBankQuarterTable(bankExpenses);
             renderBankExpensesTable(bankExpenses);
             renderPrivateTable(privateMovements);
         }
@@ -603,9 +617,48 @@
             empty.style.display = 'none';
             tbody.innerHTML = sorted.map(e => `<tr>
                 <td>${e.date || e.dateIso || '-'}</td>
+                <td>${e.belegNr || '-'}</td>
                 <td>${e.note || '-'}</td>
                 <td class="amount-cell">${formatEuro(parseFloat(e.amount) || 0)}</td>
             </tr>`).join('');
+        }
+
+        function renderBankQuarterTable(bankExpenses) {
+            const groups = new Map();
+            bankExpenses.forEach(e => {
+                const q = quarterOfDateIso(e.dateIso);
+                if (!q) return;
+                const key = (e.dateIso || '').slice(0, 4) + '-Q' + q;
+                if (!groups.has(key)) groups.set(key, { anzahl: 0, betrag: 0 });
+                const g = groups.get(key);
+                g.anzahl++;
+                g.betrag += parseFloat(e.amount) || 0;
+            });
+
+            const keys = Array.from(groups.keys()).sort();
+            const tbody = document.getElementById('bankQuarterBody');
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Keine Kontoauszug-Geschäftsausgaben im gewählten Zeitraum.</td></tr>';
+                document.getElementById('bankQuarterFoot').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = keys.map(key => {
+                const g = groups.get(key);
+                return `<tr>
+                    <td>${quarterLabel(key)}</td>
+                    <td class="amount-cell">${g.anzahl}</td>
+                    <td class="amount-cell">${formatEuro(g.betrag)}</td>
+                </tr>`;
+            }).join('');
+
+            const totalAnzahl = keys.reduce((s, k) => s + groups.get(k).anzahl, 0);
+            const totalBetrag = keys.reduce((s, k) => s + groups.get(k).betrag, 0);
+            document.getElementById('bankQuarterFoot').innerHTML = `<tr>
+                <td>Summe</td>
+                <td class="amount-cell">${totalAnzahl}</td>
+                <td class="amount-cell">${formatEuro(totalBetrag)}</td>
+            </tr>`;
         }
 
         function renderPrivateTable(entries) {
@@ -657,10 +710,11 @@
             });
             lines.push([]);
             lines.push(['Betriebsausgaben (Kontoauszug, per Bank)']);
-            lines.push(['Datum', 'Notiz', 'Betrag (€)']);
+            lines.push(['Datum', 'Beleg-Nr.', 'Notiz', 'Betrag (€)']);
             [...bankExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
                 lines.push([
                     e.date || e.dateIso || '',
+                    e.belegNr || '',
                     e.note || '',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ',')
                 ]);

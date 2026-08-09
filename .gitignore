@@ -13,3 +13,6 @@ _ARCHIV-ALTE-BACKUPS-*/
 
 # Niemals committen: hochgeladene Kontoauszüge (enthalten IBAN/Kontodaten)
 kontoauszuege/
+
+# Niemals committen: eingescannte Rechnungen/Quittungen (persönliche Belege)
+scan/
