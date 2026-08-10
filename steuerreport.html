@@ -44,8 +44,17 @@
     h1 { color: #333; margin: 0; font-size: 1.8em; }
     .subtitle { color: #666; margin-bottom: 20px; }
 
-    /* Nur die Kennzahlen-Leiste bleibt beim Scrollen oben sichtbar - Titel,
+    /* Titelzeile + Kennzahlen-Leiste bleiben beim Scrollen oben sichtbar -
        Hinweis und Filter scrollen normal mit weg. */
+    .title-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .title-bar h1 { font-size: 1.4em; }
     .sticky-header {
         position: sticky;
         top: 0;
@@ -267,40 +276,11 @@
         })();
     </script>
     <div class="container">
-        <div class="top-bar no-print">
-            <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
-        </div>
-        <h1>📊 Steuerreport</h1>
-        <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
-
-        <div class="disclaimer">
-            <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
-            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch, sowie per Kontoauszug importierte und als "Geschäftsausgabe" markierte Bankbuchungen (siehe <a href="kontoauszug.html">Kontoauszug</a>).<br>
-            <strong>Nicht enthalten:</strong> Bankbuchungen, die noch nicht in <a href="kontoauszug.html">Kontoauszug</a> importiert oder dort noch nicht als "Geschäftsausgabe"/"Privat" kategorisiert wurden.
-        </div>
-
-        <div class="filter-row no-print">
-            <select id="yearFilter" onchange="userChangedFilters = true; renderAll();">
-                <option value="alle">Alle Jahre</option>
-            </select>
-            <select id="quarterFilter" onchange="userChangedFilters = true; renderAll();">
-                <option value="alle">Alle Quartale</option>
-                <option value="1">Q1 (Jan - Mär)</option>
-                <option value="2">Q2 (Apr - Jun)</option>
-                <option value="3">Q3 (Jul - Sep)</option>
-                <option value="4">Q4 (Okt - Dez)</option>
-            </select>
-            <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
-        </div>
-        <div class="filter-row no-print">
-            <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
-            <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
-            <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
-        </div>
-
         <div class="sticky-header">
-            <div class="burger-bar no-print">
-                <div class="burger-wrap">
+            <div class="title-bar">
+                <a href="buchungen-uebersicht.html" class="back-link no-print">← Zurück zur Übersicht</a>
+                <h1>📊 Steuerreport</h1>
+                <div class="burger-wrap no-print">
                     <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
                     <div class="burger-dropdown" id="burgerDropdown">
                         <a href="#sec-journal" onclick="closeBurgerMenu()">📖 Buchungsjournal</a>
@@ -347,6 +327,33 @@
                     <div class="value" id="statErgebnis">0,00 €</div>
                 </div>
             </div>
+        </div>
+
+        <p class="subtitle">Vorbereitete Zusammenfassung für den Steuerberater - Einnahmen, Ausgaben und Umsatzsteuer aus Tageseinnahmen, Buchungen und Kassenbuch, aufbereitet zum Gegenchecken.</p>
+
+        <div class="disclaimer">
+            <strong>Wichtig:</strong> Diese Aufstellung ersetzt keine Steuerberatung, sondern soll die Arbeit des Steuerberaters erleichtern - bitte von ihm gegenprüfen lassen, bevor etwas beim Finanzamt eingereicht wird.<br>
+            <strong>Enthalten:</strong> Bareinnahmen &amp; Überweisungseinnahmen aus Tageseinnahmen (inkl. aus Buchungen/Rechnungen abgeleiteter Beträge), Barausgaben aus dem Kassenbuch, sowie per Kontoauszug importierte und als "Geschäftsausgabe" markierte Bankbuchungen (siehe <a href="kontoauszug.html">Kontoauszug</a>).<br>
+            <strong>Nicht enthalten:</strong> Bankbuchungen, die noch nicht in <a href="kontoauszug.html">Kontoauszug</a> importiert oder dort noch nicht als "Geschäftsausgabe"/"Privat" kategorisiert wurden.
+        </div>
+
+        <div class="filter-row no-print">
+            <select id="yearFilter" onchange="userChangedFilters = true; renderAll();">
+                <option value="alle">Alle Jahre</option>
+            </select>
+            <select id="quarterFilter" onchange="userChangedFilters = true; renderAll();">
+                <option value="alle">Alle Quartale</option>
+                <option value="1">Q1 (Jan - Mär)</option>
+                <option value="2">Q2 (Apr - Jun)</option>
+                <option value="3">Q3 (Jul - Sep)</option>
+                <option value="4">Q4 (Okt - Dez)</option>
+            </select>
+            <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
+        </div>
+        <div class="filter-row no-print">
+            <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
+            <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
+            <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
         </div>
 
         <h2 class="section-title" id="sec-journal">📖 Buchungsjournal (chronologisch, für die Buchhaltung)</h2>
