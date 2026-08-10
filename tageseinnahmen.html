@@ -128,17 +128,31 @@
         border: 2px solid #9aa0b3;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }
-    .add-form .field { display: flex; flex-direction: column; gap: 4px; }
+    .add-form .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
     .add-form label { font-size: 0.8em; font-weight: 700; color: #555; }
-    .add-form input {
+    .add-form input, .add-form select {
         padding: 10px 12px;
         border: 2px solid #6b7280;
         border-radius: 8px;
         font-size: 0.95em;
         font-family: inherit;
         background: white;
+        width: 100%;
     }
-    .add-form input#entryNote { min-width: 220px; flex: 1; }
+    .add-form input#entryNote { min-width: 220px; }
+    .add-form .field.note-field { flex: 2.5; }
+    .note-quicklinks { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+    .note-chip {
+        padding: 4px 10px;
+        border: 2px solid #9aa0b3;
+        border-radius: 14px;
+        background: white;
+        font-size: 0.8em;
+        font-weight: 600;
+        color: #444;
+        cursor: pointer;
+    }
+    .note-chip:hover { background: #667eea; color: white; border-color: #667eea; }
 
     .btn {
         padding: 10px 16px;
@@ -270,9 +284,13 @@
                     <option value="ueberweisung">🏦 Überweisung</option>
                 </select>
             </div>
-            <div class="field" style="flex:1;">
+            <div class="field note-field">
                 <label for="entryNote">Notiz (optional)</label>
                 <input type="text" id="entryNote" placeholder="z.B. Standverkauf Marktplatz">
+                <div class="note-quicklinks">
+                    <button type="button" class="note-chip" onclick="document.getElementById('entryNote').value='Baggersee'">Baggersee</button>
+                    <button type="button" class="note-chip" onclick="document.getElementById('entryNote').value='Schlossfavorite'">Schlossfavorite</button>
+                </div>
             </div>
             <button class="btn" onclick="addEntry()">➕ Eintragen</button>
         </div>
