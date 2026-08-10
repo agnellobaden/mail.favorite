@@ -26,13 +26,28 @@ const PDFTOTEXT_CANDIDATES = [
 
 function deToIso(deDate) {
     const [d, m, y] = deDate.split('.');
-    return `${y}-${m}-${d}`;
+    // Manche Lieferanten (z.B. Fritz Köllemann) drucken das Jahr zweistellig
+    const yyyy = y.length === 2 ? '20' + y : y;
+    return `${yyyy}-${m}-${d}`;
+}
+
+const GERMAN_MONTHS = {
+    januar: '01', februar: '02', märz: '03', maerz: '03', april: '04', mai: '05', juni: '06',
+    juli: '07', august: '08', september: '09', oktober: '10', november: '11', dezember: '12'
+};
+
+// Amazon-Rechnungen schreiben das Datum manchmal als "12 Juli 2026" statt DD.MM.YYYY
+function germanTextDateToIso(day, monthName, year) {
+    const month = GERMAN_MONTHS[monthName.toLowerCase()];
+    if (!month) return null;
+    return `${year}-${month}-${String(day).padStart(2, '0')}`;
 }
 
 function runPdftotext(filePath) {
     for (const cmd of PDFTOTEXT_CANDIDATES) {
         try {
-            return execSync(`"${cmd}" -layout "${filePath}" -`, { encoding: 'utf8' });
+            // OHNE -layout, damit Datum/Betrag-Parsing robuster funktioniert
+            return execSync(`"${cmd}" "${filePath}" -`, { encoding: 'utf8' });
         } catch (err) {
             continue;
         }
@@ -52,7 +67,7 @@ function extractKunde(text) {
     if (kundeLine) return kundeLine[1].trim();
 
     if (/snack-?oase/i.test(text)) return 'Snack-Oase';
-    if (/mobiler eisverkauf|eisfavorite/i.test(text)) return 'Mobiler Eisverkauf Agnello';
+    if (/mobiler eisverkauf|eisfavorite|eiswagen/i.test(text)) return 'Mobiler Eisverkauf Agnello';
     return null;
 }
 
@@ -81,14 +96,75 @@ function extractMwstBreakdown(text) {
     return lines;
 }
 
+// Fritz Köllemann (und ähnliche) drucken am Ende eine Gesamtzeile
+// "<Nettosumme> <Vorsteuer> <Bruttosumme> EUR" - da diese Zeile durch
+// pdftotext ohne -layout oft durcheinandergewürfelt wird, wird hier NICHT
+// blind das erste Zahlentripel vor "EUR" genommen, sondern nur eines, bei
+// dem Netto + Vorsteuer tatsächlich exakt die Bruttosumme ergeben (sonst
+// lieber gar keine exakte Vorsteuer behaupten).
+function extractTotalsTriple(text) {
+    const regex = /([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s*EUR/g;
+    let m, best = null;
+    while ((m = regex.exec(text)) !== null) {
+        const netto = parseGermanNumber(m[1]);
+        const vat = parseGermanNumber(m[2]);
+        const brutto = parseGermanNumber(m[3]);
+        if (Math.abs(netto + vat - brutto) < 0.02) {
+            best = { netto, vat, brutto }; // letzten Treffer nehmen (= Gesamtsumme, nicht Teilsumme)
+        }
+    }
+    return best;
+}
+
 function extractDateAndAmount(filePath) {
     const text = runPdftotext(filePath);
     if (!text) return null;
-    const dateMatch = text.match(/LIEFERDATUM:\s*(\d{2}\.\d{2}\.\d{4})/) || text.match(/RECHNUNGSDATUM:\s*(\d{2}\.\d{2}\.\d{4})/);
+    // Case-insensitive und erlaubt Zeilenumbruch zwischen Label und Datum ([\s\S]*? matched alles inkl. Newlines)
+    let dateMatch = text.match(/LIEFERDATUM:?[\s\S]{0,50}?(\d{2}\.\d{2}\.\d{4})/i) ||
+                      text.match(/RECHNUNGSDATUM:?[\s\S]{0,50}?(\d{2}\.\d{2}\.\d{4})/i) ||
+                      text.match(/Rechnungsdatum:[\s\S]{0,50}?(\d{2}\.\d{2}\.\d{4})/) || // Für Steuerberater-Format
+                      text.match(/\bRE\d+\s+(\d{2}\.\d{2}\.\d{2})\b/); // Fritz Köllemann: "RE332829 23.07.26"
+    let dateIso = dateMatch ? deToIso(dateMatch[1]) : null;
+
+    // Amazon-Format: "Rechnungsdatum /Lieferdatum Rechnungsnummer Zahlbetrag" gefolgt
+    // von einer Zeile wie "12 Juli 2026 DE... 10,39" oder "09.06.2026 DE... 26,99".
+    // Unabhängig von obigem Datums-Fallback prüfen (der wegen des Teilstrings
+    // "Lieferdatum" manchmal schon zufällig zuschlägt, ohne dass danach auch
+    // der Betrag gefunden wurde).
+    let amazonAmount = null;
+    const amazonLineNum = text.match(/Zahlbetrag\s*\n?\s*(\d{1,2})\.(\d{2})\.(\d{4})\s+\S+\s+([\d.]+,\d{2})/);
+    const amazonLineText = !amazonLineNum ? text.match(/Zahlbetrag\s*\n?\s*(\d{1,2})\s+([A-Za-zäöüÄÖÜ]+)\s+(\d{4})\s+\S+\s+([\d.]+,\d{2})/) : null;
+    if (amazonLineNum) {
+        amazonAmount = parseGermanNumber(amazonLineNum[4]);
+        if (!dateIso) dateIso = `${amazonLineNum[3]}-${amazonLineNum[2]}-${amazonLineNum[1].padStart(2, '0')}`;
+    } else if (amazonLineText) {
+        amazonAmount = parseGermanNumber(amazonLineText[4]);
+        if (!dateIso) dateIso = germanTextDateToIso(amazonLineText[1], amazonLineText[2], amazonLineText[3]);
+    }
+
     const amountMatches = [...text.matchAll(/SUMME EUR\s*([\d.]+,\d{2})/g)];
-    if (!dateMatch || amountMatches.length === 0) return null;
-    const amountStr = amountMatches[amountMatches.length - 1][1].replace(/\./g, '').replace(',', '.');
-    const amount = parseFloat(amountStr);
+
+    // Fallback: Suche nach Betrag in anderen Formaten (z.B. "zahlender Betrag", "Rechnungsbetrag von X EUR")
+    // Reihenfolge wichtig: Spezifischere Patterns zuerst!
+    if (amountMatches.length === 0) {
+        const fallbackAmount = text.match(/Rechnungsbetrag von ([\d.]+,\d{2})/i) ||  // Steuerberater-Rechnung
+                               text.match(/zahlende[rn]?\s+Betrag[\s\S]{0,20}?([\d.]+,\d{2})/i) ||
+                               text.match(/Gesamtbetrag[\s\S]{0,20}?([\d.]+,\d{2})/i);
+        if (fallbackAmount) amountMatches.push(fallbackAmount);
+    }
+
+    const totalsTriple = extractTotalsTriple(text);
+
+    let amount = null;
+    if (amountMatches.length > 0) {
+        amount = parseGermanNumber(amountMatches[amountMatches.length - 1][1]);
+    } else if (amazonAmount != null) {
+        amount = amazonAmount;
+    } else if (totalsTriple) {
+        amount = totalsTriple.brutto;
+    }
+
+    if (!dateIso || amount == null) return null;
 
     const mwstLines = extractMwstBreakdown(text);
     let vorsteuerExact = null;
@@ -100,9 +176,11 @@ function extractDateAndAmount(filePath) {
         if (Math.abs(summe - amount) < 0.02) {
             vorsteuerExact = Math.round(mwstLines.reduce((s, l) => s + l.mwst, 0) * 100) / 100;
         }
+    } else if (totalsTriple && Math.abs(totalsTriple.brutto - amount) < 0.02) {
+        vorsteuerExact = Math.round(totalsTriple.vat * 100) / 100;
     }
 
-    return { dateIso: deToIso(dateMatch[1]), amount, kunde: extractKunde(text), vorsteuerExact };
+    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact };
 }
 
 async function main() {
@@ -126,7 +204,9 @@ async function main() {
             continue;
         }
 
-        // Buchungsdatum liegt meist 1-3 Tage nach Kaufdatum (Kartenabrechnung).
+        // Buchungsdatum liegt meist 1-3 Tage nach Kaufdatum (Kartenabrechnung),
+        // aber bei Rechnungen (z.B. Steuerberater) können auch Wochen vergehen.
+        // Daher großzügige 60 Tage Toleranz.
         // Ältere, vor der "richtung"-Umstellung importierte Buchungen haben
         // dieses Feld noch nicht gesetzt - waren damals aber ausschließlich
         // Ausgaben, deshalb hier als Ausgabe behandeln.
@@ -134,7 +214,7 @@ async function main() {
             (k.richtung ? k.richtung === 'ausgabe' : true) &&
             Math.abs((parseFloat(k.betrag) || 0) - info.amount) < 0.01 &&
             k.dateIso >= info.dateIso &&
-            k.dateIso <= addDays(info.dateIso, 5)
+            k.dateIso <= addDays(info.dateIso, 60)
         );
 
         if (candidates.length === 0) {
