@@ -12,6 +12,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <!-- pdf-lib: zum Zusammenfügen mehrerer bereits gespeicherter Rechnungs-PDFs zu einer Sammel-PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<!-- JSZip: zum Bündeln von CSV + beiden Ordner-PDFs in einer ZIP-Datei ("Alles für den Steuerberater") -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
     * { box-sizing: border-box; }
@@ -288,6 +290,9 @@
                 <option value="3">Q3 (Jul - Sep)</option>
                 <option value="4">Q4 (Okt - Dez)</option>
             </select>
+            <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
+        </div>
+        <div class="filter-row no-print">
             <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
             <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
             <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
@@ -1161,10 +1166,29 @@
         // Beleg-PDF (Rechnung bzw. gescannte Quittung), chronologisch
         // sortiert - genau der Inhalt für den physischen Ordner.
         async function exportFolderBundlePdf() {
+            const kundeFilter = document.getElementById('folderKundeFilter').value;
+            let result;
+            try {
+                result = await buildFolderBundlePdfBlob(kundeFilter);
+            } catch (err) {
+                alert('❌ Konnte Ordner-PDF nicht erstellen: ' + err.message);
+                return;
+            }
+            if (!result) { alert('Keine Buchungen im gewählten Zeitraum/Ordner gefunden.'); return; }
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(result.blob);
+            link.download = result.filename;
+            link.click();
+        }
+
+        // Baut die Ordner-PDF (Deckblatt + angehängte Beleg-PDFs,
+        // chronologisch) als Blob für einen bestimmten Kunde-Filter -
+        // wiederverwendet sowohl vom einzelnen Export-Button als auch vom
+        // Sammel-Export "Alles für den Steuerberater".
+        async function buildFolderBundlePdfBlob(kundeFilter) {
             const revenue = filteredRevenue();
             const cashExpenses = filteredExpenses();
             const bankExpenses = filteredBankExpenses();
-            const kundeFilter = document.getElementById('folderKundeFilter').value;
             const matchesKunde = e => kundeFilter === 'alle' || entryKunde(e) === kundeFilter;
 
             const items = [];
@@ -1202,49 +1226,41 @@
             items.sort((a, b) => (a.sortIso || '').localeCompare(b.sortIso || ''));
 
             if (items.length === 0) {
-                alert('Keine Buchungen im gewählten Zeitraum/Ordner gefunden.');
-                return;
+                return null;
             }
 
-            try {
-                const { PDFDocument, StandardFonts, rgb } = PDFLib;
-                const mergedPdf = await PDFDocument.create();
-                const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
-                const fontRegular = await mergedPdf.embedFont(StandardFonts.Helvetica);
+            const { PDFDocument, StandardFonts, rgb } = PDFLib;
+            const mergedPdf = await PDFDocument.create();
+            const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
+            const fontRegular = await mergedPdf.embedFont(StandardFonts.Helvetica);
 
-                for (const item of items) {
-                    const page = mergedPdf.addPage([595.28, 841.89]); // A4
-                    page.drawText('EisFavorite', { x: 50, y: 780, size: 12, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
-                    page.drawText(item.title, { x: 50, y: 740, size: 16, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
-                    page.drawText(item.subtitle, { x: 50, y: 715, size: 11, font: fontRegular, color: rgb(0.2, 0.2, 0.2) });
-                    if (!item.dataUri) {
-                        page.drawText('(keine gespeicherte Beleg-PDF für diese Buchung)', { x: 50, y: 685, size: 10, font: fontRegular, color: rgb(0.6, 0.6, 0.6) });
-                    }
-
-                    if (item.dataUri) {
-                        try {
-                            const bytes = dataUriToBytes(item.dataUri);
-                            const srcPdf = await PDFDocument.load(bytes);
-                            const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
-                            pages.forEach(p => mergedPdf.addPage(p));
-                        } catch (err) {
-                            page.drawText('(Beleg-PDF konnte nicht angehängt werden: ' + err.message + ')', { x: 50, y: 685, size: 9, font: fontRegular, color: rgb(0.8, 0.2, 0.2) });
-                        }
-                    }
+            for (const item of items) {
+                const page = mergedPdf.addPage([595.28, 841.89]); // A4
+                page.drawText('EisFavorite', { x: 50, y: 780, size: 12, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+                page.drawText(item.title, { x: 50, y: 740, size: 16, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
+                page.drawText(item.subtitle, { x: 50, y: 715, size: 11, font: fontRegular, color: rgb(0.2, 0.2, 0.2) });
+                if (!item.dataUri) {
+                    page.drawText('(keine gespeicherte Beleg-PDF für diese Buchung)', { x: 50, y: 685, size: 10, font: fontRegular, color: rgb(0.6, 0.6, 0.6) });
                 }
 
-                const mergedBytes = await mergedPdf.save();
-                const blob = new Blob([mergedBytes], { type: 'application/pdf' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                const ordnerName = kundeFilter === 'alle' ? 'Alle' : kundeFilter.replace(/\s+/g, '_');
-                const von = selectedYear() === 'alle' ? 'alle' : selectedYear();
-                const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
-                link.download = `Ordner_${ordnerName}_${von}${quarterSuffix}.pdf`;
-                link.click();
-            } catch (err) {
-                alert('❌ Konnte Ordner-PDF nicht erstellen: ' + err.message);
+                if (item.dataUri) {
+                    try {
+                        const bytes = dataUriToBytes(item.dataUri);
+                        const srcPdf = await PDFDocument.load(bytes);
+                        const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+                        pages.forEach(p => mergedPdf.addPage(p));
+                    } catch (err) {
+                        page.drawText('(Beleg-PDF konnte nicht angehängt werden: ' + err.message + ')', { x: 50, y: 685, size: 9, font: fontRegular, color: rgb(0.8, 0.2, 0.2) });
+                    }
+                }
             }
+
+            const mergedBytes = await mergedPdf.save();
+            const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+            const ordnerName = kundeFilter === 'alle' ? 'Alle' : kundeFilter.replace(/\s+/g, '_');
+            const von = selectedYear() === 'alle' ? 'alle' : selectedYear();
+            const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
+            return { blob, filename: `Ordner_${ordnerName}_${von}${quarterSuffix}.pdf` };
         }
 
         function dataUriToBytes(dataUri) {
@@ -1454,7 +1470,60 @@
             </tr>`).join('');
         }
 
+        // Ein Klick, alles für den Steuerberater: CSV + Ordner-PDF
+        // Snack-Oase + Ordner-PDF EisFavorite (jeweils mit Deckblatt und
+        // angehängten Beleg-PDFs, chronologisch) - als eine ZIP-Datei.
+        async function exportAllForSteuerberater() {
+            const btn = document.getElementById('exportAllBtn');
+            const originalLabel = btn.textContent;
+            btn.textContent = '⏳ Wird erstellt...';
+            btn.disabled = true;
+            try {
+                const zip = new JSZip();
+
+                const csvResult = buildCsvBlob();
+                zip.file(csvResult.filename, csvResult.blob);
+
+                const kunden = ['Snack-Oase', 'Mobiler Eisverkauf Agnello'];
+                let anyPdf = false;
+                for (const kunde of kunden) {
+                    const pdfResult = await buildFolderBundlePdfBlob(kunde);
+                    if (pdfResult) {
+                        zip.file(pdfResult.filename, pdfResult.blob);
+                        anyPdf = true;
+                    }
+                }
+
+                if (!anyPdf) {
+                    alert('Hinweis: Keine Buchungen mit Belegen im gewählten Zeitraum gefunden - es wird nur die CSV gezippt.');
+                }
+
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(zipBlob);
+                const von = selectedYear() === 'alle' ? 'alle' : selectedYear();
+                const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
+                link.download = `Steuerberater_EisFavorite_${von}${quarterSuffix}.zip`;
+                link.click();
+            } catch (err) {
+                alert('❌ Konnte ZIP nicht erstellen: ' + err.message);
+            } finally {
+                btn.textContent = originalLabel;
+                btn.disabled = false;
+            }
+        }
+
         function exportCsv() {
+            const { blob, filename } = buildCsvBlob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+
+        // Baut die Steuerreport-CSV als Blob - wiederverwendet vom
+        // einzelnen Export-Button und vom Sammel-Export.
+        function buildCsvBlob() {
             const revenue = filteredRevenue();
             const cashExpenses = filteredExpenses();
             const bankExpenses = filteredBankExpenses();
@@ -1512,11 +1581,9 @@
 
             const csv = lines.map(row => row.map(csvEscape).join(';')).join('\r\n');
             const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
             const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
-            link.download = `Steuerreport_EisFavorite_${selectedYear() === 'alle' ? 'alle' : selectedYear()}${quarterSuffix}.csv`;
-            link.click();
+            const filename = `Steuerreport_EisFavorite_${selectedYear() === 'alle' ? 'alle' : selectedYear()}${quarterSuffix}.csv`;
+            return { blob, filename };
         }
 
         initFirebase();
