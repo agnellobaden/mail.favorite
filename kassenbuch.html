@@ -382,6 +382,19 @@
         </div>
     </div>
 
+    <div id="eigenbelegModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; overflow-y:auto; padding:20px;">
+        <div style="max-width:600px; margin:20px auto; background:white; border-radius:16px; padding:30px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;" class="no-print">
+                <h2 style="color:#667eea; margin:0;">📝 Eigenbeleg</h2>
+                <button class="btn btn-secondary btn-sm" onclick="closeEigenbeleg()">✖ Schließen</button>
+            </div>
+            <div id="eigenbelegPrintArea"></div>
+            <div class="no-print" style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn" onclick="printEigenbeleg()">🖨️ Drucken / Als PDF speichern</button>
+            </div>
+        </div>
+    </div>
+
     <style>
         @media print {
             /* Chrome zeigt Datum/Titel/URL als Kopf-/Fußzeile nur, wenn am
@@ -392,15 +405,15 @@
                Druckbereich sorgt dafür, dass der Inhalt trotzdem nicht am
                Papierrand klebt. */
             @page { margin: 0; }
-            body > *:not(#kassenberichtModal) { display: none !important; }
-            #kassenberichtModal {
+            body > *:not(#kassenberichtModal):not(#eigenbelegModal) { display: none !important; }
+            #kassenberichtModal, #eigenbelegModal {
                 position: static;
                 overflow: visible;
                 height: auto;
                 background: white;
                 padding: 0;
             }
-            #kassenberichtModal > div {
+            #kassenberichtModal > div, #eigenbelegModal > div {
                 max-width: 100%;
                 margin: 0;
                 padding: 15mm;
@@ -413,6 +426,15 @@
             .no-print { display: none !important; }
             .print-only { display: inline !important; }
         }
+        .eigenbeleg-box {
+            border: 1px solid #000;
+            padding: 30px 25px;
+            margin: 20px 0;
+        }
+        .eigenbeleg-box .title { font-size: 1.6em; font-weight: 700; text-align: center; margin-bottom: 30px; }
+        .eigenbeleg-box .line { text-align: center; font-size: 1.15em; margin: 18px 0; }
+        .eigenbeleg-signature { margin: 60px 0 0 0; text-align: center; }
+        .eigenbeleg-signature span { border-bottom: 1px solid #000; padding-bottom: 2px; font-size: 1.1em; }
     </style>
 
     <script>
@@ -664,6 +686,7 @@
                         ${e.fromTageseinnahmen
                             ? `<button class="btn btn-danger btn-sm" onclick="deleteTageseinnahmeEntry('${e.id}')" title="Löscht den Eintrag in Tageseinnahmen">🗑️ Tageseinnahme löschen</button>`
                             : `<div class="row-actions">
+                                ${(e.type === 'einlage' || e.type === 'entnahme') ? `<button class="btn btn-secondary btn-sm" onclick="openEigenbeleg('${e.id}')" title="Eigenbeleg zum Ausdrucken/Unterschreiben">📝 Eigenbeleg</button>` : ''}
                                 <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">🗑️</button>
                             </div>`}
@@ -900,6 +923,44 @@
 
         function closeKassenbericht() {
             document.getElementById('kassenberichtModal').style.display = 'none';
+        }
+
+        // Eigenbeleg für Bareinlage/Barentnahme: GoBD verlangt, dass private
+        // Ein-/Auszahlungen in die Kasse durch einen von Hand unterschriebenen
+        // Eigenbeleg nachgewiesen werden (siehe Hinweis im Kassenbericht
+        // selbst: "durch Eigenbeleg nachzuweisen"). Diese Funktion baut das
+        // Beleg-Formular vorausgefüllt (Betrag, Datum) zum Ausdrucken.
+        const EIGENBELEG_NAME = 'Andrea Agnello';
+
+        function openEigenbeleg(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) return;
+            const isEntnahme = entry.type === 'entnahme';
+            const title = isEntnahme ? 'Barentnahme aus der Kasse' : 'Bareinlage in die Kasse';
+            const amount = formatEuro(parseFloat(entry.amount) || 0).replace('€', '').trim();
+            const dateStr = entry.date || entry.dateIso || '';
+
+            document.getElementById('eigenbelegPrintArea').innerHTML = `
+                <div class="eigenbeleg-box">
+                    <div class="title">Eigenbeleg</div>
+                    <div class="line">${title}</div>
+                    <div class="line">${EIGENBELEG_NAME}</div>
+                    <div class="line">über&nbsp;&nbsp;&nbsp;&nbsp;<strong>${amount} EUR</strong></div>
+                    <div class="line">am&nbsp;&nbsp;&nbsp;&nbsp;<strong>${dateStr}</strong></div>
+                </div>
+                <div class="eigenbeleg-signature"><span>${EIGENBELEG_NAME}</span></div>
+            `;
+            document.getElementById('eigenbelegModal').style.display = 'block';
+        }
+
+        function closeEigenbeleg() {
+            document.getElementById('eigenbelegModal').style.display = 'none';
+        }
+
+        function printEigenbeleg() {
+            document.getElementById('eigenbelegModal').scrollTop = 0;
+            window.scrollTo(0, 0);
+            setTimeout(() => window.print(), 50);
         }
 
         // Sammeldruck: alle Tage in einem Von-Bis-Zeitraum als EIN
