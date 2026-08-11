@@ -133,15 +133,26 @@
             document.getElementById('errorMsg').textContent = '';
         }
 
-        const ALLOWED_EMAILS = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com', 'schaefermonika35@gmail.com'];
+        const ALLOWED_EMAILS = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com'];
 
-        // Wenn bereits angemeldet, direkt weiterleiten (nur erlaubte E-Mails)
+        // Wenn bereits angemeldet, direkt weiterleiten (nur erlaubte E-Mails).
+        // Nicht erlaubte Konten werden hier nicht nur abgemeldet, sondern
+        // gleich selbst gelöscht (user.delete() darf jeder Nutzer bei sich
+        // selbst) - sonst könnte sich z.B. über "Mit Google anmelden" jede
+        // beliebige Google-Adresse ein Konto anlegen, das zwar keinen
+        // Zugriff bekommt, aber als Karteileiche in Firebase Auth stehen
+        // bleibt (genau so sind die alten Fremd-Konten entstanden).
         firebase.auth().onAuthStateChanged(function(user) {
             if (!user) return;
 
             if (ALLOWED_EMAILS.indexOf(user.email) === -1) {
-                firebase.auth().signOut().then(function() {
-                    document.getElementById('errorMsg').textContent = '❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.';
+                var rejectedEmail = user.email;
+                user.delete().catch(function() {
+                    // Falls delete() z.B. wegen "requires-recent-login" fehlschlägt,
+                    // wenigstens abmelden, damit das Konto nicht aktiv bleibt.
+                    return firebase.auth().signOut();
+                }).then(function() {
+                    document.getElementById('errorMsg').textContent = '❌ Zugriff verweigert: ' + rejectedEmail + ' ist nicht berechtigt.';
                 });
                 return;
             }
@@ -177,6 +188,15 @@
             const password = document.getElementById('password').value;
             const errorEl = document.getElementById('errorMsg');
             errorEl.textContent = '';
+
+            // Bei "Konto erstellen" die Whitelist VORHER prüfen, statt das
+            // Konto anzulegen und es hinterher wieder abzumelden - sonst
+            // könnte sich jede beliebige E-Mail ein Konto anlegen, das dann
+            // dauerhaft (aber ohne Zugriff) in Firebase Auth stehen bleibt.
+            if (isSignupMode && ALLOWED_EMAILS.indexOf(email) === -1) {
+                errorEl.textContent = '❌ Diese E-Mail-Adresse ist nicht berechtigt, ein Konto einzurichten.';
+                return;
+            }
 
             const action = isSignupMode
                 ? firebase.auth().createUserWithEmailAndPassword(email, password)
