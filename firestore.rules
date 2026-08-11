@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Nur die beiden Firmen-Konten dürfen überhaupt lesen/schreiben - unabhängig
+// davon, was das Frontend (login.html / __authGate) macht. Das ist die
+// serverseitige Absicherung: selbst wenn jemand die Firebase-Zugangsdaten
+// aus dem HTML-Quellcode ausliest und direkt auf die Datenbank zugreift
+// (unter Umgehung von login.html), kommt er ohne eine dieser beiden
+// E-Mail-Adressen trotzdem nicht an die Daten.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null &&
+        request.auth.token.email in ['agnello.baden@gmail.com', 'eisfavorit@gmail.com'];
+    }
+
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}
