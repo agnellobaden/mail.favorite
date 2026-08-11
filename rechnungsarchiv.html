@@ -395,10 +395,13 @@
                 const remindersCell = reminders.length === 0
                     ? '-'
                     : `<span title="${reminders.map(r => 'Erinnerung #' + r.reminderCount + ' am ' + r.sentAt + (r.isOverdue ? ' (' + r.daysOverdue + ' Tage überfällig)' : '')).join('\n')}" style="color:#c0392b; font-weight:700;">⏰ ${reminders.length}× - zuletzt ${reminders[0].sentAt}</span>`;
+                const barBadge = inv.paymentMethod === 'bar'
+                    ? ' <span title="Bar bezahlt (Rechnung trotzdem ausgestellt)" style="background:#27ae60; color:#fff; font-size:0.75em; font-weight:700; padding:2px 7px; border-radius:10px; white-space:nowrap;">💵 Bar</span>'
+                    : '';
                 return `
                 <tr${reminders.length > 0 ? ' class="reminder-sent-row"' : ''}>
                     <td><strong>${inv.invoiceNumber || '-'}</strong></td>
-                    <td>${inv.customerName || '-'}</td>
+                    <td>${inv.customerName || '-'}${barBadge}</td>
                     <td>${inv.date || '-'}</td>
                     <td>${inv.amount || '-'}</td>
                     <td>${remindersCell}</td>
