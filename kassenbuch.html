@@ -932,15 +932,14 @@
         // Beleg-Formular vorausgefüllt (Betrag, Datum) zum Ausdrucken.
         const EIGENBELEG_NAME = 'Andrea Agnello';
 
-        function openEigenbeleg(id) {
-            const entry = allEntries.find(e => e.id === id);
-            if (!entry) return;
+        // Von openEigenbeleg() UND vom Sammeldruck (openSammeldruck) genutzt,
+        // damit beide exakt dasselbe Beleg-Layout erzeugen.
+        function buildEigenbelegHtml(entry, wrapInDayBlock) {
             const isEntnahme = entry.type === 'entnahme';
             const title = isEntnahme ? 'Barentnahme aus der Kasse' : 'Bareinlage in die Kasse';
             const amount = formatEuro(parseFloat(entry.amount) || 0).replace('€', '').trim();
             const dateStr = entry.date || entry.dateIso || '';
-
-            document.getElementById('eigenbelegPrintArea').innerHTML = `
+            const inner = `
                 <div class="eigenbeleg-box">
                     <div class="title">Eigenbeleg</div>
                     <div class="line">${title}</div>
@@ -950,6 +949,13 @@
                 </div>
                 <div class="eigenbeleg-signature"><span>${EIGENBELEG_NAME}</span></div>
             `;
+            return wrapInDayBlock ? `<div class="kb-day-block">${inner}</div>` : inner;
+        }
+
+        function openEigenbeleg(id) {
+            const entry = allEntries.find(e => e.id === id);
+            if (!entry) return;
+            document.getElementById('eigenbelegPrintArea').innerHTML = buildEigenbelegHtml(entry, false);
             document.getElementById('eigenbelegModal').style.display = 'block';
         }
 
@@ -991,9 +997,20 @@
                 alert('Keine Kassenbuch-Einträge in diesem Zeitraum gefunden.');
                 return;
             }
-            if (datesWithEntries.length > 62 && !confirm(`${datesWithEntries.length} Tage mit Einträgen im Zeitraum - das ergibt ${datesWithEntries.length} Seiten. Trotzdem fortfahren?`)) return;
+            // Eigenbelege für Einlagen/Entnahmen im Zeitraum - sollen laut
+            // Wunsch beim Sammeldruck direkt mit ausgedruckt werden, nicht
+            // nur einzeln pro Buchung. "aus Tageseinnahmen" gibt es für
+            // diese beiden Typen nicht, daher keine zusätzliche Prüfung nötig.
+            const eigenbelegEntries = combinedEntries().filter(e =>
+                (e.type === 'einlage' || e.type === 'entnahme') && e.dateIso >= von && e.dateIso <= bis
+            ).sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
 
-            document.getElementById('kbPrintArea').innerHTML = datesWithEntries.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
+            const pageCount = datesWithEntries.length + eigenbelegEntries.length;
+            if (pageCount > 62 && !confirm(`${pageCount} Seiten (Kassenberichte + Eigenbelege) im Zeitraum. Trotzdem fortfahren?`)) return;
+
+            const kassenberichteHtml = datesWithEntries.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
+            const eigenbelegeHtml = eigenbelegEntries.map(e => buildEigenbelegHtml(e, true)).join('');
+            document.getElementById('kbPrintArea').innerHTML = kassenberichteHtml + eigenbelegeHtml;
             document.getElementById('kassenberichtModal').style.display = 'block';
         }
 
