@@ -4364,8 +4364,10 @@
                 const phoneClean = booking.phone ? booking.phone.replace(/\s/g, '') : '';
                 const telUrl = phoneClean ? `tel:${phoneClean}` : '#';
 
-                // E-Mail-Link
-                const emailUrl = booking.email ? `mailto:${booking.email}` : '#';
+                // E-Mail-Link - öffnet auf dem Desktop immer Gmail mit dem
+                // festen Geschäfts-Account (siehe openEmailCompose), damit
+                // nie versehentlich über ein anderes E-Mail-Konto verschickt wird.
+                const emailOnclick = booking.email ? `openEmailCompose('${booking.email.replace(/'/g, "\\'")}', '', ''); return false;` : '';
 
                 // Umsatz und Anfahrtskosten berechnen
                 const revenue = calculateRevenue(booking.guests, booking.kugelPerGuest, booking.distance);
@@ -4441,7 +4443,7 @@
                         </div>
                         <div class="card-info-row">
                             <span>📧</span>
-                            <span style="word-break: break-all;"><a href="${emailUrl}" style="color: #667eea; text-decoration: none;" ${!booking.email ? 'style="pointer-events:none;color:#666;"' : ''}>${booking.email || 'Keine E-Mail'}</a></span>
+                            <span style="word-break: break-all;"><a href="#" onclick="${emailOnclick}" style="color: #667eea; text-decoration: none;" ${!booking.email ? 'style="pointer-events:none;color:#666;"' : ''}>${booking.email || 'Keine E-Mail'}</a></span>
                         </div>
                         ${booking.wunschsorten ? `
                         <div class="card-info-row">
@@ -4546,7 +4548,7 @@
                     <td>${booking.id || '-'}</td>
                     <td><span class="status-badge status-${(booking.status || '').toLowerCase().replace(/ /g, '-')}">${booking.status || '-'}</span></td>
                     <td><strong>${booking.name || '-'}</strong>${countPreviousBookings(booking) > 0 ? ` <span title="${countPreviousBookings(booking)} frühere Buchung(en)" style="color:#f39c12;">🔁</span>` : ''}${hasDateConflict(booking) ? ` <span title="Am ${booking.date} ist bereits eine andere Buchung mit Status 'Gebucht' vorhanden" style="color:#c0392b;">⚠️</span>` : ''}</td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email ? `<a href="mailto:${booking.email}" style="color:#667eea;">${booking.email}</a>` : '-'}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${booking.email ? `<a href="#" onclick="openEmailCompose('${booking.email.replace(/'/g, "\\'")}', '', ''); return false;" style="color:#667eea;">${booking.email}</a>` : '-'}</td>
                     <td>${booking.phone ? `<a href="tel:${booking.phone.replace(/\s/g, '')}" style="color:#667eea;">${booking.phone}</a>` : '-'}</td>
                     <td>${booking.company || '-'}</td>
                     <td class="${dateClass}">${booking.date || '-'}${isNext ? ' 🔔' : ''}</td>
@@ -4691,7 +4693,7 @@
         function mailFormEmail() {
             const email = document.getElementById('formEmail').value.trim();
             if (!email) { alert('Bitte zuerst eine E-Mail-Adresse eingeben.'); return; }
-            window.location.href = `mailto:${email}`;
+            openEmailCompose(email, '', '');
         }
 
         // Berechnet die Entfernung (km) automatisch von der festen
@@ -6053,15 +6055,14 @@
             // PDF generieren und dann E-Mail öffnen
             html2pdf().set(opt).from(element).output('blob').then(function(blob) {
                 // E-Mail-Text vorbereiten
-                const subject = encodeURIComponent(`Angebot für Ihre Veranstaltung - EisFavorite`);
-                const body = encodeURIComponent(
+                const subject = `Angebot für Ihre Veranstaltung - EisFavorite`;
+                const body =
                     `Sehr geehrte Damen und Herren,\n\n` +
                     `vielen Dank für Ihre Anfrage!\n\n` +
                     `Im Anhang finden Sie unser Angebot für Ihre Veranstaltung.\n\n` +
                     `Bei Fragen stehen wir Ihnen gerne zur Verfügung.\n\n` +
                     `Mit freundlichen Grüßen\n` +
-                    `Ihr EisFavorite Team`
-                );
+                    `Ihr EisFavorite Team`;
 
                 // Zuerst PDF herunterladen
                 const link = document.createElement('a');
@@ -6069,9 +6070,10 @@
                 link.download = `Angebot_EisFavorite_${customerName.replace(/\s/g, '_')}.pdf`;
                 link.click();
 
-                // Dann E-Mail-Client öffnen
+                // Dann E-Mail-Client öffnen (Desktop: Gmail-Weboberfläche mit
+                // festem Geschäfts-Account eisfavorit@gmail.com, Handy: mailto:)
                 setTimeout(() => {
-                    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                    openEmailCompose(email, subject, body);
 
                     alert(
                         `✓ PDF wurde heruntergeladen!\n\n` +
@@ -8124,7 +8126,7 @@
 
                     row.innerHTML = `
                         <td onclick="editBooking('${request.id}')"><strong>${request.name || '-'}</strong>${isNewEmail}</td>
-                        <td onclick="event.stopPropagation()"><a href="mailto:${request.email}">${request.email || '-'}</a></td>
+                        <td onclick="event.stopPropagation()">${request.email ? `<a href="#" onclick="openEmailCompose('${request.email.replace(/'/g, "\\'")}', '', ''); return false;">${request.email}</a>` : '-'}</td>
                         <td onclick="event.stopPropagation()">${request.phone ? '<a href="tel:'+request.phone+'">'+request.phone+'</a>' : '-'}</td>
                         <td onclick="editBooking('${request.id}')"><strong>${request.date || '-'}</strong> ${request.time ? '(' + request.time + ')' : ''}</td>
                         <td onclick="editBooking('${request.id}')">${request.guests || '-'}</td>

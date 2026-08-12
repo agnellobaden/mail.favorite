@@ -332,6 +332,19 @@
         let allBookings = [];
         let selectedIds = new Set();
 
+        // Öffnet ein E-Mail-Compose-Fenster: am Handy per mailto: (native
+        // Mail-/Gmail-App), am PC/Laptop über die Gmail-Weboberfläche mit
+        // dem festen Geschäfts-Account eisfavorit@gmail.com - damit nie über
+        // ein anderes/privates E-Mail-Konto verschickt wird.
+        function openEmailCompose(to, subject, body) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } else {
+                window.open(`https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+            }
+        }
+
         function initFirebase() {
             if (!firebase.apps.length) {
                 firebase.initializeApp({
@@ -434,7 +447,7 @@
                     <td>${b.name || '-'}</td>
                     <td>${b.company || '-'}</td>
                     <td>${address}</td>
-                    <td class="${b.email ? '' : 'no-email'}">${b.email ? `<a href="mailto:${b.email}" style="color:#667eea;">${b.email}</a>` : 'keine E-Mail'}</td>
+                    <td class="${b.email ? '' : 'no-email'}">${b.email ? `<a href="#" onclick="openEmailCompose('${b.email.replace(/'/g, "\\'")}', '', ''); return false;" style="color:#667eea;">${b.email}</a>` : 'keine E-Mail'}</td>
                     <td>${b.phone ? `<a href="tel:${b.phone.replace(/\s/g, '')}" style="color:#667eea;">${b.phone}</a>` : '-'}</td>
                     <td><span class="status-badge ${statusClass}">${b.status || '-'}</span></td>
                     <td>${b.date || '-'}</td>

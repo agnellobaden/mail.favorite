@@ -394,6 +394,19 @@
         let allLeads = [];
         let selectedLeadIds = new Set();
 
+        // Öffnet ein E-Mail-Compose-Fenster: am Handy per mailto: (native
+        // Mail-/Gmail-App), am PC/Laptop über die Gmail-Weboberfläche mit
+        // dem festen Geschäfts-Account eisfavorit@gmail.com - damit nie über
+        // ein anderes/privates E-Mail-Konto verschickt wird.
+        function openEmailCompose(to, subject, body) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } else {
+                window.open(`https://mail.google.com/mail/?view=cm&fs=1&authuser=eisfavorit@gmail.com&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+            }
+        }
+
         function toggleActionsMenu(event) {
             if (event) event.stopPropagation();
             document.getElementById('actionsDropdown').classList.toggle('active');
@@ -606,7 +619,7 @@
                         <td>${lead.contactPerson || '-'}</td>
                         <td>${lead.address || '-'}</td>
                         <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
-                        <td>${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</td>
+                        <td>${lead.email ? `<a href="#" onclick="openEmailCompose('${lead.email.replace(/'/g, "\\'")}', '', ''); return false;">${lead.email}</a>` : '-'}</td>
                         <td>${lead.employees || '-'}</td>
                         <td>${typeof lead.distanceKm === 'number' ? lead.distanceKm.toFixed(1) + ' km' : '-'}</td>
                         <td>
