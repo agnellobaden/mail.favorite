@@ -181,6 +181,11 @@
     #journalTable { table-layout: fixed; }
     #journalTable th:nth-child(4), #journalTable th:nth-child(5), #journalTable th:nth-child(6) { text-align: right; }
     #journalTable .saldo-cell { text-align: right; font-weight: 700; color: #333; }
+    /* Lange, nicht umbrechbare Wörter (z.B. Bank-Verwendungszweck ohne
+       Leerzeichen) sollen innerhalb ihrer Zelle umbrechen statt sichtbar in
+       die Nachbarspalte "überzulaufen" - genau das sah auf dem Handy wie
+       überlappender Text aus. */
+    #journalTable td { overflow-wrap: break-word; word-break: break-word; vertical-align: top; }
     .table-wrap { overflow-x: auto; }
 
     /* Buchhaltungsordner-Ansicht: jede Rechnung direkt gefolgt vom
@@ -225,6 +230,14 @@
         .container { padding: 15px; }
         table { font-size: 0.8em; }
         th, td { padding: 8px 6px; }
+
+        /* Auf dem Handy sind 7 Spalten in fester Breite (table-layout:fixed)
+           zu schmal, um lesbar zu sein - jede Spalte bekommt dann nur ein
+           paar Pixel und Text quetscht sich in die Nachbarspalte. Stattdessen
+           die Spalten ihre natürliche Breite einnehmen lassen und das
+           Buchungsjournal seitlich scrollbar machen (der Container
+           .table-wrap hat bereits overflow-x:auto). */
+        #journalTable { table-layout: auto; min-width: 640px; }
 
         /* Kennzahlen-Kacheln auf dem Handy als 2x2-Raster nebeneinander
            statt einzeln untereinander. */
@@ -733,7 +746,12 @@
                 kategorie: e.kategorie || 'Sonstiges',
                 mwstSatz: e.mwstSatz != null ? e.mwstSatz : 19,
                 vorsteuerExact: e.vorsteuerExact != null ? e.vorsteuerExact : null,
-                note: (e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')
+                // Roher Verwendungszweck aus dem Bank-CSV enthält oft
+                // Zeilenumbrüche/mehrfache Leerzeichen (z.B. "DATUM
+                // 30.06.2026, 20.06 UHR..." über mehrere Zeilen) - für die
+                // Anzeige auf eine Zeile normalisieren (voller Text bleibt
+                // als title-Tooltip in renderJournal() erhalten).
+                note: ((e.note && e.note.trim()) || (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')).replace(/\s+/g, ' ').trim()
             }));
         }
 
@@ -878,9 +896,11 @@
             let saldo = 0;
             tbody.innerHTML = rows.map(r => {
                 saldo += r.einnahme - r.ausgabe;
+                const beschreibungVoll = String(r.beschreibung || '').replace(/\s+/g, ' ').trim();
+                const beschreibungKurz = beschreibungVoll.length > 70 ? beschreibungVoll.slice(0, 70) + '…' : beschreibungVoll;
                 return `<tr>
                     <td>${r.date}</td>
-                    <td>${r.beschreibung}</td>
+                    <td title="${beschreibungVoll.replace(/"/g, '&quot;')}">${beschreibungKurz}</td>
                     <td>${r.zahlungsartHtml}</td>
                     <td class="amount-cell">${r.einnahme > 0 ? formatEuro(r.einnahme) : ''}</td>
                     <td class="amount-cell">${r.ausgabe > 0 ? formatEuro(r.ausgabe) : ''}</td>
