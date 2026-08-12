@@ -327,15 +327,20 @@
         </div>
 
         <div class="filter-row">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Anzeige:</span>
             <select id="monthFilter" onchange="renderTable()">
                 <option value="alle">Alle Monate</option>
             </select>
+        </div>
+
+        <div class="filter-row">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Drucken – Einzeltag:</span>
             <input type="date" id="kbReportDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
             <button class="btn btn-secondary" onclick="openKassenbericht()">🖨️ Kassenbericht für diesen Tag</button>
         </div>
 
         <div class="filter-row">
-            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Sammeldruck:</span>
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Drucken – Zeitraum:</span>
             <span style="align-self:center; font-size:0.85em; color:#666;">von</span>
             <input type="date" id="kbVonDate" style="padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
             <span style="align-self:center; font-size:0.85em; color:#666;">bis</span>
