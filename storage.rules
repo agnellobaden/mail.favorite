@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Event-Fotos, die Veranstalter vor Ort hochladen. Lesbar öffentlich
+    // erst, sobald das zugehörige Firestore-Dokument (eventPhotos/{uploadId})
+    // auf status:'approved' gesetzt wurde - vorher nur für den Owner sichtbar
+    // (für die Freigabe-Vorschau im Verwaltungstool).
+    match /event-photos/{uploadId}/{fileName} {
+      allow read: if firestore.get(/databases/(default)/documents/eventPhotos/$(uploadId)).data.status == 'approved'
+                    || (request.auth != null && request.auth.token.email in ['agnello.baden@gmail.com', 'eisfavorit@gmail.com']);
+      allow write: if resource == null
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

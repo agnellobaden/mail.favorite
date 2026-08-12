@@ -13,6 +13,29 @@ service cloud.firestore {
         request.auth.token.email in ['agnello.baden@gmail.com', 'eisfavorit@gmail.com'];
     }
 
+    // eisfavorite.de (die öffentliche Marketing-Website) schreibt
+    // unauthentifiziert Anfragen von Besuchern in diese Collection - das
+    // muss trotz der sonst strikten Owner-only-Sperre möglich bleiben.
+    // Lesen/Ändern/Löschen bleibt dem Owner vorbehalten (Besucher sollen
+    // keine fremden Anfragen einsehen können).
+    match /bookings/{bookingId} {
+      allow create: if true;
+      allow read, update, delete: if isOwner();
+    }
+
+    // Event-Fotos: Veranstalter dürfen unauthentifiziert neue Uploads anlegen
+    // (immer mit status:'pending', damit niemand sich selbst freischalten
+    // kann). Öffentlich sichtbar/lesbar wird ein Upload erst, nachdem der
+    // Owner ihn manuell auf 'approved' gesetzt hat.
+    match /eventPhotos/{photoId} {
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() < 200;
+      allow read: if resource.data.status == 'approved' || isOwner();
+      allow update, delete: if isOwner();
+    }
+
     match /{document=**} {
       allow read, write: if isOwner();
     }
