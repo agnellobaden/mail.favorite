@@ -104,6 +104,15 @@
     }
     .burger-dropdown a:hover { background: #f0f0f8; }
     .burger-dropdown hr { border: none; border-top: 1px solid #eee; margin: 6px 0; }
+    .burger-dropdown .group-label {
+        font-size: 0.72em;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #999;
+        padding: 10px 10px 4px;
+    }
+    .burger-dropdown .group-label:first-child { padding-top: 2px; }
 
     /* Anker sollen nicht unter dem sticky Header verschwinden. */
     h2.section-title { scroll-margin-top: 110px; }
@@ -283,17 +292,23 @@
                 <div class="burger-wrap no-print">
                     <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
                     <div class="burger-dropdown" id="burgerDropdown">
+                        <div class="group-label">Übersicht</div>
                         <a href="#sec-journal" onclick="closeBurgerMenu()">📖 Buchungsjournal</a>
                         <a href="#sec-ordner" onclick="closeBurgerMenu()">🗂️ Buchhaltungsordner-Ansicht</a>
                         <a href="#sec-einnahmen" onclick="closeBurgerMenu()">Betriebseinnahmen-Liste</a>
+
+                        <div class="group-label">Auswertungen</div>
                         <a href="#sec-quartal" onclick="closeBurgerMenu()">Quartalsübersicht</a>
                         <a href="#sec-monat" onclick="closeBurgerMenu()">Monatsübersicht</a>
                         <a href="#sec-kategorie" onclick="closeBurgerMenu()">Ausgaben nach Kategorie</a>
+
+                        <div class="group-label">Ausgaben im Detail</div>
                         <a href="#sec-ausgaben-kasse" onclick="closeBurgerMenu()">Ausgaben (Kassenbuch)</a>
                         <a href="#sec-bank-quartal" onclick="closeBurgerMenu()">Kontoauszug-Ausgaben nach Quartal</a>
                         <a href="#sec-ausgaben-bank" onclick="closeBurgerMenu()">Ausgaben (Kontoauszug)</a>
                         <a href="#sec-privat" onclick="closeBurgerMenu()">Privatentnahmen &amp; Einlagen</a>
-                        <hr>
+
+                        <div class="group-label">Andere Seiten</div>
                         <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
                         <a href="kassenbuch.html">🧾 Kassenbuch</a>
                         <a href="kontoauszug.html">🏦 Kontoauszug</a>
@@ -338,6 +353,7 @@
         </div>
 
         <div class="filter-row no-print">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Zeitraum:</span>
             <select id="yearFilter" onchange="userChangedFilters = true; renderAll();">
                 <option value="alle">Alle Jahre</option>
             </select>
@@ -348,9 +364,12 @@
                 <option value="3">Q3 (Jul - Sep)</option>
                 <option value="4">Q4 (Okt - Dez)</option>
             </select>
+        </div>
+        <div class="filter-row no-print">
             <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
         </div>
         <div class="filter-row no-print">
+            <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Einzel-Export:</span>
             <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
             <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
             <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>

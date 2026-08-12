@@ -92,6 +92,15 @@
         font-size: 0.9em;
     }
     .burger-dropdown a:hover { background: #f0f0f8; }
+    .burger-dropdown .group-label {
+        font-size: 0.72em;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #999;
+        padding: 10px 10px 4px;
+    }
+    .burger-dropdown .group-label:first-child { padding-top: 2px; }
     .subtitle { color: #666; margin-bottom: 20px; }
 
     .stats {
@@ -236,8 +245,10 @@
                 <div class="burger-wrap no-print">
                     <button class="burger-btn" onclick="toggleBurgerMenu()">☰ Abschnitte</button>
                     <div class="burger-dropdown" id="burgerDropdown">
+                        <div class="group-label">Aktionen</div>
                         <a href="#" onclick="closeBurgerMenu(); openTagesbericht(); return false;">📄 Tagesbericht (für Steuerberater)</a>
-                        <hr>
+
+                        <div class="group-label">Andere Seiten</div>
                         <a href="tageseinnahmen.html">💶 Tageseinnahmen</a>
                         <a href="kassenbuch.html">🧾 Kassenbuch</a>
                         <a href="kontoauszug.html">🏦 Kontoauszug</a>
