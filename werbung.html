@@ -259,6 +259,7 @@
             </div>
             <button class="btn btn-secondary" onclick="selectVereineUndFirmen()">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
+            <button class="btn btn-flyer" onclick="openCampaignModal()">🚀 Kampagne starten (alle auf einmal)</button>
         </div>
 
         <div class="filter-row">
@@ -386,6 +387,42 @@
                 <button class="btn btn-flyer" onclick="sendCurrentFlyerEmail()">📧 Jetzt per Gmail senden</button>
                 <button class="btn btn-secondary" onclick="skipCurrent()">⏭ Überspringen</button>
                 <button class="btn btn-secondary" onclick="closeFlyerQueueModal()">✖ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="campaignModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:480px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
+            <h3 style="margin:0 0 14px 0; color:#667eea;">🚀 Kampagne starten</h3>
+            <p style="font-size:0.9em; color:#666; margin:0 0 16px;">Wähle, wen du gerade jetzt anschreiben willst - der Versand läuft danach automatisch für alle Treffer durch, ohne dass du jede E-Mail einzeln bestätigen musst.</p>
+
+            <div style="font-weight:600; font-size:0.9em; color:#333; margin-bottom:8px;">Kategorien</div>
+            <div id="campaignCategoryList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:18px;"></div>
+
+            <label style="display:block; font-weight:600; font-size:0.9em; color:#333; margin-bottom:6px;">Maximale Entfernung (km)</label>
+            <input type="number" id="campaignMaxKm" placeholder="leer = keine Begrenzung" min="0" step="1" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em; margin-bottom:8px;" oninput="updateCampaignMatchCount()">
+            <p style="font-size:0.8em; color:#888; margin:0 0 18px;">Einträge ohne bekannte Entfernung werden immer mit angeschrieben (unabhängig von der km-Grenze).</p>
+
+            <div id="campaignMatchCount" style="background:#f8f9fa; border-radius:8px; padding:10px 14px; font-size:0.9em; font-weight:600; color:#333; margin-bottom:18px;">0 Empfänger ausgewählt</div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-flyer" id="campaignStartBtn" onclick="startCampaignSend()">🚀 Kampagne jetzt senden</button>
+                <button class="btn btn-secondary" onclick="closeCampaignModal()">✖ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="campaignProgressModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:480px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 14px 0; color:#667eea;">🚀 Kampagne läuft...</h3>
+            <div style="background:#eee; border-radius:8px; height:10px; overflow:hidden; margin-bottom:14px;">
+                <div id="campaignProgressBar" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); height:100%; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <p id="campaignProgressText" style="font-size:0.95em; color:#333; margin:0 0 8px;">Start...</p>
+            <p id="campaignProgressStats" style="font-size:0.85em; color:#666; margin:0 0 18px;"></p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-secondary" id="campaignCancelBtn" onclick="cancelCampaignSend()">⏹ Abbrechen</button>
+                <button class="btn btn-flyer" id="campaignCloseBtn" onclick="closeCampaignProgressModal()" style="display:none;">✅ Schließen</button>
             </div>
         </div>
     </div>
@@ -667,6 +704,117 @@
             renderLeads();
             updateSelectedCount();
             alert(`✅ ${targets.length} Einträge ausgewählt (Vereine + Firmen mit E-Mail-Adresse).\n\nJetzt auf "📧 Flyer an Ausgewählte senden" klicken, um den Versand zu starten.`);
+        }
+
+        // ===== Kampagne (Kategorien + km-Grenze wählen, dann automatisch
+        // ohne Einzel-Bestätigung an alle Treffer senden) =====
+        let campaignQueue = [];
+        let campaignTotal = 0;
+        let campaignSent = 0;
+        let campaignFailed = 0;
+        let campaignCancelled = false;
+
+        function openCampaignModal() {
+            const list = document.getElementById('campaignCategoryList');
+            list.innerHTML = CATEGORY_ORDER.map(cat => `
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.92em; color:#333; cursor:pointer;">
+                    <input type="checkbox" class="campaign-cat-cb" value="${cat}" ${(cat === 'verein' || cat === 'firma') ? 'checked' : ''} onchange="updateCampaignMatchCount()">
+                    ${CATEGORY_LABELS[cat] || cat}
+                </label>
+            `).join('');
+            document.getElementById('campaignMaxKm').value = '';
+            document.getElementById('campaignModal').style.display = 'flex';
+            updateCampaignMatchCount();
+        }
+
+        function closeCampaignModal() {
+            document.getElementById('campaignModal').style.display = 'none';
+        }
+
+        function campaignMatches() {
+            const checkedCats = [...document.querySelectorAll('.campaign-cat-cb:checked')].map(cb => cb.value);
+            const maxKmRaw = document.getElementById('campaignMaxKm').value.trim();
+            const maxKm = maxKmRaw === '' ? null : parseFloat(maxKmRaw);
+            return allLeads.filter(l =>
+                checkedCats.includes(l.category) &&
+                l.email &&
+                l.status !== 'archiviert' &&
+                (maxKm === null || l.distanceKm == null || l.distanceKm <= maxKm)
+            );
+        }
+
+        function updateCampaignMatchCount() {
+            const matches = campaignMatches();
+            document.getElementById('campaignMatchCount').textContent = matches.length + ' Empfänger ausgewählt';
+            document.getElementById('campaignStartBtn').disabled = matches.length === 0;
+        }
+
+        function startCampaignSend() {
+            const matches = campaignMatches();
+            if (matches.length === 0) { alert('Keine Empfänger für diese Auswahl gefunden.'); return; }
+            if (!confirm(`${matches.length} E-Mails werden jetzt automatisch nacheinander über Gmail (eisfavorit@gmail.com) verschickt - ohne weitere Einzel-Bestätigung.\n\nBeim ersten Mal musst du dich einmalig bei Google anmelden und den Versand erlauben.\n\nJetzt starten?`)) return;
+
+            closeCampaignModal();
+            campaignQueue = matches.slice();
+            campaignTotal = campaignQueue.length;
+            campaignSent = 0;
+            campaignFailed = 0;
+            campaignCancelled = false;
+
+            document.getElementById('campaignCancelBtn').style.display = 'block';
+            document.getElementById('campaignCloseBtn').style.display = 'none';
+            document.getElementById('campaignProgressModal').style.display = 'flex';
+            campaignSendNext();
+        }
+
+        function campaignSendNext() {
+            if (campaignCancelled || campaignQueue.length === 0) {
+                campaignFinish();
+                return;
+            }
+            const lead = campaignQueue[0];
+            const position = campaignTotal - campaignQueue.length + 1;
+            document.getElementById('campaignProgressBar').style.width = Math.round((position - 1) / campaignTotal * 100) + '%';
+            document.getElementById('campaignProgressText').textContent = `Sende ${position} von ${campaignTotal}: ${lead.name}...`;
+            document.getElementById('campaignProgressStats').textContent = `✅ ${campaignSent} gesendet, ❌ ${campaignFailed} fehlgeschlagen`;
+
+            const { subject, html } = buildFlyerEmail(lead);
+            sendGmailApiHtmlMessage(lead.email, subject, html, function() {
+                campaignSent++;
+                const now = Date.now();
+                db.collection('marketingLeads').doc(lead.id).set({
+                    status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
+                    lastContactedAt: now,
+                    lastModifiedMs: now
+                }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+                campaignQueue.shift();
+                setTimeout(campaignSendNext, 400); // kleine Pause zwischen Sendungen, um die Gmail-API nicht zu überlasten
+            }, function(err) {
+                console.error('Kampagne: Fehler bei', lead.name, err);
+                campaignFailed++;
+                campaignQueue.shift();
+                setTimeout(campaignSendNext, 400);
+            });
+        }
+
+        function campaignFinish() {
+            document.getElementById('campaignProgressBar').style.width = '100%';
+            const skipped = campaignQueue.length;
+            document.getElementById('campaignProgressText').textContent = campaignCancelled ? 'Abgebrochen.' : 'Fertig!';
+            document.getElementById('campaignProgressStats').textContent =
+                `✅ ${campaignSent} gesendet, ❌ ${campaignFailed} fehlgeschlagen` + (skipped > 0 ? `, ⏭ ${skipped} nicht versendet (abgebrochen)` : '');
+            document.getElementById('campaignCancelBtn').style.display = 'none';
+            document.getElementById('campaignCloseBtn').style.display = 'block';
+            campaignQueue = [];
+        }
+
+        function cancelCampaignSend() {
+            campaignCancelled = true;
+        }
+
+        function closeCampaignProgressModal() {
+            document.getElementById('campaignProgressModal').style.display = 'none';
+            renderLeads();
         }
 
         function toggleSelectAll(checkAll) {
