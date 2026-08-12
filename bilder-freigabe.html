@@ -8,7 +8,6 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -178,7 +177,7 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         var db = firebase.firestore();
 
-        var allUploads = [];
+        var allPhotoDocs = [];
         var currentFilter = 'pending';
 
         function setFilter(filter) {
@@ -195,37 +194,59 @@
             rejected: ['❌ Abgelehnt', 'status-rejected']
         };
 
+        // Jedes Firestore-Dokument ist genau 1 Foto (Firestore-1MB-Limit) -
+        // für die Anzeige nach uploadGroupId zu Alben zusammenfassen.
+        function groupUploads() {
+            var groups = {};
+            allPhotoDocs.forEach(function(doc) {
+                var key = doc.uploadGroupId || doc.id;
+                if (!groups[key]) {
+                    groups[key] = { id: key, title: doc.title, status: doc.status, createdAt: doc.createdAt, docIds: [], photos: [] };
+                }
+                groups[key].docIds.push(doc.id);
+                groups[key].photos.push(doc.imageData);
+                // Status: 'pending' überstimmt (falls einzelne Fotos noch nicht entschieden sind)
+                if (doc.status === 'pending') groups[key].status = 'pending';
+            });
+            return Object.values(groups).sort(function(a, b) {
+                var ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+                var tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+                return tb - ta;
+            });
+        }
+
         function render() {
             var list = document.getElementById('uploadsList');
-            var visible = allUploads.filter(function(u) {
-                return currentFilter === 'all' || u.status === currentFilter;
+            var groups = groupUploads().filter(function(g) {
+                return currentFilter === 'all' || g.status === currentFilter;
             });
 
-            if (visible.length === 0) {
+            if (groups.length === 0) {
                 list.innerHTML = '<div class="empty-msg">Keine Einträge in dieser Ansicht.</div>';
                 return;
             }
 
-            list.innerHTML = visible.map(function(u) {
-                var statusInfo = STATUS_LABELS[u.status] || ['?', ''];
-                var dateStr = u.createdAt && u.createdAt.toDate ? u.createdAt.toDate().toLocaleString('de-DE') : '';
-                var photosHtml = (u.photos || []).map(function(p) {
-                    return '<img src="' + p.url + '" alt="">';
+            list.innerHTML = groups.map(function(g) {
+                var statusInfo = STATUS_LABELS[g.status] || ['?', ''];
+                var dateStr = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate().toLocaleString('de-DE') : '';
+                var photosHtml = g.photos.map(function(imageData) {
+                    return '<img src="' + imageData + '" alt="">';
                 }).join('');
+                var groupIdsJson = JSON.stringify(g.docIds).replace(/'/g, '&#39;');
 
                 return '<div class="upload-card">' +
                     '<div class="upload-card-header">' +
                         '<div>' +
-                            '<div class="upload-title">' + escapeHtml(u.title) + '</div>' +
-                            '<div class="upload-meta">' + dateStr + ' · ' + (u.photos || []).length + ' Foto(s)</div>' +
+                            '<div class="upload-title">' + escapeHtml(g.title) + '</div>' +
+                            '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)</div>' +
                         '</div>' +
                         '<span class="status-badge ' + statusInfo[1] + '">' + statusInfo[0] + '</span>' +
                     '</div>' +
                     '<div class="photo-grid">' + photosHtml + '</div>' +
                     '<div class="upload-actions">' +
-                        (u.status !== 'approved' ? '<button class="btn-approve" onclick="approveUpload(\'' + u.id + '\')">✅ Freigeben</button>' : '') +
-                        (u.status !== 'rejected' ? '<button class="btn-reject" onclick="rejectUpload(\'' + u.id + '\')">❌ Ablehnen</button>' : '') +
-                        '<button class="btn-delete" onclick="deleteUpload(\'' + u.id + '\')">🗑️ Löschen</button>' +
+                        (g.status !== 'approved' ? '<button class="btn-approve" onclick=\'approveGroup(' + groupIdsJson + ')\'>✅ Freigeben</button>' : '') +
+                        (g.status !== 'rejected' ? '<button class="btn-reject" onclick=\'rejectGroup(' + groupIdsJson + ')\'>❌ Ablehnen</button>' : '') +
+                        '<button class="btn-delete" onclick=\'deleteGroup(' + groupIdsJson + ', ' + JSON.stringify(g.title).replace(/'/g, '&#39;') + ')\'>🗑️ Löschen</button>' +
                     '</div>' +
                 '</div>';
             }).join('');
@@ -237,33 +258,33 @@
             return div.innerHTML;
         }
 
-        function approveUpload(id) {
-            db.collection('eventPhotos').doc(id).update({ status: 'approved' });
+        function updateGroupStatus(docIds, status) {
+            var batch = db.batch();
+            docIds.forEach(function(id) {
+                batch.update(db.collection('eventPhotos').doc(id), { status: status });
+            });
+            return batch.commit();
         }
 
-        function rejectUpload(id) {
-            db.collection('eventPhotos').doc(id).update({ status: 'rejected' });
+        function approveGroup(docIds) {
+            updateGroupStatus(docIds, 'approved');
         }
 
-        function deleteUpload(id) {
-            var upload = allUploads.find(function(u) { return u.id === id; });
-            if (!upload) return;
-            if (!confirm('„' + upload.title + '" inkl. aller Fotos endgültig löschen?')) return;
+        function rejectGroup(docIds) {
+            updateGroupStatus(docIds, 'rejected');
+        }
 
-            var storage = firebase.storage();
-            var deletions = (upload.photos || []).map(function(p) {
-                return storage.ref(p.path).delete().catch(function(err) {
-                    console.warn('Datei konnte nicht gelöscht werden:', p.path, err);
-                });
+        function deleteGroup(docIds, title) {
+            if (!confirm('„' + title + '" inkl. aller Fotos endgültig löschen?')) return;
+            var batch = db.batch();
+            docIds.forEach(function(id) {
+                batch.delete(db.collection('eventPhotos').doc(id));
             });
-
-            Promise.all(deletions).then(function() {
-                return db.collection('eventPhotos').doc(id).delete();
-            });
+            batch.commit();
         }
 
         db.collection('eventPhotos').orderBy('createdAt', 'desc').onSnapshot(function(snapshot) {
-            allUploads = snapshot.docs.map(function(d) {
+            allPhotoDocs = snapshot.docs.map(function(d) {
                 return Object.assign({ id: d.id }, d.data());
             });
             render();
