@@ -238,7 +238,7 @@
         </div>
 
         <div class="actions">
-            <div class="actions-menu-wrap">
+            <div class="actions-menu-wrap" id="aktionenWrap">
                 <button class="btn btn-primary" onclick="toggleActionsMenu(event)">☰ Aktionen</button>
                 <div id="actionsDropdown" class="actions-dropdown">
                     <div class="actions-group-label">🔍 Firmen finden</div>
@@ -257,10 +257,20 @@
                     <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
                 </div>
             </div>
-            <button class="btn btn-secondary" onclick="selectVereineUndFirmen()">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
-            <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
-            <button class="btn btn-flyer" onclick="openCampaignModal()">🚀 Kampagne starten (alle auf einmal)</button>
-            <button class="btn btn-secondary" onclick="openSendLog()">📜 Versand-Verlauf</button>
+            <div class="actions-menu-wrap" id="versandWrap">
+                <button class="btn btn-flyer" onclick="toggleVersandMenu(event)">📧 Versand ▾</button>
+                <div id="versandDropdown" class="actions-dropdown">
+                    <div class="actions-group-label">🎯 Auswahl</div>
+                    <button onclick="selectVereineUndFirmen(); closeVersandMenu();">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
+                    <hr>
+                    <div class="actions-group-label">🚀 Senden</div>
+                    <button onclick="closeVersandMenu(); sendFlyerToSelected();">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
+                    <button onclick="closeVersandMenu(); openCampaignModal();">🚀 Kampagne starten (alle auf einmal)</button>
+                    <hr>
+                    <div class="actions-group-label">📜 Historie</div>
+                    <button onclick="closeVersandMenu(); openSendLog();">📜 Versand-Verlauf</button>
+                </div>
+            </div>
         </div>
 
         <div class="filter-row">
@@ -514,6 +524,7 @@
 
         function toggleActionsMenu(event) {
             if (event) event.stopPropagation();
+            closeVersandMenu();
             document.getElementById('actionsDropdown').classList.toggle('active');
         }
 
@@ -521,11 +532,26 @@
             document.getElementById('actionsDropdown').classList.remove('active');
         }
 
+        function toggleVersandMenu(event) {
+            if (event) event.stopPropagation();
+            closeActionsMenu();
+            document.getElementById('versandDropdown').classList.toggle('active');
+        }
+
+        function closeVersandMenu() {
+            document.getElementById('versandDropdown').classList.remove('active');
+        }
+
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('actionsDropdown');
-            const wrap = document.querySelector('.actions-menu-wrap');
+            const wrap = document.getElementById('aktionenWrap');
             if (dropdown && dropdown.classList.contains('active') && wrap && !wrap.contains(e.target)) {
                 closeActionsMenu();
+            }
+            const versandDropdown = document.getElementById('versandDropdown');
+            const versandWrap = document.getElementById('versandWrap');
+            if (versandDropdown && versandDropdown.classList.contains('active') && versandWrap && !versandWrap.contains(e.target)) {
+                closeVersandMenu();
             }
         });
 
