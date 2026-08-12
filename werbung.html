@@ -257,6 +257,7 @@
                     <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
                 </div>
             </div>
+            <button class="btn btn-secondary" onclick="selectVereineUndFirmen()">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
         </div>
 
@@ -651,6 +652,23 @@
             updateSelectedCount();
         }
 
+        // Wählt in einem Klick alle Vereine + Firmen mit hinterlegter E-Mail
+        // aus - unabhängig vom aktuell gesetzten Kategorie-Filter (der sonst
+        // die Auswahl beim Filterwechsel wieder verwerfen würde, siehe
+        // renderLeads()). Setzt den Filter danach auf "Alle Kategorien",
+        // damit beide Gruppen gleichzeitig sichtbar/markiert bleiben.
+        function selectVereineUndFirmen() {
+            document.getElementById('categoryFilter').value = 'alle';
+            const targets = allLeads.filter(l =>
+                (l.category === 'verein' || l.category === 'firma') &&
+                l.email && l.status !== 'archiviert'
+            );
+            selectedLeadIds = new Set(targets.map(l => l.id));
+            renderLeads();
+            updateSelectedCount();
+            alert(`✅ ${targets.length} Einträge ausgewählt (Vereine + Firmen mit E-Mail-Adresse).\n\nJetzt auf "📧 Flyer an Ausgewählte senden" klicken, um den Versand zu starten.`);
+        }
+
         function toggleSelectAll(checkAll) {
             document.querySelectorAll('.lead-checkbox').forEach(cb => {
                 cb.checked = checkAll;
@@ -965,37 +983,69 @@
             return url;
         }
 
+        // Textbausteine je Kategorie, damit Vereine als Verein und Firmen als
+        // Firma angesprochen werden (nicht ein und derselbe "Ihr Team"-Text
+        // für alle) - siehe buildFlyerEmail(). Für Kategorien ohne eigenen
+        // Eintrag greift der 'firma'-Text als sinnvoller Standardfall
+        // (Schule/Kita/Förderverein/Verwaltung sind eher "firmenartig"
+        // organisiert als "Vereins"-artig).
+        const FLYER_COPY = {
+            verein: {
+                subjectPrefix: 'Eis für Ihr nächstes Vereinsfest - ',
+                headline: lead => `Eis für Ihr nächstes Fest, ${lead.name}!`,
+                subheadline: 'Der Eiswagen für Vereinsfeste, Jubiläen und Turniere.',
+                body: lead => `ob Vereinsfest, Jubiläum, Turnier oder Grillabend - EisFavorite kommt mit dem Eiswagen ` +
+                    `zu <strong>${lead.name}</strong> und sorgt bei Ihren Mitgliedern und Gästen für eine süße Überraschung ` +
+                    `direkt vor Ort. Schon ab <strong>200 € Mindestumsatz</strong> sind wir für Ihre Veranstaltung dabei.`,
+                features: [
+                    ['🚚', 'Wir kommen zu Ihrem Fest'],
+                    ['🍨', 'Frisches Eis vor Ort'],
+                    ['🎉', 'Highlight für Jung und Alt']
+                ]
+            },
+            firma: {
+                subjectPrefix: 'Eine süße Überraschung für das Team von ',
+                headline: lead => `Eine süße Überraschung für das Team von ${lead.name}`,
+                subheadline: 'Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.',
+                body: lead => `ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön für den ` +
+                    `Einsatz Ihres Teams bei <strong>${lead.name}</strong> - EisFavorite kommt mit dem Eiswagen zu Ihnen ` +
+                    `und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort. ` +
+                    `Schon ab <strong>200 € Mindestumsatz</strong> sind wir für Ihre Firmenfeier dabei.`,
+                features: [
+                    ['🚚', 'Wir kommen zu Ihnen'],
+                    ['🍨', 'Frisches Eis vor Ort'],
+                    ['😊', 'Freude fürs Team']
+                ]
+            }
+        };
+
         // Baut dieselbe HTML-E-Mail wie der n8n-Workflow
         // "EisFavorite: Personalisierte Flyer-HTML-E-Mail" - dient hier nur der
         // 1:1-Vorschau im Browser, bevor der eigentliche Versand über den
         // Webhook (und damit über Gmail) ausgelöst wird.
         function buildFlyerEmail(lead) {
+            const copy = FLYER_COPY[lead.category] || FLYER_COPY.firma;
             const greeting = buildFlyerGreeting(lead);
             const flyerUrl = buildFlyerUrl(lead);
-            const subject = 'Eine süße Überraschung für das Team von ' + lead.name;
+            const subject = copy.subjectPrefix + lead.name;
+            const featuresHtml = copy.features.map(([icon, label], i) => `
+        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">${icon}<br><span style="font-size:0.85em; font-weight:600; color:#333;">${label}</span></td>${i < copy.features.length - 1 ? '<td style="width:4%;"></td>' : ''}`).join('');
             const html = `
 <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width:600px; margin:0 auto; background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eee;">
   <img src="https://maileisfavorite.vercel.app/images/eiswagen.jpg" alt="EisFavorite Eiswagen" style="width:100%; display:block;">
   <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); background-color:#667eea; color:#ffffff; text-align:center; padding:32px 20px 40px;">
     <div style="font-size:2.4em; line-height:1;">🍦</div>
     <div style="font-weight:700; letter-spacing:0.5px; margin-top:6px;">EisFavorite</div>
-    <h1 style="font-size:1.5em; margin:16px 0 8px;">Eine süße Überraschung für das Team von ${lead.name}</h1>
-    <p style="font-size:1.05em; opacity:0.95; margin:0;">Motivation, die schmilzt: Eis für Ihre Mitarbeiter als Dankeschön.</p>
+    <h1 style="font-size:1.5em; margin:16px 0 8px;">${copy.headline(lead)}</h1>
+    <p style="font-size:1.05em; opacity:0.95; margin:0;">${copy.subheadline}</p>
   </div>
   <div style="padding:28px 26px;">
     <p style="color:#333; font-size:1.05em; margin:0 0 16px;">${greeting}</p>
     <p style="color:#555; line-height:1.7; font-size:1.02em; margin:0 0 18px;">
-      ob als spontane Belohnung, zum Sommerfest, Betriebsjubiläum oder einfach als Dankeschön für den
-      Einsatz Ihres Teams bei <strong>${lead.name}</strong> - EisFavorite kommt mit dem Eiswagen zu Ihnen
-      und verwöhnt Ihre Mitarbeiterinnen und Mitarbeiter mit frisch zubereitetem Eis direkt vor Ort.
+      ${copy.body(lead)}
     </p>
     <table role="presentation" width="100%" style="border-collapse:collapse; margin:20px 0;">
-      <tr>
-        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🚚<br><span style="font-size:0.85em; font-weight:600; color:#333;">Wir kommen zu Ihnen</span></td>
-        <td style="width:4%;"></td>
-        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">🍨<br><span style="font-size:0.85em; font-weight:600; color:#333;">Frisches Eis vor Ort</span></td>
-        <td style="width:4%;"></td>
-        <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">😊<br><span style="font-size:0.85em; font-weight:600; color:#333;">Freude fürs Team</span></td>
+      <tr>${featuresHtml}
       </tr>
     </table>
     <div style="text-align:center; margin:26px 0 10px;">
