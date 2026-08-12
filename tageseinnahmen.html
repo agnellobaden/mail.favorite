@@ -126,17 +126,63 @@
     .stat-card.total { background: linear-gradient(135deg, #333 0%, #555 100%); }
 
     .add-form {
+        position: relative;
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
         align-items: flex-end;
         background: #e4e6ec;
         padding: 18px;
+        padding-top: 42px;
         border-radius: 10px;
         margin-bottom: 20px;
         border: 2px solid #9aa0b3;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }
+    .fullscreen-form-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 6px 12px;
+        border: 2px solid #9aa0b3;
+        border-radius: 8px;
+        background: white;
+        font-size: 0.8em;
+        font-weight: 700;
+        color: #444;
+        cursor: pointer;
+    }
+    .fullscreen-form-btn:hover { background: #667eea; color: white; border-color: #667eea; }
+
+    /* Vollbild-Modus: für die Bedienung am Eiswagen mit einer Hand -
+       großzügigere Abstände/Schrift, füllt den gesamten Bildschirm. */
+    .add-form.fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        margin: 0;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        padding: 70px 24px 24px;
+        overflow-y: auto;
+        align-content: center;
+        align-items: stretch;
+    }
+    .add-form.fullscreen .field { flex: 1 1 100%; min-width: 0; }
+    .add-form.fullscreen input,
+    .add-form.fullscreen select {
+        padding: 18px 16px;
+        font-size: 1.3em;
+    }
+    .add-form.fullscreen label { font-size: 1.05em; margin-bottom: 4px; }
+    .add-form.fullscreen .note-chip { padding: 10px 18px; font-size: 1.05em; }
+    .add-form.fullscreen .btn {
+        flex: 1 1 100%;
+        padding: 20px;
+        font-size: 1.3em;
+    }
+    body.add-form-fullscreen-active { overflow: hidden; }
     .add-form .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
     .add-form label { font-size: 0.8em; font-weight: 700; color: #555; }
     .add-form input, .add-form select {
@@ -279,7 +325,8 @@
             </div>
         </div>
 
-        <div class="add-form">
+        <div class="add-form" id="addForm">
+            <button type="button" class="fullscreen-form-btn" id="fullscreenFormBtn" onclick="toggleAddFormFullscreen()">⛶ Vollbild</button>
             <div class="field">
                 <label for="entryDate">Datum</label>
                 <input type="date" id="entryDate">
@@ -730,6 +777,26 @@
             const [y, m, d] = iso.split('-');
             return `${d}.${m}.${y}`;
         }
+
+        // Vollbild-Modus fürs Eintragen-Formular - für die Bedienung mit
+        // einer Hand am Eiswagen (größere Felder/Schrift, kein Ablenken
+        // durch den Rest der Seite).
+        function toggleAddFormFullscreen() {
+            const form = document.getElementById('addForm');
+            const btn = document.getElementById('fullscreenFormBtn');
+            const isFullscreen = form.classList.toggle('fullscreen');
+            document.body.classList.toggle('add-form-fullscreen-active', isFullscreen);
+            btn.textContent = isFullscreen ? '✖ Schließen' : '⛶ Vollbild';
+            if (isFullscreen) {
+                document.getElementById('entryAmount').focus();
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('addForm').classList.contains('fullscreen')) {
+                toggleAddFormFullscreen();
+            }
+        });
 
         function addEntry() {
             const dateIso = document.getElementById('entryDate').value;
