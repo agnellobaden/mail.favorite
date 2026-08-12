@@ -1033,6 +1033,18 @@
             background: #ffcccc;
         }
 
+        .burger-dropdown .group-label {
+            font-size: 0.72em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            padding: 10px 8px 4px;
+        }
+        .burger-dropdown .group-label:first-child {
+            padding-top: 2px;
+        }
+
         /* Dark Mode Styles */
         body.dark-mode {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -1197,6 +1209,10 @@
 
         body.dark-mode .burger-dropdown button:hover {
             background: #3d4758;
+        }
+
+        body.dark-mode .burger-dropdown .group-label {
+            color: #6b7688;
         }
 
         body.dark-mode .burger-dropdown button.delete {
@@ -2195,12 +2211,16 @@
                 <span>☰</span>
             </div>
             <div class="burger-dropdown" id="burgerDropdown">
+                <div class="group-label">Ansicht</div>
                 <button onclick="switchToCardsView(); closeBurgerMenu();">🎴 Karten-Ansicht</button>
                 <button onclick="switchToTableView(); closeBurgerMenu();">📋 Tabellen-Ansicht</button>
-                <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
-                <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
                 <button onclick="openCalendar(); closeBurgerMenu();">📅 Kalender</button>
-                <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
+
+                <div class="group-label">Kommunikation</div>
+                <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
+                <button onclick="window.location.href='werbung.html';">📢 Werbung / Firmen-Akquise</button>
+
+                <div class="group-label">Buchhaltung</div>
                 <button onclick="window.location.href='preise-verwalten.html';">💰 Preise verwalten</button>
                 <button onclick="window.location.href='rechnungsarchiv.html';">🗂️ Rechnungsarchiv</button>
                 <button onclick="window.location.href='adressverwaltung.html';">📇 Adressverwaltung</button>
@@ -2209,13 +2229,18 @@
                 <button onclick="window.location.href='kassenbuch.html';">🧾 Kassenbuch</button>
                 <button onclick="window.location.href='kontoauszug.html';">🏦 Kontoauszug</button>
                 <button onclick="window.location.href='steuerreport.html';">📊 Steuerreport</button>
-                <button onclick="window.location.href='werbung.html';">📢 Werbung / Firmen-Akquise</button>
+
+                <div class="group-label">Daten</div>
                 <button onclick="openFirebaseSetup(); closeBurgerMenu();" id="firebaseSyncBtn">🔄 Synchronisation einrichten</button>
                 <button onclick="document.getElementById('csvImportInput').click(); closeBurgerMenu();">📤 CSV importieren</button>
                 <button onclick="exportToCSV(); closeBurgerMenu();">📥 CSV exportieren</button>
-                <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
+
+                <div class="group-label">App-Einstellungen</div>
+                <button onclick="toggleDarkMode(); closeBurgerMenu();" id="darkModeToggle">🌙 Dark Mode</button>
                 <button onclick="installApp(); closeBurgerMenu();" id="installAppBtn">📲 App installieren</button>
                 <button onclick="enablePushNotifications(); closeBurgerMenu();" id="pushNotifyBtn">🔔 Push-Benachrichtigungen aktivieren</button>
+
+                <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
                 <button onclick="logoutUser();" style="color: #e74c3c;">🚪 Abmelden</button>
             </div>
         </div>
