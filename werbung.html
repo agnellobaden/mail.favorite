@@ -260,6 +260,7 @@
             <button class="btn btn-secondary" onclick="selectVereineUndFirmen()">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
             <button class="btn btn-flyer" onclick="sendFlyerToSelected()">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
             <button class="btn btn-flyer" onclick="openCampaignModal()">🚀 Kampagne starten (alle auf einmal)</button>
+            <button class="btn btn-secondary" onclick="openSendLog()">📜 Versand-Verlauf</button>
         </div>
 
         <div class="filter-row">
@@ -427,10 +428,76 @@
         </div>
     </div>
 
+    <div id="sendLogModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:720px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:88vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="margin:0; color:#667eea;">📜 Versand-Verlauf</h3>
+                <button class="btn btn-secondary" onclick="closeSendLog()">✖ Schließen</button>
+            </div>
+            <p style="font-size:0.85em; color:#888; margin:0 0 14px;">Zeigt die letzten 300 tatsächlich verschickten Kampagnen-/Flyer-E-Mails, neueste zuerst.</p>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.88em;">
+                    <thead>
+                        <tr style="text-align:left; border-bottom:2px solid #eee;">
+                            <th style="padding:8px 6px;">Gesendet am</th>
+                            <th style="padding:8px 6px;">Kategorie</th>
+                            <th style="padding:8px 6px;">Empfänger</th>
+                            <th style="padding:8px 6px;">Betreff</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sendLogBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
         let db = null;
         let allLeads = [];
         let selectedLeadIds = new Set();
+
+        // Schreibt bei jedem tatsächlich verschickten Flyer (Einzelversand
+        // wie auch Kampagne) einen Eintrag in den Versand-Verlauf, damit
+        // nachvollziehbar bleibt, wer wann welche E-Mail bekommen hat -
+        // "lastContactedAt" am Lead selbst überschreibt sich sonst bei jedem
+        // erneuten Versand und zeigt nur den letzten Stand, keine Historie.
+        function logCampaignSend(lead, subject) {
+            db.collection('campaignSendLog').add({
+                leadId: lead.id,
+                leadName: lead.name,
+                category: lead.category,
+                email: lead.email,
+                subject: subject,
+                sentAtMs: Date.now()
+            }).catch(err => console.error('Konnte Versand nicht im Verlauf protokollieren:', lead.name, err));
+        }
+
+        function openSendLog() {
+            document.getElementById('sendLogModal').style.display = 'flex';
+            document.getElementById('sendLogBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">Lade...</td></tr>';
+            db.collection('campaignSendLog').orderBy('sentAtMs', 'desc').limit(300).get().then(snap => {
+                const rows = [];
+                snap.forEach(doc => rows.push(doc.data()));
+                if (rows.length === 0) {
+                    document.getElementById('sendLogBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">Noch keine E-Mails versendet.</td></tr>';
+                    return;
+                }
+                document.getElementById('sendLogBody').innerHTML = rows.map(r => `
+                    <tr>
+                        <td>${new Date(r.sentAtMs).toLocaleString('de-DE')}</td>
+                        <td>${CATEGORY_LABELS[r.category] || r.category || '-'}</td>
+                        <td><strong>${r.leadName || '-'}</strong><br><span style="color:#888; font-size:0.85em;">${r.email || '-'}</span></td>
+                        <td>${r.subject || '-'}</td>
+                    </tr>
+                `).join('');
+            }).catch(err => {
+                document.getElementById('sendLogBody').innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#e74c3c;">Fehler beim Laden: ${err.message}</td></tr>`;
+            });
+        }
+
+        function closeSendLog() {
+            document.getElementById('sendLogModal').style.display = 'none';
+        }
 
         // Öffnet ein E-Mail-Compose-Fenster: am Handy per mailto: (native
         // Mail-/Gmail-App), am PC/Laptop über die Gmail-Weboberfläche mit
@@ -781,6 +848,7 @@
             const { subject, html } = buildFlyerEmail(lead);
             sendGmailApiHtmlMessage(lead.email, subject, html, function() {
                 campaignSent++;
+                logCampaignSend(lead, subject);
                 const now = Date.now();
                 db.collection('marketingLeads').doc(lead.id).set({
                     status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
@@ -794,7 +862,7 @@
                 campaignFailed++;
                 campaignQueue.shift();
                 setTimeout(campaignSendNext, 400);
-            });
+            }, false);
         }
 
         function campaignFinish() {
@@ -1267,6 +1335,7 @@
 
             const { subject, html } = buildFlyerEmail(lead);
             sendGmailApiHtmlMessage(lead.email, subject, html, function() {
+                logCampaignSend(lead, subject);
                 const now = Date.now();
                 db.collection('marketingLeads').doc(lead.id).set({
                     status: lead.status === 'gebucht' ? 'gebucht' : 'kontaktiert',
@@ -1278,7 +1347,7 @@
                 renderFlyerQueueModal();
             }, function(err) {
                 alert('❌ E-Mail konnte nicht gesendet werden: ' + err.message);
-            });
+            }, false);
         }
 
         function skipCurrent() {
