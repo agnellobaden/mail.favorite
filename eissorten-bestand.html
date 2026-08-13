@@ -343,25 +343,36 @@
             return getFlavorsForCategory('milch').concat(getFlavorsForCategory('frucht'));
         }
 
-        // Die 15 festen Milcheis-Sorten (ohne manuell hinzugefügte) - das ist
-        // "das volle Sortiment", das immer komplett im Auto sein soll.
-        var BASE_MILCH_FLAVORS = FLAVORS.filter(function(f) { return f.category === 'milch'; });
+        // Alle fest eingebauten Sorten (Milcheis + Fruchteis, ohne manuell
+        // hinzugefügte) - das ist "das volle Sortiment", das komplett im
+        // Verkauf sein soll.
+        var BASE_ALL_FLAVORS = FLAVORS;
 
         function renderCompletenessBanner() {
-            var missing = BASE_MILCH_FLAVORS.filter(function(f) {
+            var missing = BASE_ALL_FLAVORS.filter(function(f) {
                 var s = stockData[f.id] || {};
                 return (s.currentStock || 0) <= 0;
             });
-            var haveCount = BASE_MILCH_FLAVORS.length - missing.length;
+            var haveCount = BASE_ALL_FLAVORS.length - missing.length;
 
             if (missing.length === 0) {
-                return '<div class="all-good-banner">✅ Vollständig: alle ' + BASE_MILCH_FLAVORS.length + ' von ' + BASE_MILCH_FLAVORS.length + ' Sorten im Verkauf.</div>';
+                return '<div class="all-good-banner">✅ Vollständig: alle ' + BASE_ALL_FLAVORS.length + ' von ' + BASE_ALL_FLAVORS.length + ' Sorten im Verkauf.</div>';
             }
+            var missingMilch = missing.filter(function(f) { return f.category === 'milch'; });
+            var missingFrucht = missing.filter(function(f) { return f.category === 'frucht'; });
+            var renderMissingGroup = function(title, flavors) {
+                if (flavors.length === 0) return '';
+                return '<div class="alert-group">' +
+                    '<h3>' + title + '</h3>' +
+                    '<ul>' + flavors.map(function(f) {
+                        return '<li>' + f.emoji + ' ' + f.name + '</li>';
+                    }).join('') + '</ul>' +
+                '</div>';
+            };
             return '<div class="alert-banner">' +
-                '<h2>⚠️ Nur ' + haveCount + ' von ' + BASE_MILCH_FLAVORS.length + ' Sorten im Verkauf - es fehlen:</h2>' +
-                '<ul>' + missing.map(function(f) {
-                    return '<li>' + f.emoji + ' ' + f.name + '</li>';
-                }).join('') + '</ul>' +
+                '<h2>⚠️ Nur ' + haveCount + ' von ' + BASE_ALL_FLAVORS.length + ' Sorten im Verkauf - es fehlen:</h2>' +
+                renderMissingGroup('Milcheis', missingMilch) +
+                renderMissingGroup('Fruchteis', missingFrucht) +
             '</div>';
         }
 
