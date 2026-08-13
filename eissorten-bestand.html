@@ -252,7 +252,7 @@
                 var s = stockData[f.id] || {};
                 var current = s.currentStock || 0;
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
-                return current < min;
+                return current < min || current === 0;
             });
 
             var alertArea = document.getElementById('alertArea');
@@ -282,7 +282,7 @@
                 var s = stockData[f.id] || {};
                 var current = s.currentStock || 0;
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
-                var isLow = current < min;
+                var isLow = current < min || current === 0;
                 return '<div class="flavor-row' + (isLow ? ' low' : '') + '">' +
                     '<div class="flavor-name">' + f.emoji + ' ' + f.name +
                         (min > 0 ? '<span class="min-badge" data-id="' + f.id + '" title="Mindestmenge ändern">min. ' + min + '</span>' : '') +
