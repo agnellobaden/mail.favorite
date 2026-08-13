@@ -343,6 +343,28 @@
             return getFlavorsForCategory('milch').concat(getFlavorsForCategory('frucht'));
         }
 
+        // Die 15 festen Milcheis-Sorten (ohne manuell hinzugefügte) - das ist
+        // "das volle Sortiment", das immer komplett im Auto sein soll.
+        var BASE_MILCH_FLAVORS = FLAVORS.filter(function(f) { return f.category === 'milch'; });
+
+        function renderCompletenessBanner() {
+            var missing = BASE_MILCH_FLAVORS.filter(function(f) {
+                var s = stockData[f.id] || {};
+                return (s.currentStock || 0) <= 0;
+            });
+            var haveCount = BASE_MILCH_FLAVORS.length - missing.length;
+
+            if (missing.length === 0) {
+                return '<div class="all-good-banner">✅ Vollständig: alle ' + BASE_MILCH_FLAVORS.length + ' von ' + BASE_MILCH_FLAVORS.length + ' Sorten im Verkauf.</div>';
+            }
+            return '<div class="alert-banner">' +
+                '<h2>⚠️ Nur ' + haveCount + ' von ' + BASE_MILCH_FLAVORS.length + ' Sorten im Verkauf - es fehlen:</h2>' +
+                '<ul>' + missing.map(function(f) {
+                    return '<li>' + f.emoji + ' ' + f.name + '</li>';
+                }).join('') + '</ul>' +
+            '</div>';
+        }
+
         function render() {
             // Alarm-Banner: alles, was im Verkaufsbestand unter der Mindestmenge ist
             var lowFlavors = getAllFlavors().filter(function(f) {
@@ -353,6 +375,8 @@
             });
 
             var alertArea = document.getElementById('alertArea');
+            var html = renderCompletenessBanner();
+
             if (lowFlavors.length > 0) {
                 var lowMilch = lowFlavors.filter(function(f) { return f.category === 'milch'; });
                 var lowFrucht = lowFlavors.filter(function(f) { return f.category === 'frucht'; });
@@ -367,14 +391,16 @@
                     '</div>';
                 };
 
-                alertArea.innerHTML = '<div class="alert-banner">' +
+                html += '<div class="alert-banner">' +
                     '<h2>🚨 Jetzt nachproduzieren:</h2>' +
                     renderAlertGroup('Milcheis', lowMilch) +
                     renderAlertGroup('Fruchteis', lowFrucht) +
                 '</div>';
             } else {
-                alertArea.innerHTML = '<div class="all-good-banner">✅ Alle Sorten ausreichend auf Lager.</div>';
+                html += '<div class="all-good-banner">✅ Alle Sorten ausreichend auf Lager.</div>';
             }
+
+            alertArea.innerHTML = html;
 
             document.getElementById('categoriesArea').innerHTML =
                 renderCategory('Milcheis Klassiker & Specials', '', 'milch') +
