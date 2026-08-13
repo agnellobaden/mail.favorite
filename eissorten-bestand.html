@@ -209,6 +209,25 @@
         margin-left: auto;
     }
     .delete-flavor-btn:hover { opacity: 1; }
+    .produce-toggle-btn {
+        background: #f1f1f1;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        font-size: 0.75em;
+        padding: 3px 8px;
+        border-radius: 10px;
+        margin-left: auto;
+        white-space: nowrap;
+    }
+    .produce-toggle-btn:hover { background: #e5e5e5; }
+    .produce-toggle-btn.active {
+        background: #dc3545;
+        color: white;
+        font-weight: 700;
+    }
+    .produce-toggle-btn.active:hover { background: #c82333; }
+    .flavor-row-main .delete-flavor-btn { margin-left: 6px; }
     .add-flavor-btn {
         width: 100%;
         margin-top: 10px;
@@ -383,6 +402,7 @@
             // reichen, ist es ein echter Produktions-Engpass.
             var lowFlavors = getAllFlavors().filter(function(f) {
                 var s = stockData[f.id] || {};
+                if (s.manualProduce) return true; // manuell markiert, egal wie viel Bestand da ist
                 var current = s.currentStock || 0;
                 var reserve = s.reserveStock || 0;
                 var total = current + reserve;
@@ -434,11 +454,13 @@
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
                 var isLow = current < min || current === 0;
                 var isCustom = !!(s.custom);
-                return '<div class="flavor-row' + (isLow ? ' low' : '') + '">' +
+                var isManual = !!(s.manualProduce);
+                return '<div class="flavor-row' + (isLow || isManual ? ' low' : '') + '">' +
                     '<div class="flavor-row-main">' +
                         '<div class="flavor-name">' + f.emoji + ' ' + f.name +
                             (min > 0 ? '<span class="min-badge" data-id="' + f.id + '" title="Mindestmenge ändern">min. ' + min + '</span>' : '') +
                         '</div>' +
+                        '<button class="produce-toggle-btn' + (isManual ? ' active' : '') + '" data-id="' + f.id + '" title="Manuell auf die Nachproduzieren-Liste setzen, auch wenn genug Bestand da ist">🏭' + (isManual ? ' auf Liste' : '') + '</button>' +
                         (isCustom ? '<button class="delete-flavor-btn" data-id="' + f.id + '" title="Sorte entfernen">🗑️ entfernen</button>' : '') +
                     '</div>' +
                     '<div class="flavor-row-stocks">' +
@@ -506,6 +528,13 @@
                     var val = parseInt(input, 10);
                     if (isNaN(val) || val < 0) return;
                     setFields(id, { minStock: val });
+                };
+            });
+            document.querySelectorAll('.produce-toggle-btn').forEach(function(btn) {
+                btn.onclick = function() {
+                    var id = btn.dataset.id;
+                    var isManual = !!(stockData[id] && stockData[id].manualProduce);
+                    setFields(id, { manualProduce: !isManual });
                 };
             });
             document.querySelectorAll('.delete-flavor-btn').forEach(function(el) {
