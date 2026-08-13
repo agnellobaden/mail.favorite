@@ -309,18 +309,18 @@
         // (Mindestmenge 1), Schokolade & Vanille laufen am meisten und brauchen
         // deshalb 2. Fruchteis ist wechselndes Angebot ohne feste Mindestmenge.
         var FLAVORS = [
-            { id: 'schokolade', name: 'Schokolade', emoji: '🍫', category: 'milch', minStock: 2 },
-            { id: 'vanille', name: 'Vanille', emoji: '🌼', category: 'milch', minStock: 2 },
-            { id: 'pistazie', name: 'Pistazie', emoji: '💚', category: 'milch', minStock: 1 },
-            { id: 'banane', name: 'Banane', emoji: '🍌', category: 'milch', minStock: 1 },
-            { id: 'stracciatella', name: 'Stracciatella', emoji: '🍨', category: 'milch', minStock: 1 },
-            { id: 'haselnuss', name: 'Haselnuss', emoji: '🌰', category: 'milch', minStock: 1 },
+            { id: 'schokolade', name: 'Schokolade', emoji: '🍫', category: 'milch', minStock: 2, hasEgg: true },
+            { id: 'vanille', name: 'Vanille', emoji: '🌼', category: 'milch', minStock: 2, hasEgg: true },
+            { id: 'pistazie', name: 'Pistazie', emoji: '💚', category: 'milch', minStock: 1, hasEgg: true },
+            { id: 'banane', name: 'Banane', emoji: '🍌', category: 'milch', minStock: 1, hasEgg: true },
+            { id: 'stracciatella', name: 'Stracciatella', emoji: '🍨', category: 'milch', minStock: 1, hasEgg: true },
+            { id: 'haselnuss', name: 'Haselnuss', emoji: '🌰', category: 'milch', minStock: 1, hasEgg: true },
             { id: 'kokos', name: 'Kokos', emoji: '🥥', category: 'milch', minStock: 1 },
             { id: 'cookie', name: 'Cookie', emoji: '🍪', category: 'milch', minStock: 1 },
             { id: 'joghurt', name: 'Joghurt', emoji: '🥛', category: 'milch', minStock: 1 },
             { id: 'trueffel', name: 'Trüffel', emoji: '🤎', category: 'milch', minStock: 1 },
             { id: 'weisse-schokolade', name: 'Weiße Schokolade', emoji: '🤍', category: 'milch', minStock: 1 },
-            { id: 'malaga', name: 'Malaga', emoji: '🍷', category: 'milch', minStock: 1 },
+            { id: 'malaga', name: 'Malaga', emoji: '🍷', category: 'milch', minStock: 1, hasEgg: true },
             { id: 'delfino', name: 'Delfino', emoji: '🐬', category: 'milch', minStock: 1 },
             { id: 'joghurt-kirsch', name: 'Joghurt-Kirsch', emoji: '🍒', category: 'milch', minStock: 1 },
             { id: 'waldmeister', name: 'Waldmeister', emoji: '🌱', category: 'milch', minStock: 1 },
@@ -414,8 +414,9 @@
             var html = renderCompletenessBanner();
 
             if (lowFlavors.length > 0) {
-                var lowMilch = lowFlavors.filter(function(f) { return f.category === 'milch'; });
-                var lowFrucht = lowFlavors.filter(function(f) { return f.category === 'frucht'; });
+                // Für die Produktion nach Ei / ohne Ei sortiert (unterschiedliche Basis).
+                var lowMitEi = lowFlavors.filter(function(f) { return f.hasEgg; });
+                var lowOhneEi = lowFlavors.filter(function(f) { return !f.hasEgg; });
 
                 var renderAlertGroup = function(title, flavors) {
                     if (flavors.length === 0) return '';
@@ -429,8 +430,8 @@
 
                 html += '<div class="alert-banner">' +
                     '<h2>🚨 Jetzt nachproduzieren:</h2>' +
-                    renderAlertGroup('Milcheis', lowMilch) +
-                    renderAlertGroup('Fruchteis', lowFrucht) +
+                    renderAlertGroup('🥚 Mit Ei', lowMitEi) +
+                    renderAlertGroup('🚫🥚 Ohne Ei', lowOhneEi) +
                 '</div>';
             } else {
                 html += '<div class="all-good-banner">✅ Alle Sorten ausreichend auf Lager.</div>';
