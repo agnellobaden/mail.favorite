@@ -225,24 +225,26 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         var db = firebase.firestore();
 
-        // Gleiche Sorten & Emojis wie auf eisfavorite.de - Schokolade & Vanille
-        // sind die einzigen mit einer festen Mindestmenge (Klassiker, dürfen nie ausgehen).
+        // Gleiche Sorten & Emojis wie auf eisfavorite.de. Die 15 Milcheis-Sorten
+        // sind der feste Auto-Verkaufsbestand - müssen immer verfügbar sein
+        // (Mindestmenge 1), Schokolade & Vanille laufen am meisten und brauchen
+        // deshalb 2. Fruchteis ist wechselndes Angebot ohne feste Mindestmenge.
         var FLAVORS = [
             { id: 'schokolade', name: 'Schokolade', emoji: '🍫', category: 'milch', minStock: 2 },
             { id: 'vanille', name: 'Vanille', emoji: '🌼', category: 'milch', minStock: 2 },
-            { id: 'pistazie', name: 'Pistazie', emoji: '💚', category: 'milch', minStock: 0 },
-            { id: 'banane', name: 'Banane', emoji: '🍌', category: 'milch', minStock: 0 },
-            { id: 'stracciatella', name: 'Stracciatella', emoji: '🍨', category: 'milch', minStock: 0 },
-            { id: 'haselnuss', name: 'Haselnuss', emoji: '🌰', category: 'milch', minStock: 0 },
-            { id: 'kokos', name: 'Kokos', emoji: '🥥', category: 'milch', minStock: 0 },
-            { id: 'cookie', name: 'Cookie', emoji: '🍪', category: 'milch', minStock: 0 },
-            { id: 'joghurt', name: 'Joghurt', emoji: '🥛', category: 'milch', minStock: 0 },
-            { id: 'trueffel', name: 'Trüffel', emoji: '🤎', category: 'milch', minStock: 0 },
-            { id: 'weisse-schokolade', name: 'Weiße Schokolade', emoji: '🤍', category: 'milch', minStock: 0 },
-            { id: 'malaga', name: 'Malaga', emoji: '🍷', category: 'milch', minStock: 0 },
-            { id: 'delfino', name: 'Delfino', emoji: '🐬', category: 'milch', minStock: 0 },
-            { id: 'joghurt-kirsch', name: 'Joghurt-Kirsch', emoji: '🍒', category: 'milch', minStock: 0 },
-            { id: 'waldmeister', name: 'Waldmeister', emoji: '🌱', category: 'milch', minStock: 0 },
+            { id: 'pistazie', name: 'Pistazie', emoji: '💚', category: 'milch', minStock: 1 },
+            { id: 'banane', name: 'Banane', emoji: '🍌', category: 'milch', minStock: 1 },
+            { id: 'stracciatella', name: 'Stracciatella', emoji: '🍨', category: 'milch', minStock: 1 },
+            { id: 'haselnuss', name: 'Haselnuss', emoji: '🌰', category: 'milch', minStock: 1 },
+            { id: 'kokos', name: 'Kokos', emoji: '🥥', category: 'milch', minStock: 1 },
+            { id: 'cookie', name: 'Cookie', emoji: '🍪', category: 'milch', minStock: 1 },
+            { id: 'joghurt', name: 'Joghurt', emoji: '🥛', category: 'milch', minStock: 1 },
+            { id: 'trueffel', name: 'Trüffel', emoji: '🤎', category: 'milch', minStock: 1 },
+            { id: 'weisse-schokolade', name: 'Weiße Schokolade', emoji: '🤍', category: 'milch', minStock: 1 },
+            { id: 'malaga', name: 'Malaga', emoji: '🍷', category: 'milch', minStock: 1 },
+            { id: 'delfino', name: 'Delfino', emoji: '🐬', category: 'milch', minStock: 1 },
+            { id: 'joghurt-kirsch', name: 'Joghurt-Kirsch', emoji: '🍒', category: 'milch', minStock: 1 },
+            { id: 'waldmeister', name: 'Waldmeister', emoji: '🌱', category: 'milch', minStock: 1 },
             { id: 'erdbeere', name: 'Erdbeere', emoji: '🍓', category: 'frucht', minStock: 0 },
             { id: 'mango', name: 'Mango', emoji: '🥭', category: 'frucht', minStock: 0 },
             { id: 'zitrone', name: 'Zitrone', emoji: '🍋', category: 'frucht', minStock: 0 },
