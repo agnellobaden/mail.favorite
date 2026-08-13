@@ -430,6 +430,30 @@
                     var ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
+                    // Absicherung gegen komplett schwarze Ergebnisse (z.B. wenn das
+                    // Zeichnen aus irgendeinem Grund - Speicherlimit, Canvas-Bug -
+                    // fehlschlägt): eine Stichprobe von Pixeln nehmen. Ein echtes Bild
+                    // hat immer irgendeine Farbvarianz, ein leer gebliebenes Canvas ist
+                    // durchgehend exakt (0,0,0).
+                    try {
+                        var sample = ctx.getImageData(0, 0, width, height).data;
+                        var allBlack = true;
+                        for (var p = 0; p < sample.length; p += 4 * 37) {
+                            if (sample[p] !== 0 || sample[p + 1] !== 0 || sample[p + 2] !== 0) {
+                                allBlack = false;
+                                break;
+                            }
+                        }
+                        if (allBlack) {
+                            URL.revokeObjectURL(objectUrl);
+                            reject(new Error('Bild konnte nicht korrekt verarbeitet werden (Ergebnis wäre komplett schwarz) - bitte erneut versuchen oder ein anderes Bild wählen.'));
+                            return;
+                        }
+                    } catch (e) {
+                        // getImageData kann in Ausnahmefällen selbst fehlschlagen - dann
+                        // einfach normal weitermachen, ist nur eine Zusatzprüfung.
+                    }
+
                     var quality = 0.8;
                     var dataUrl = canvas.toDataURL('image/jpeg', quality);
                     while (dataUrl.length * 0.75 > maxBytes && quality > 0.3) {
