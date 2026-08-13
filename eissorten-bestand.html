@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eissorten-Bestand - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        padding: 25px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 15px;
+    }
+    h1 { color: #667eea; margin-bottom: 6px; font-size: 1.5em; }
+    .subtitle { color: #888; margin-bottom: 20px; font-size: 0.9em; }
+
+    .alert-banner {
+        background: #f8d7da;
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 24px;
+    }
+    .alert-banner h2 {
+        color: #721c24;
+        font-size: 1.05em;
+        margin-bottom: 8px;
+    }
+    .alert-banner ul {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .alert-banner li {
+        background: #dc3545;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.9em;
+    }
+    .all-good-banner {
+        background: #d4edda;
+        border: 2px solid #28a745;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 24px;
+        color: #155724;
+        font-weight: 700;
+    }
+
+    .categories {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    @media (max-width: 700px) {
+        .categories { grid-template-columns: 1fr; }
+    }
+    .category-card {
+        border: 2px solid #eee;
+        border-radius: 14px;
+        padding: 16px;
+    }
+    .category-card h3 {
+        color: #667eea;
+        font-size: 1.1em;
+        margin-bottom: 4px;
+    }
+    .category-card .cat-sub {
+        color: #999;
+        font-size: 0.8em;
+        margin-bottom: 12px;
+    }
+    .flavor-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+    }
+    .flavor-row.low {
+        background: #fff0f0;
+        border: 1px solid #f5c2c7;
+    }
+    .flavor-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.95em;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .flavor-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .stock-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: #667eea;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 1em;
+        line-height: 1;
+    }
+    .stock-btn:hover { background: #5a6fd8; }
+    .stock-btn.minus { background: #dc3545; }
+    .stock-btn.minus:hover { background: #c82333; }
+    .stock-count {
+        min-width: 26px;
+        text-align: center;
+        font-weight: 800;
+        font-size: 1.05em;
+        color: #333;
+    }
+    .stock-count.low { color: #dc3545; }
+    .min-badge {
+        font-size: 0.7em;
+        color: #999;
+        cursor: pointer;
+        text-decoration: underline dotted;
+        white-space: nowrap;
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }
+            });
+        })();
+    </script>
+
+    <div class="container">
+        <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        <h1>🍦 Eissorten-Bestand</h1>
+        <p class="subtitle">Wie viele Wannen jeder Sorte gerade da sind - Schokolade &amp; Vanille brauchen immer mindestens 2 auf Lager.</p>
+
+        <div id="alertArea"></div>
+
+        <div class="categories" id="categoriesArea"></div>
+    </div>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+            authDomain: "mailfavorite-e8f49.firebaseapp.com",
+            projectId: "mailfavorite-e8f49",
+            storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+            messagingSenderId: "73719715044",
+            appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+            measurementId: "G-WGRT5L3NCX"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        var db = firebase.firestore();
+
+        // Gleiche Sorten & Emojis wie auf eisfavorite.de - Schokolade & Vanille
+        // sind die einzigen mit einer festen Mindestmenge (Klassiker, dürfen nie ausgehen).
+        var FLAVORS = [
+            { id: 'schokolade', name: 'Schokolade', emoji: '🍫', category: 'milch', minStock: 2 },
+            { id: 'vanille', name: 'Vanille', emoji: '🌼', category: 'milch', minStock: 2 },
+            { id: 'pistazie', name: 'Pistazie', emoji: '💚', category: 'milch', minStock: 0 },
+            { id: 'banane', name: 'Banane', emoji: '🍌', category: 'milch', minStock: 0 },
+            { id: 'stracciatella', name: 'Stracciatella', emoji: '🍨', category: 'milch', minStock: 0 },
+            { id: 'haselnuss', name: 'Haselnuss', emoji: '🌰', category: 'milch', minStock: 0 },
+            { id: 'kokos', name: 'Kokos', emoji: '🥥', category: 'milch', minStock: 0 },
+            { id: 'cookie', name: 'Cookie', emoji: '🍪', category: 'milch', minStock: 0 },
+            { id: 'joghurt', name: 'Joghurt', emoji: '🥛', category: 'milch', minStock: 0 },
+            { id: 'trueffel', name: 'Trüffel', emoji: '🤎', category: 'milch', minStock: 0 },
+            { id: 'weisse-schokolade', name: 'Weiße Schokolade', emoji: '🤍', category: 'milch', minStock: 0 },
+            { id: 'malaga', name: 'Malaga', emoji: '🍷', category: 'milch', minStock: 0 },
+            { id: 'delfino', name: 'Delfino', emoji: '🐬', category: 'milch', minStock: 0 },
+            { id: 'joghurt-kirsch', name: 'Joghurt-Kirsch', emoji: '🍒', category: 'milch', minStock: 0 },
+            { id: 'waldmeister', name: 'Waldmeister', emoji: '🌱', category: 'milch', minStock: 0 },
+            { id: 'erdbeere', name: 'Erdbeere', emoji: '🍓', category: 'frucht', minStock: 0 },
+            { id: 'mango', name: 'Mango', emoji: '🥭', category: 'frucht', minStock: 0 },
+            { id: 'zitrone', name: 'Zitrone', emoji: '🍋', category: 'frucht', minStock: 0 },
+            { id: 'melone', name: 'Melone', emoji: '🍈', category: 'frucht', minStock: 0 },
+            { id: 'himbeere', name: 'Himbeere', emoji: '💖', category: 'frucht', minStock: 0 },
+            { id: 'aprikose', name: 'Aprikose', emoji: '🍑', category: 'frucht', minStock: 0 },
+            { id: 'ananas', name: 'Ananas', emoji: '🍍', category: 'frucht', minStock: 0 },
+            { id: 'johannisbeere', name: 'Johannisbeere', emoji: '💜', category: 'frucht', minStock: 0 },
+            { id: 'exotic-cocktail', name: 'Exotic Cocktail', emoji: '🍹', category: 'frucht', minStock: 0 }
+        ];
+
+        var stockData = {}; // { flavorId: { currentStock, minStock } }
+
+        function render() {
+            // Alarm-Banner: alles, was unter der Mindestmenge ist
+            var lowFlavors = FLAVORS.filter(function(f) {
+                var s = stockData[f.id] || {};
+                var current = s.currentStock || 0;
+                var min = (s.minStock !== undefined ? s.minStock : f.minStock);
+                return current < min;
+            });
+
+            var alertArea = document.getElementById('alertArea');
+            if (lowFlavors.length > 0) {
+                alertArea.innerHTML = '<div class="alert-banner">' +
+                    '<h2>🚨 Jetzt nachproduzieren:</h2>' +
+                    '<ul>' + lowFlavors.map(function(f) {
+                        return '<li>' + f.emoji + ' ' + f.name + '</li>';
+                    }).join('') + '</ul>' +
+                '</div>';
+            } else {
+                alertArea.innerHTML = '<div class="all-good-banner">✅ Alle Sorten ausreichend auf Lager.</div>';
+            }
+
+            var milch = FLAVORS.filter(function(f) { return f.category === 'milch'; });
+            var frucht = FLAVORS.filter(function(f) { return f.category === 'frucht'; });
+
+            document.getElementById('categoriesArea').innerHTML =
+                renderCategory('Milcheis Klassiker & Specials', '', milch) +
+                renderCategory('Fruchteis', '(Vegan & Laktosefrei)', frucht);
+
+            attachHandlers();
+        }
+
+        function renderCategory(title, sub, flavors) {
+            var rows = flavors.map(function(f) {
+                var s = stockData[f.id] || {};
+                var current = s.currentStock || 0;
+                var min = (s.minStock !== undefined ? s.minStock : f.minStock);
+                var isLow = current < min;
+                return '<div class="flavor-row' + (isLow ? ' low' : '') + '">' +
+                    '<div class="flavor-name">' + f.emoji + ' ' + f.name +
+                        (min > 0 ? '<span class="min-badge" data-id="' + f.id + '" title="Mindestmenge ändern">min. ' + min + '</span>' : '') +
+                    '</div>' +
+                    '<div class="flavor-controls">' +
+                        '<button class="stock-btn minus" data-id="' + f.id + '" data-delta="-1">−</button>' +
+                        '<span class="stock-count' + (isLow ? ' low' : '') + '">' + current + '</span>' +
+                        '<button class="stock-btn plus" data-id="' + f.id + '" data-delta="1">+</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            return '<div class="category-card">' +
+                '<h3>' + title + '</h3>' +
+                (sub ? '<div class="cat-sub">' + sub + '</div>' : '<div class="cat-sub">&nbsp;</div>') +
+                rows +
+            '</div>';
+        }
+
+        function attachHandlers() {
+            document.querySelectorAll('.stock-btn').forEach(function(btn) {
+                btn.onclick = function() {
+                    var id = btn.dataset.id;
+                    var delta = parseInt(btn.dataset.delta, 10);
+                    var current = (stockData[id] && stockData[id].currentStock) || 0;
+                    var next = Math.max(0, current + delta);
+                    setStock(id, next);
+                };
+            });
+            document.querySelectorAll('.min-badge').forEach(function(el) {
+                el.onclick = function() {
+                    var id = el.dataset.id;
+                    var flavor = FLAVORS.find(function(f) { return f.id === id; });
+                    var currentMin = (stockData[id] && stockData[id].minStock !== undefined) ? stockData[id].minStock : flavor.minStock;
+                    var input = prompt('Mindestmenge für ' + flavor.name + ':', currentMin);
+                    if (input === null) return;
+                    var val = parseInt(input, 10);
+                    if (isNaN(val) || val < 0) return;
+                    setMinStock(id, val);
+                };
+            });
+        }
+
+        function setStock(id, value) {
+            db.collection('flavorStock').doc(id).set({
+                currentStock: value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(function(err) {
+                console.error('❌ Bestand konnte nicht gespeichert werden:', err);
+            });
+        }
+
+        function setMinStock(id, value) {
+            db.collection('flavorStock').doc(id).set({
+                minStock: value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(function(err) {
+                console.error('❌ Mindestmenge konnte nicht gespeichert werden:', err);
+            });
+        }
+
+        db.collection('flavorStock').onSnapshot(function(snapshot) {
+            snapshot.forEach(function(doc) {
+                stockData[doc.id] = doc.data();
+            });
+            render();
+        }, function(error) {
+            console.error('❌ Bestand konnte nicht geladen werden:', error);
+            document.getElementById('alertArea').innerHTML = '<div class="alert-banner"><h2>Fehler beim Laden: ' + error.message + '</h2></div>';
+        });
+
+        render();
+    </script>
+</body>
+</html>
