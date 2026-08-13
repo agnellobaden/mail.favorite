@@ -67,7 +67,16 @@
         gap: 10px;
         margin-bottom: 12px;
     }
-    .upload-title { font-size: 1.15em; font-weight: 700; color: #333; }
+    .upload-title { font-size: 1.15em; font-weight: 700; color: #333; display: inline; }
+    .edit-title-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9em;
+        margin-left: 6px;
+        opacity: 0.6;
+    }
+    .edit-title-btn:hover { opacity: 1; }
     .upload-meta { font-size: 0.85em; color: #888; }
     .status-badge {
         display: inline-block;
@@ -85,6 +94,9 @@
         gap: 12px;
         margin-bottom: 14px;
     }
+    .photo-item {
+        position: relative;
+    }
     .photo-grid img {
         width: 100%;
         height: 260px;
@@ -92,7 +104,23 @@
         border-radius: 10px;
         border: 1px solid #ddd;
         cursor: zoom-in;
+        display: block;
     }
+    .photo-delete-btn {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(220, 53, 69, 0.9);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        line-height: 1;
+    }
+    .photo-delete-btn:hover { background: #dc3545; }
     .upload-actions {
         display: flex;
         gap: 8px;
@@ -262,15 +290,21 @@
             list.innerHTML = groups.map(function(g) {
                 var statusInfo = STATUS_LABELS[g.status] || ['?', ''];
                 var dateStr = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate().toLocaleString('de-DE') : '';
-                var photosHtml = g.photos.map(function(imageData) {
-                    return '<img src="' + imageData + '" alt="" onclick="openLightbox(\'' + imageData + '\')">';
+                var photosHtml = g.photos.map(function(imageData, i) {
+                    var docId = g.docIds[i];
+                    return '<div class="photo-item">' +
+                        '<img src="' + imageData + '" alt="" onclick="openLightbox(\'' + imageData + '\')">' +
+                        '<button class="photo-delete-btn" title="Nur dieses Foto löschen" onclick=\'deletePhoto("' + docId + '")\'>✕</button>' +
+                    '</div>';
                 }).join('');
                 var groupIdsJson = JSON.stringify(g.docIds).replace(/'/g, '&#39;');
+                var titleJson = JSON.stringify(g.title).replace(/'/g, '&#39;');
 
                 return '<div class="upload-card">' +
                     '<div class="upload-card-header">' +
                         '<div>' +
-                            '<div class="upload-title">' + escapeHtml(g.title) + '</div>' +
+                            '<span class="upload-title">' + escapeHtml(g.title) + '</span>' +
+                            '<button class="edit-title-btn" title="Titel bearbeiten" onclick=\'editTitle(' + groupIdsJson + ', ' + titleJson + ')\'>✏️</button>' +
                             '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)</div>' +
                         '</div>' +
                         '<span class="status-badge ' + statusInfo[1] + '">' + statusInfo[0] + '</span>' +
@@ -279,7 +313,7 @@
                     '<div class="upload-actions">' +
                         (g.status !== 'approved' ? '<button class="btn-approve" onclick=\'approveGroup(' + groupIdsJson + ')\'>✅ Freigeben</button>' : '') +
                         (g.status !== 'rejected' ? '<button class="btn-reject" onclick=\'rejectGroup(' + groupIdsJson + ')\'>❌ Ablehnen</button>' : '') +
-                        '<button class="btn-delete" onclick=\'deleteGroup(' + groupIdsJson + ', ' + JSON.stringify(g.title).replace(/'/g, '&#39;') + ')\'>🗑️ Löschen</button>' +
+                        '<button class="btn-delete" onclick=\'deleteGroup(' + groupIdsJson + ', ' + titleJson + ')\'>🗑️ Ganzen Beitrag löschen</button>' +
                     '</div>' +
                 '</div>';
             }).join('');
@@ -312,6 +346,23 @@
             var batch = db.batch();
             docIds.forEach(function(id) {
                 batch.delete(db.collection('eventPhotos').doc(id));
+            });
+            batch.commit();
+        }
+
+        function deletePhoto(docId) {
+            if (!confirm('Dieses eine Foto endgültig löschen?')) return;
+            db.collection('eventPhotos').doc(docId).delete();
+        }
+
+        function editTitle(docIds, currentTitle) {
+            var newTitle = prompt('Titel korrigieren:', currentTitle);
+            if (newTitle === null) return;
+            newTitle = newTitle.trim();
+            if (!newTitle || newTitle === currentTitle) return;
+            var batch = db.batch();
+            docIds.forEach(function(id) {
+                batch.update(db.collection('eventPhotos').doc(id), { title: newTitle });
             });
             batch.commit();
         }
