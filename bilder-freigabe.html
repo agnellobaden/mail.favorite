@@ -367,10 +367,28 @@
             batch.commit();
         }
 
+        // Pflegt ein winziges öffentliches Meta-Dokument (nur ein Boolean, keine
+        // Bilddaten), damit die Website nicht bei jedem Seitenaufruf die
+        // komplette eventPhotos-Collection samt Bilddaten laden muss, nur um zu
+        // wissen, ob überhaupt freigegebene Fotos existieren.
+        var lastKnownHasApproved = null;
+        function updateGalleryMetaIfChanged() {
+            var hasApproved = allPhotoDocs.some(function(d) { return d.status === 'approved'; });
+            if (hasApproved === lastKnownHasApproved) return;
+            lastKnownHasApproved = hasApproved;
+            db.collection('siteMeta').doc('gallery').set({
+                hasApproved: hasApproved,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(function(err) {
+                console.error('❌ Galerie-Meta-Update fehlgeschlagen:', err);
+            });
+        }
+
         db.collection('eventPhotos').orderBy('createdAt', 'desc').onSnapshot(function(snapshot) {
             allPhotoDocs = snapshot.docs.map(function(d) {
                 return Object.assign({ id: d.id }, d.data());
             });
+            updateGalleryMetaIfChanged();
             render();
         }, function(error) {
             console.error('❌ Konnte Uploads nicht laden:', error);

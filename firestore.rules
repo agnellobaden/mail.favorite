@@ -36,6 +36,15 @@ service cloud.firestore {
       allow update, delete: if isOwner();
     }
 
+    // Winziges öffentliches Meta-Dokument (z.B. "gibt es freigegebene Fotos?"),
+    // damit die Website nicht bei jedem Seitenaufruf die komplette
+    // eventPhotos-Collection samt Bilddaten abfragen muss, nur um zu prüfen,
+    // ob überhaupt etwas anzuzeigen ist.
+    match /siteMeta/{docId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
     match /{document=**} {
       allow read, write: if isOwner();
     }
