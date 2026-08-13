@@ -539,6 +539,7 @@
             db.collection('siteMeta').doc('gallery').set({
                 featuredImageData: photoDoc.imageData,
                 featuredTitle: photoDoc.title,
+                featuredSocialLink: photoDoc.socialLink ? photoDoc.socialLink : firebase.firestore.FieldValue.delete(),
                 hasApproved: true,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true }).then(function() {
