@@ -409,10 +409,21 @@
             return new Promise(function(resolve, reject) {
                 var objectUrl = URL.createObjectURL(file);
                 var img = new Image();
-                img.onload = function() {
-                    var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-                    var width = Math.round(img.width * scale);
-                    var height = Math.round(img.height * scale);
+
+                var draw = function() {
+                    // Manche Formate (v.a. HEIC von iPhones) liefern zwar ein "onload",
+                    // aber der Browser konnte das Bild in Wahrheit nicht dekodieren -
+                    // erkennbar an 0x0 "natürlichen" Maßen. Ohne diese Prüfung würde
+                    // eine leere/transparente Fläche als komplett schwarzes JPEG
+                    // exportiert, statt einen klaren Fehler zu zeigen.
+                    if (!img.naturalWidth || !img.naturalHeight) {
+                        URL.revokeObjectURL(objectUrl);
+                        reject(new Error('Bildformat wird vom Browser nicht unterstützt (z.B. HEIC) - bitte als JPG/PNG speichern und erneut versuchen.'));
+                        return;
+                    }
+                    var scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+                    var width = Math.round(img.naturalWidth * scale);
+                    var height = Math.round(img.naturalHeight * scale);
                     var canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
@@ -428,9 +439,24 @@
                     URL.revokeObjectURL(objectUrl);
                     resolve(dataUrl);
                 };
+
+                img.onload = function() {
+                    // img.decode() stellt sicher, dass das Bild WIRKLICH fertig
+                    // dekodiert ist, bevor wir es aufs Canvas zeichnen (onload allein
+                    // reicht in manchen Browsern nicht, das kann zu einem schwarzen
+                    // Ergebnis führen).
+                    if (img.decode) {
+                        img.decode().then(draw).catch(function() {
+                            URL.revokeObjectURL(objectUrl);
+                            reject(new Error('Bild konnte nicht dekodiert werden - bitte ein anderes Format (JPG/PNG) versuchen.'));
+                        });
+                    } else {
+                        draw();
+                    }
+                };
                 img.onerror = function() {
                     URL.revokeObjectURL(objectUrl);
-                    reject(new Error('Bild konnte nicht geladen werden'));
+                    reject(new Error('Bild konnte nicht geladen werden - bitte ein anderes Format (JPG/PNG) versuchen.'));
                 };
                 img.src = objectUrl;
             });
@@ -466,7 +492,7 @@
                     });
                 })).catch(function(err) {
                     console.error('❌ Foto konnte nicht hinzugefügt werden:', err);
-                    alert('❌ Fehler beim Hinzufügen des Fotos.');
+                    alert('❌ ' + (err && err.message ? err.message : 'Fehler beim Hinzufügen des Fotos.'));
                 });
             };
             input.click();
