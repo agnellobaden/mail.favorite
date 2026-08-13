@@ -121,6 +121,25 @@
         line-height: 1;
     }
     .photo-delete-btn:hover { background: #dc3545; }
+    .photo-star-btn {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255,255,255,0.85);
+        color: #ccc;
+        font-size: 1em;
+        cursor: pointer;
+        line-height: 1;
+    }
+    .photo-star-btn:hover { background: #fff; color: #f5b301; }
+    .photo-star-btn.featured {
+        background: #ffc107;
+        color: #fff;
+    }
     .upload-actions {
         display: flex;
         gap: 8px;
@@ -292,8 +311,10 @@
                 var dateStr = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate().toLocaleString('de-DE') : '';
                 var photosHtml = g.photos.map(function(imageData, i) {
                     var docId = g.docIds[i];
+                    var isFeatured = imageData === currentFeaturedImageData;
                     return '<div class="photo-item">' +
                         '<img src="' + imageData + '" alt="" onclick="openLightbox(\'' + imageData + '\')">' +
+                        '<button class="photo-star-btn' + (isFeatured ? ' featured' : '') + '" title="Als Startseiten-Bild festlegen" onclick=\'setFeaturedPhoto("' + docId + '")\'>★</button>' +
                         '<button class="photo-delete-btn" title="Nur dieses Foto löschen" onclick=\'deletePhoto("' + docId + '")\'>✕</button>' +
                     '</div>';
                 }).join('');
@@ -341,18 +362,63 @@
             updateGroupStatus(docIds, 'rejected');
         }
 
+        // Falls das gerade gelöschte Foto das ausgewählte Startseiten-Bild war,
+        // die Auswahl zurücksetzen, statt weiter ein totes Bild zu zeigen.
+        function clearFeaturedIfMatches(imageDataList) {
+            if (!currentFeaturedImageData || imageDataList.indexOf(currentFeaturedImageData) === -1) return;
+            currentFeaturedImageData = null;
+            db.collection('siteMeta').doc('gallery').set({
+                featuredImageData: firebase.firestore.FieldValue.delete(),
+                featuredTitle: firebase.firestore.FieldValue.delete()
+            }, { merge: true }).catch(function(err) {
+                console.error('❌ Konnte Startseiten-Bild-Auswahl nicht zurücksetzen:', err);
+            });
+        }
+
         function deleteGroup(docIds, title) {
             if (!confirm('„' + title + '" inkl. aller Fotos endgültig löschen?')) return;
+            var deletedImages = allPhotoDocs.filter(function(d) { return docIds.indexOf(d.id) !== -1; }).map(function(d) { return d.imageData; });
             var batch = db.batch();
             docIds.forEach(function(id) {
                 batch.delete(db.collection('eventPhotos').doc(id));
             });
-            batch.commit();
+            batch.commit().then(function() { clearFeaturedIfMatches(deletedImages); });
         }
 
         function deletePhoto(docId) {
             if (!confirm('Dieses eine Foto endgültig löschen?')) return;
-            db.collection('eventPhotos').doc(docId).delete();
+            var photoDoc = allPhotoDocs.find(function(d) { return d.id === docId; });
+            db.collection('eventPhotos').doc(docId).delete().then(function() {
+                if (photoDoc) clearFeaturedIfMatches([photoDoc.imageData]);
+            });
+        }
+
+        // Welches Foto aktuell als Startseiten-Bild ausgewählt ist (für den
+        // markierten Stern) - einmal geladen, danach optimistisch lokal aktuell gehalten.
+        var currentFeaturedImageData = null;
+        db.collection('siteMeta').doc('gallery').get().then(function(snap) {
+            var data = snap.data();
+            currentFeaturedImageData = data && data.featuredImageData ? data.featuredImageData : null;
+            render();
+        }).catch(function(err) {
+            console.error('❌ Konnte Startseiten-Bild-Auswahl nicht laden:', err);
+        });
+
+        function setFeaturedPhoto(docId) {
+            var photoDoc = allPhotoDocs.find(function(d) { return d.id === docId; });
+            if (!photoDoc) return;
+            db.collection('siteMeta').doc('gallery').set({
+                featuredImageData: photoDoc.imageData,
+                featuredTitle: photoDoc.title,
+                hasApproved: true,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).then(function() {
+                currentFeaturedImageData = photoDoc.imageData;
+                render();
+            }).catch(function(err) {
+                console.error('❌ Konnte Startseiten-Bild nicht setzen:', err);
+                alert('❌ Fehler beim Festlegen des Startseiten-Bilds.');
+            });
         }
 
         function editTitle(docIds, currentTitle) {
