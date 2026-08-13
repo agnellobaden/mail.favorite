@@ -156,6 +156,7 @@
     .btn-approve { background: #28a745; color: white; }
     .btn-reject { background: #ffc107; color: #333; }
     .btn-delete { background: #dc3545; color: white; }
+    .btn-add-photo { background: #667eea; color: white; }
     .empty-msg { text-align: center; color: #888; padding: 40px 0; }
     .lightbox {
         position: fixed;
@@ -339,6 +340,7 @@
                     '<div class="upload-actions">' +
                         (g.status !== 'approved' ? '<button class="btn-approve" onclick=\'approveGroup(' + groupIdsJson + ')\'>✅ Freigeben</button>' : '') +
                         (g.status !== 'rejected' ? '<button class="btn-reject" onclick=\'rejectGroup(' + groupIdsJson + ')\'>❌ Ablehnen</button>' : '') +
+                        '<button class="btn-add-photo" onclick=\'addPhotosToGroup(' + JSON.stringify(g.id).replace(/'/g, '&#39;') + ', ' + titleJson + ', ' + JSON.stringify(g.status).replace(/'/g, '&#39;') + ')\'>➕ Foto hinzufügen</button>' +
                         '<button class="btn-delete" onclick=\'deleteGroup(' + groupIdsJson + ', ' + titleJson + ')\'>🗑️ Ganzen Beitrag löschen</button>' +
                     '</div>' +
                 '</div>';
@@ -396,6 +398,78 @@
             db.collection('eventPhotos').doc(docId).delete().then(function() {
                 if (photoDoc) clearFeaturedIfMatches([photoDoc.imageData]);
             });
+        }
+
+        // Verkleinert & komprimiert ein Bild im Browser zu einem JPEG-Data-URL,
+        // damit es sicher unter dem 1-MB-Limit pro Firestore-Dokument bleibt
+        // (gleiche Technik wie auf der öffentlichen Upload-Seite).
+        function compressImageToDataUrl(file, maxDim, maxBytes) {
+            maxDim = maxDim || 1280;
+            maxBytes = maxBytes || 500 * 1024;
+            return new Promise(function(resolve, reject) {
+                var objectUrl = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function() {
+                    var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                    var width = Math.round(img.width * scale);
+                    var height = Math.round(img.height * scale);
+                    var canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    var quality = 0.8;
+                    var dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    while (dataUrl.length * 0.75 > maxBytes && quality > 0.3) {
+                        quality -= 0.1;
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+                    URL.revokeObjectURL(objectUrl);
+                    resolve(dataUrl);
+                };
+                img.onerror = function() {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('Bild konnte nicht geladen werden'));
+                };
+                img.src = objectUrl;
+            });
+        }
+
+        // Admin fügt direkt hier im Freigabe-Tool ein oder mehrere Fotos zu einem
+        // bestehenden Beitrag hinzu (z.B. wenn ein Foto beim Kunden-Upload nicht
+        // ankam oder man selbst noch was ergänzen möchte).
+        function addPhotosToGroup(groupId, title, groupStatus) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.onchange = function() {
+                var files = Array.from(input.files || []);
+                if (files.length === 0) return;
+
+                Promise.all(files.map(function(file) {
+                    return compressImageToDataUrl(file).then(function(imageData) {
+                        return db.collection('eventPhotos').add({
+                            uploadGroupId: groupId,
+                            title: title,
+                            imageData: imageData,
+                            status: 'pending',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(function(docRef) {
+                            // Erst als 'pending' anlegen (das verlangt die Regel beim Erstellen),
+                            // danach auf den Status des restlichen Beitrags nachziehen.
+                            if (groupStatus && groupStatus !== 'pending') {
+                                return docRef.update({ status: groupStatus });
+                            }
+                        });
+                    });
+                })).catch(function(err) {
+                    console.error('❌ Foto konnte nicht hinzugefügt werden:', err);
+                    alert('❌ Fehler beim Hinzufügen des Fotos.');
+                });
+            };
+            input.click();
         }
 
         // Welches Foto aktuell als Startseiten-Bild ausgewählt ist (für den
