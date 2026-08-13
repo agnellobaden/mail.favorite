@@ -281,10 +281,11 @@
             allPhotoDocs.forEach(function(doc) {
                 var key = doc.uploadGroupId || doc.id;
                 if (!groups[key]) {
-                    groups[key] = { id: key, title: doc.title, status: doc.status, createdAt: doc.createdAt, docIds: [], photos: [] };
+                    groups[key] = { id: key, title: doc.title, status: doc.status, createdAt: doc.createdAt, socialLink: doc.socialLink || '', docIds: [], photos: [] };
                 }
                 groups[key].docIds.push(doc.id);
                 groups[key].photos.push(doc.imageData);
+                if (doc.socialLink) groups[key].socialLink = doc.socialLink;
                 // Status: 'pending' überstimmt (falls einzelne Fotos noch nicht entschieden sind)
                 if (doc.status === 'pending') groups[key].status = 'pending';
             });
@@ -320,13 +321,17 @@
                 }).join('');
                 var groupIdsJson = JSON.stringify(g.docIds).replace(/'/g, '&#39;');
                 var titleJson = JSON.stringify(g.title).replace(/'/g, '&#39;');
+                var linkJson = JSON.stringify(g.socialLink || '').replace(/'/g, '&#39;');
 
                 return '<div class="upload-card">' +
                     '<div class="upload-card-header">' +
                         '<div>' +
                             '<span class="upload-title">' + escapeHtml(g.title) + '</span>' +
                             '<button class="edit-title-btn" title="Titel bearbeiten" onclick=\'editTitle(' + groupIdsJson + ', ' + titleJson + ')\'>✏️</button>' +
-                            '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)</div>' +
+                            '<button class="edit-title-btn" title="Instagram/Facebook/YouTube-Link setzen" onclick=\'editSocialLink(' + groupIdsJson + ', ' + linkJson + ')\'>🔗</button>' +
+                            '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)' +
+                                (g.socialLink ? ' · <a href="' + escapeHtml(g.socialLink) + '" target="_blank" rel="noopener" style="color:#667eea;">🔗 Link ansehen</a>' : '') +
+                            '</div>' +
                         '</div>' +
                         '<span class="status-badge ' + statusInfo[1] + '">' + statusInfo[0] + '</span>' +
                     '</div>' +
@@ -429,6 +434,25 @@
             var batch = db.batch();
             docIds.forEach(function(id) {
                 batch.update(db.collection('eventPhotos').doc(id), { title: newTitle });
+            });
+            batch.commit();
+        }
+
+        // Link zu einem Instagram-/Facebook-/YouTube-Post oder -Reel statt echtem
+        // Video-Upload (der bräuchte Firebase Storage / den Blaze-Tarif).
+        function editSocialLink(docIds, currentLink) {
+            var newLink = prompt('Link zu Instagram/Facebook/YouTube (leer lassen zum Entfernen):', currentLink || '');
+            if (newLink === null) return;
+            newLink = newLink.trim();
+            if (newLink && !/^https?:\/\//i.test(newLink)) {
+                alert('❌ Bitte einen vollständigen Link mit https:// eingeben.');
+                return;
+            }
+            var batch = db.batch();
+            docIds.forEach(function(id) {
+                batch.update(db.collection('eventPhotos').doc(id), {
+                    socialLink: newLink ? newLink : firebase.firestore.FieldValue.delete()
+                });
             });
             batch.commit();
         }
