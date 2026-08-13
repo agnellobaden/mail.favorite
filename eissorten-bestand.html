@@ -105,10 +105,6 @@
         margin-bottom: 12px;
     }
     .flavor-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
         padding: 8px 10px;
         border-radius: 10px;
         margin-bottom: 6px;
@@ -116,6 +112,13 @@
     .flavor-row.low {
         background: #fff0f0;
         border: 1px solid #f5c2c7;
+    }
+    .flavor-row-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-bottom: 6px;
     }
     .flavor-name {
         font-weight: 600;
@@ -125,35 +128,70 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        flex-wrap: wrap;
     }
-    .flavor-controls {
+    .flavor-row-stocks {
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .stock-block {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .stock-label {
+        font-size: 0.68em;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-right: 2px;
     }
     .stock-btn {
-        width: 28px;
-        height: 28px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         border: none;
         background: #667eea;
         color: white;
         font-weight: 700;
         cursor: pointer;
-        font-size: 1em;
+        font-size: 0.95em;
         line-height: 1;
+        flex-shrink: 0;
     }
     .stock-btn:hover { background: #5a6fd8; }
     .stock-btn.minus { background: #dc3545; }
     .stock-btn.minus:hover { background: #c82333; }
     .stock-count {
-        min-width: 26px;
+        min-width: 22px;
         text-align: center;
         font-weight: 800;
         font-size: 1.05em;
         color: #333;
     }
     .stock-count.low { color: #dc3545; }
+    .stock-block.reserve .stock-count { color: #666; }
+    .transfer-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: none;
+        background: #ffc107;
+        color: #333;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 0.95em;
+        flex-shrink: 0;
+    }
+    .transfer-btn:hover { background: #e0a800; }
+    .transfer-btn:disabled {
+        background: #eee;
+        color: #bbb;
+        cursor: not-allowed;
+    }
     .min-badge {
         font-size: 0.7em;
         color: #999;
@@ -161,6 +199,28 @@
         text-decoration: underline dotted;
         white-space: nowrap;
     }
+    .delete-flavor-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 0.75em;
+        opacity: 0.6;
+        margin-left: auto;
+    }
+    .delete-flavor-btn:hover { opacity: 1; }
+    .add-flavor-btn {
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        border: 2px dashed #667eea;
+        background: none;
+        color: #667eea;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .add-flavor-btn:hover { background: #f0f2ff; }
 </style>
 </head>
 <body>
@@ -205,7 +265,7 @@
     <div class="container">
         <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
         <h1>🍦 Eissorten-Bestand</h1>
-        <p class="subtitle">Wie viele Wannen jeder Sorte gerade da sind - Schokolade &amp; Vanille brauchen immer mindestens 2 auf Lager.</p>
+        <p class="subtitle">"Verkauf" = was gerade im Auto ist, "Reserve" = was noch im Lager wartet. Mit ⬆️ holst du eine Wanne aus der Reserve ins Auto. Schokolade &amp; Vanille brauchen immer mindestens 2 im Verkauf.</p>
 
         <div id="alertArea"></div>
 
@@ -256,11 +316,36 @@
             { id: 'exotic-cocktail', name: 'Exotic Cocktail', emoji: '🍹', category: 'frucht', minStock: 0 }
         ];
 
-        var stockData = {}; // { flavorId: { currentStock, minStock } }
+        var stockData = {}; // { flavorId: { currentStock (=Im Verkauf), reserveStock, minStock, name/emoji/category (nur bei custom) } }
+
+        // Liefert die Definition (Name/Emoji/Kategorie/Standard-Mindestmenge) für
+        // eine fest eingebaute ODER eine manuell hinzugefügte (custom) Sorte.
+        function getFlavorDef(id) {
+            var builtin = FLAVORS.find(function(f) { return f.id === id; });
+            if (builtin) return builtin;
+            var s = stockData[id];
+            if (s && s.custom) {
+                return { id: id, name: s.name, emoji: s.emoji || '🍦', category: s.category, minStock: 0 };
+            }
+            return null;
+        }
+
+        function getFlavorsForCategory(category) {
+            var builtins = FLAVORS.filter(function(f) { return f.category === category; });
+            var customIds = Object.keys(stockData).filter(function(id) {
+                return stockData[id].custom && stockData[id].category === category;
+            });
+            var customs = customIds.map(getFlavorDef).filter(Boolean);
+            return builtins.concat(customs);
+        }
+
+        function getAllFlavors() {
+            return getFlavorsForCategory('milch').concat(getFlavorsForCategory('frucht'));
+        }
 
         function render() {
-            // Alarm-Banner: alles, was unter der Mindestmenge ist
-            var lowFlavors = FLAVORS.filter(function(f) {
+            // Alarm-Banner: alles, was im Verkaufsbestand unter der Mindestmenge ist
+            var lowFlavors = getAllFlavors().filter(function(f) {
                 var s = stockData[f.id] || {};
                 var current = s.currentStock || 0;
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
@@ -291,30 +376,43 @@
                 alertArea.innerHTML = '<div class="all-good-banner">✅ Alle Sorten ausreichend auf Lager.</div>';
             }
 
-            var milch = FLAVORS.filter(function(f) { return f.category === 'milch'; });
-            var frucht = FLAVORS.filter(function(f) { return f.category === 'frucht'; });
-
             document.getElementById('categoriesArea').innerHTML =
-                renderCategory('Milcheis Klassiker & Specials', '', milch) +
-                renderCategory('Fruchteis', '(Vegan & Laktosefrei)', frucht);
+                renderCategory('Milcheis Klassiker & Specials', '', 'milch') +
+                renderCategory('Fruchteis', '(Vegan & Laktosefrei)', 'frucht');
 
             attachHandlers();
         }
 
-        function renderCategory(title, sub, flavors) {
+        function renderCategory(title, sub, categoryKey) {
+            var flavors = getFlavorsForCategory(categoryKey);
             var rows = flavors.map(function(f) {
                 var s = stockData[f.id] || {};
                 var current = s.currentStock || 0;
+                var reserve = s.reserveStock || 0;
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
                 var isLow = current < min || current === 0;
+                var isCustom = !!(s.custom);
                 return '<div class="flavor-row' + (isLow ? ' low' : '') + '">' +
-                    '<div class="flavor-name">' + f.emoji + ' ' + f.name +
-                        (min > 0 ? '<span class="min-badge" data-id="' + f.id + '" title="Mindestmenge ändern">min. ' + min + '</span>' : '') +
+                    '<div class="flavor-row-main">' +
+                        '<div class="flavor-name">' + f.emoji + ' ' + f.name +
+                            (min > 0 ? '<span class="min-badge" data-id="' + f.id + '" title="Mindestmenge ändern">min. ' + min + '</span>' : '') +
+                        '</div>' +
+                        (isCustom ? '<button class="delete-flavor-btn" data-id="' + f.id + '" title="Sorte entfernen">🗑️ entfernen</button>' : '') +
                     '</div>' +
-                    '<div class="flavor-controls">' +
-                        '<button class="stock-btn minus" data-id="' + f.id + '" data-delta="-1">−</button>' +
-                        '<span class="stock-count' + (isLow ? ' low' : '') + '">' + current + '</span>' +
-                        '<button class="stock-btn plus" data-id="' + f.id + '" data-delta="1">+</button>' +
+                    '<div class="flavor-row-stocks">' +
+                        '<div class="stock-block">' +
+                            '<span class="stock-label">Verkauf</span>' +
+                            '<button class="stock-btn minus" data-id="' + f.id + '" data-field="sales" data-delta="-1">−</button>' +
+                            '<span class="stock-count' + (isLow ? ' low' : '') + '">' + current + '</span>' +
+                            '<button class="stock-btn plus" data-id="' + f.id + '" data-field="sales" data-delta="1">+</button>' +
+                        '</div>' +
+                        '<button class="transfer-btn" data-id="' + f.id + '" title="1 aus Reserve ins Auto nachfüllen"' + (reserve <= 0 ? ' disabled' : '') + '>⬆️</button>' +
+                        '<div class="stock-block reserve">' +
+                            '<span class="stock-label">Reserve</span>' +
+                            '<button class="stock-btn minus" data-id="' + f.id + '" data-field="reserve" data-delta="-1">−</button>' +
+                            '<span class="stock-count">' + reserve + '</span>' +
+                            '<button class="stock-btn plus" data-id="' + f.id + '" data-field="reserve" data-delta="1">+</button>' +
+                        '</div>' +
                     '</div>' +
                 '</div>';
             }).join('');
@@ -323,6 +421,7 @@
                 '<h3>' + title + '</h3>' +
                 (sub ? '<div class="cat-sub">' + sub + '</div>' : '<div class="cat-sub">&nbsp;</div>') +
                 rows +
+                '<button class="add-flavor-btn" data-category="' + categoryKey + '">+ Neue Sorte hinzufügen</button>' +
             '</div>';
         }
 
@@ -330,45 +429,95 @@
             document.querySelectorAll('.stock-btn').forEach(function(btn) {
                 btn.onclick = function() {
                     var id = btn.dataset.id;
+                    var field = btn.dataset.field; // 'sales' oder 'reserve'
                     var delta = parseInt(btn.dataset.delta, 10);
-                    var current = (stockData[id] && stockData[id].currentStock) || 0;
-                    var next = Math.max(0, current + delta);
-                    setStock(id, next);
+                    var s = stockData[id] || {};
+                    if (field === 'reserve') {
+                        var nextReserve = Math.max(0, (s.reserveStock || 0) + delta);
+                        setFields(id, { reserveStock: nextReserve });
+                    } else {
+                        var nextSales = Math.max(0, (s.currentStock || 0) + delta);
+                        setFields(id, { currentStock: nextSales });
+                    }
+                };
+            });
+            document.querySelectorAll('.transfer-btn').forEach(function(btn) {
+                btn.onclick = function() {
+                    if (btn.disabled) return;
+                    var id = btn.dataset.id;
+                    var s = stockData[id] || {};
+                    var reserve = s.reserveStock || 0;
+                    if (reserve <= 0) return;
+                    setFields(id, {
+                        reserveStock: reserve - 1,
+                        currentStock: (s.currentStock || 0) + 1
+                    });
                 };
             });
             document.querySelectorAll('.min-badge').forEach(function(el) {
                 el.onclick = function() {
                     var id = el.dataset.id;
-                    var flavor = FLAVORS.find(function(f) { return f.id === id; });
+                    var flavor = getFlavorDef(id);
                     var currentMin = (stockData[id] && stockData[id].minStock !== undefined) ? stockData[id].minStock : flavor.minStock;
                     var input = prompt('Mindestmenge für ' + flavor.name + ':', currentMin);
                     if (input === null) return;
                     var val = parseInt(input, 10);
                     if (isNaN(val) || val < 0) return;
-                    setMinStock(id, val);
+                    setFields(id, { minStock: val });
+                };
+            });
+            document.querySelectorAll('.delete-flavor-btn').forEach(function(el) {
+                el.onclick = function() {
+                    var id = el.dataset.id;
+                    var flavor = getFlavorDef(id);
+                    if (!confirm('„' + (flavor ? flavor.name : id) + '" wirklich entfernen?')) return;
+                    db.collection('flavorStock').doc(id).delete().catch(function(err) {
+                        console.error('❌ Sorte konnte nicht entfernt werden:', err);
+                    });
+                };
+            });
+            document.querySelectorAll('.add-flavor-btn').forEach(function(btn) {
+                btn.onclick = function() {
+                    addCustomFlavor(btn.dataset.category);
                 };
             });
         }
 
-        function setStock(id, value) {
+        function addCustomFlavor(category) {
+            var name = prompt('Name der neuen Sorte:');
+            if (!name || !name.trim()) return;
+            name = name.trim();
+            var emoji = prompt('Emoji für "' + name + '" (optional, z.B. 🍦):', '🍦');
+            if (emoji === null || !emoji.trim()) emoji = '🍦';
+            var slug = name.toLowerCase()
+                .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+                .replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
+            var id = 'custom-' + (slug || 'sorte') + '-' + Date.now().toString(36);
+
             db.collection('flavorStock').doc(id).set({
-                currentStock: value,
+                name: name,
+                emoji: emoji.trim(),
+                category: category,
+                custom: true,
+                currentStock: 0,
+                reserveStock: 0,
+                minStock: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }).catch(function(err) {
+            }).catch(function(err) {
+                console.error('❌ Sorte konnte nicht hinzugefügt werden:', err);
+                alert('❌ Fehler beim Hinzufügen der Sorte.');
+            });
+        }
+
+        function setFields(id, fields) {
+            fields.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            db.collection('flavorStock').doc(id).set(fields, { merge: true }).catch(function(err) {
                 console.error('❌ Bestand konnte nicht gespeichert werden:', err);
             });
         }
 
-        function setMinStock(id, value) {
-            db.collection('flavorStock').doc(id).set({
-                minStock: value,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }).catch(function(err) {
-                console.error('❌ Mindestmenge konnte nicht gespeichert werden:', err);
-            });
-        }
-
         db.collection('flavorStock').onSnapshot(function(snapshot) {
+            stockData = {};
             snapshot.forEach(function(doc) {
                 stockData[doc.id] = doc.data();
             });
