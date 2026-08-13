@@ -377,12 +377,17 @@
         }
 
         function render() {
-            // Alarm-Banner: alles, was im Verkaufsbestand unter der Mindestmenge ist
+            // Alarm-Banner "Jetzt nachproduzieren": Reserve zählt als Bestand mit -
+            // ist noch genug in Reserve, muss NICHT neu produziert werden, nur mit
+            // ⬆️ ins Auto nachgefüllt. Nur wenn Verkauf+Reserve zusammen nicht
+            // reichen, ist es ein echter Produktions-Engpass.
             var lowFlavors = getAllFlavors().filter(function(f) {
                 var s = stockData[f.id] || {};
                 var current = s.currentStock || 0;
+                var reserve = s.reserveStock || 0;
+                var total = current + reserve;
                 var min = (s.minStock !== undefined ? s.minStock : f.minStock);
-                return current < min || current === 0;
+                return total < min || total === 0;
             });
 
             var alertArea = document.getElementById('alertArea');
