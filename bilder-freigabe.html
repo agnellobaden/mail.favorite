@@ -350,6 +350,7 @@
                         (g.status !== 'approved' ? '<button class="btn-approve" onclick=\'approveGroup(' + groupIdsJson + ')\'>✅ Freigeben</button>' : '') +
                         (g.status !== 'rejected' ? '<button class="btn-reject" onclick=\'rejectGroup(' + groupIdsJson + ')\'>❌ Ablehnen</button>' : '') +
                         '<button class="btn-add-photo" onclick=\'addPhotosToGroup(' + JSON.stringify(g.id).replace(/'/g, '&#39;') + ', ' + titleJson + ', ' + JSON.stringify(g.status).replace(/'/g, '&#39;') + ')\'>➕ Foto hinzufügen</button>' +
+                        '<button class="btn-add-photo" onclick=\'addVideosToGroup(' + JSON.stringify(g.id).replace(/'/g, '&#39;') + ', ' + titleJson + ', ' + JSON.stringify(g.status).replace(/'/g, '&#39;') + ')\'>🎥 Video hinzufügen</button>' +
                         '<button class="btn-delete" onclick=\'deleteGroup(' + groupIdsJson + ', ' + titleJson + ')\'>🗑️ Ganzen Beitrag löschen</button>' +
                     '</div>' +
                 '</div>';
@@ -526,6 +527,59 @@
                 })).catch(function(err) {
                     console.error('❌ Foto konnte nicht hinzugefügt werden:', err);
                     alert('❌ ' + (err && err.message ? err.message : 'Fehler beim Hinzufügen des Fotos.'));
+                });
+            };
+            input.click();
+        }
+
+        // Cloudinary-Konto von Eisfavorite (gleiches unsigned Preset wie beim
+        // öffentlichen Kunden-Upload) - Cloud Name/Preset sind keine Geheimnisse.
+        var CLOUDINARY_CLOUD_NAME = 'tnzpe3nr';
+        var CLOUDINARY_UPLOAD_PRESET = 'event_videos';
+
+        function uploadVideoToCloudinary(file) {
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            return fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/video/upload', {
+                method: 'POST',
+                body: formData
+            }).then(function(response) {
+                if (!response.ok) throw new Error('Video-Upload fehlgeschlagen - bitte erneut versuchen.');
+                return response.json();
+            }).then(function(data) {
+                return data.secure_url;
+            });
+        }
+
+        // Admin fügt direkt hier im Freigabe-Tool ein oder mehrere Videos zu
+        // einem bestehenden Beitrag hinzu (gleiche Idee wie addPhotosToGroup).
+        function addVideosToGroup(groupId, title, groupStatus) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*';
+            input.multiple = true;
+            input.onchange = function() {
+                var files = Array.from(input.files || []);
+                if (files.length === 0) return;
+
+                Promise.all(files.map(function(file) {
+                    return uploadVideoToCloudinary(file).then(function(videoUrl) {
+                        return db.collection('eventPhotos').add({
+                            uploadGroupId: groupId,
+                            title: title,
+                            videoUrl: videoUrl,
+                            status: 'pending',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(function(docRef) {
+                            if (groupStatus && groupStatus !== 'pending') {
+                                return docRef.update({ status: groupStatus });
+                            }
+                        });
+                    });
+                })).catch(function(err) {
+                    console.error('❌ Video konnte nicht hinzugefügt werden:', err);
+                    alert('❌ ' + (err && err.message ? err.message : 'Fehler beim Hinzufügen des Videos.'));
                 });
             };
             input.click();
