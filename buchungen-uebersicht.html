@@ -457,6 +457,11 @@
             margin-bottom: 15px;
             padding-bottom: 15px;
             border-bottom: 2px solid #f0f0f0;
+            /* Platz für das absolut positionierte "⋮"-Menü oben rechts an der
+               Karte freihalten - das Menü nimmt am Layout nicht teil (position:
+               absolute), daher würde Titel/Datum sonst bei jeder Bildschirmgröße
+               darunter durchlaufen und den Button teils verdecken/blockieren. */
+            padding-right: 60px;
         }
 
         .card-title {
@@ -1507,10 +1512,6 @@
                 gap: 8px;
                 margin-bottom: 10px;
                 padding-bottom: 10px;
-                /* Platz für das absolut positionierte "⋮"-Menü oben rechts
-                   freihalten - sonst läuft der Titel/das Datum im Spalten-
-                   Layout unter dem Button durch (Überlappung + Klick-Konflikt). */
-                padding-right: 50px;
             }
 
             .card-date {
