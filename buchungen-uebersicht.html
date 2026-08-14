@@ -4324,6 +4324,23 @@
 
             // Angezeigte Einträge aktualisieren
             document.getElementById('displayedEntries').textContent = bookings.length;
+
+            // Ein offenes 3-Punkte-Menü nach einem Neu-Rendern (z.B. durch
+            // einen Live-Sync-Snapshot von Firebase, der kurz nach dem Öffnen
+            // reinkommt) wieder öffnen - sonst schließt es sich scheinbar von
+            // selbst, weil die komplette Kartenliste neu aufgebaut wird.
+            if (openCardMenuBookingId) {
+                const reopenedButton = container.querySelector(
+                    `[onclick*="toggleCardMenu(event, '${openCardMenuBookingId}')"]`
+                );
+                if (reopenedButton) {
+                    const reopenedMenu = reopenedButton.closest('.card-menu').querySelector('.card-menu-dropdown');
+                    reopenedMenu.classList.add('active');
+                    positionCardMenu(reopenedMenu, reopenedButton);
+                } else {
+                    openCardMenuBookingId = null;
+                }
+            }
         }
 
         // Baut eine einzelne Buchungskarte (gleiches Aussehen/Buttons wie in
@@ -6544,6 +6561,12 @@
 
         // ==================== KARTEN-MENÜ ====================
 
+        // Merkt sich, welches Kartenmenü gerade offen ist (Buchungs-ID), damit
+        // es nach einem Neu-Rendern der Kartenliste (z.B. durch einen Live-
+        // Sync-Snapshot von Firebase, der kurz nach dem Öffnen reinkommt)
+        // automatisch wieder geöffnet werden kann - siehe displayCards().
+        let openCardMenuBookingId = null;
+
         // 3-Punkte-Menü öffnen/schließen
         // WICHTIG: Menü wird relativ zum geklickten Button gesucht (nicht per
         // ID) - dieselbe Buchung kann gleichzeitig doppelt im DOM stehen
@@ -6565,6 +6588,7 @@
             // Aktuelles Menü togglen
             const isOpening = !menu.classList.contains('active');
             menu.classList.toggle('active');
+            openCardMenuBookingId = isOpening ? bookingId : null;
 
             if (isOpening) {
                 positionCardMenu(menu, button);
@@ -6640,6 +6664,8 @@
         // Menü schließen - anhand des Elements, von dem der Klick kam (nicht
         // per ID, siehe Kommentar bei toggleCardMenu weiter oben).
         function closeCardMenu(bookingId) {
+            openCardMenuBookingId = null;
+
             const menu = typeof event !== 'undefined' && event && event.target
                 ? event.target.closest('.card-menu-dropdown')
                 : null;
@@ -6660,6 +6686,7 @@
         // Alle Menüs schließen beim Klick außerhalb
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.card-menu')) {
+                openCardMenuBookingId = null;
                 document.querySelectorAll('.card-menu-dropdown').forEach(menu => {
                     menu.classList.remove('active');
                 });
