@@ -282,10 +282,14 @@
             allPhotoDocs.forEach(function(doc) {
                 var key = doc.uploadGroupId || doc.id;
                 if (!groups[key]) {
-                    groups[key] = { id: key, title: doc.title, status: doc.status, createdAt: doc.createdAt, socialLink: doc.socialLink || '', docIds: [], photos: [] };
+                    groups[key] = { id: key, title: doc.title, status: doc.status, createdAt: doc.createdAt, socialLink: doc.socialLink || '', docIds: [], photos: [], videos: [] };
                 }
                 groups[key].docIds.push(doc.id);
-                groups[key].photos.push(doc.imageData);
+                if (doc.videoUrl) {
+                    groups[key].videos.push({ docId: doc.id, url: doc.videoUrl });
+                } else {
+                    groups[key].photos.push({ docId: doc.id, imageData: doc.imageData });
+                }
                 if (doc.socialLink) groups[key].socialLink = doc.socialLink;
                 // Status: 'pending' überstimmt (falls einzelne Fotos noch nicht entschieden sind)
                 if (doc.status === 'pending') groups[key].status = 'pending';
@@ -311,13 +315,18 @@
             list.innerHTML = groups.map(function(g) {
                 var statusInfo = STATUS_LABELS[g.status] || ['?', ''];
                 var dateStr = g.createdAt && g.createdAt.toDate ? g.createdAt.toDate().toLocaleString('de-DE') : '';
-                var photosHtml = g.photos.map(function(imageData, i) {
-                    var docId = g.docIds[i];
-                    var isFeatured = imageData === currentFeaturedImageData;
+                var photosHtml = g.photos.map(function(photo) {
+                    var isFeatured = photo.imageData === currentFeaturedImageData;
                     return '<div class="photo-item">' +
-                        '<img src="' + imageData + '" alt="" onclick="openLightbox(\'' + imageData + '\')">' +
-                        '<button class="photo-star-btn' + (isFeatured ? ' featured' : '') + '" title="Als Startseiten-Bild festlegen" onclick=\'setFeaturedPhoto("' + docId + '")\'>★</button>' +
-                        '<button class="photo-delete-btn" title="Nur dieses Foto löschen" onclick=\'deletePhoto("' + docId + '")\'>✕</button>' +
+                        '<img src="' + photo.imageData + '" alt="" onclick="openLightbox(\'' + photo.imageData + '\')">' +
+                        '<button class="photo-star-btn' + (isFeatured ? ' featured' : '') + '" title="Als Startseiten-Bild festlegen" onclick=\'setFeaturedPhoto("' + photo.docId + '")\'>★</button>' +
+                        '<button class="photo-delete-btn" title="Nur dieses Foto löschen" onclick=\'deletePhoto("' + photo.docId + '")\'>✕</button>' +
+                    '</div>';
+                }).join('');
+                var videosHtml = g.videos.map(function(video) {
+                    return '<div class="photo-item">' +
+                        '<video src="' + video.url + '" controls preload="metadata" style="width:100%;height:100%;object-fit:cover;"></video>' +
+                        '<button class="photo-delete-btn" title="Nur dieses Video löschen" onclick=\'deletePhoto("' + video.docId + '")\'>✕</button>' +
                     '</div>';
                 }).join('');
                 var groupIdsJson = JSON.stringify(g.docIds).replace(/'/g, '&#39;');
@@ -330,13 +339,13 @@
                             '<span class="upload-title">' + escapeHtml(g.title) + '</span>' +
                             '<button class="edit-title-btn" title="Titel bearbeiten" onclick=\'editTitle(' + groupIdsJson + ', ' + titleJson + ')\'>✏️</button>' +
                             '<button class="edit-title-btn" title="Instagram/Facebook/YouTube-Link setzen" onclick=\'editSocialLink(' + groupIdsJson + ', ' + linkJson + ')\'>🔗</button>' +
-                            '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)' +
+                            '<div class="upload-meta">' + dateStr + ' · ' + g.photos.length + ' Foto(s)' + (g.videos.length ? ' · ' + g.videos.length + ' Video(s)' : '') +
                                 (g.socialLink ? ' · <a href="' + escapeHtml(g.socialLink) + '" target="_blank" rel="noopener" style="color:#667eea;">🔗 Link ansehen</a>' : '') +
                             '</div>' +
                         '</div>' +
                         '<span class="status-badge ' + statusInfo[1] + '">' + statusInfo[0] + '</span>' +
                     '</div>' +
-                    '<div class="photo-grid">' + photosHtml + '</div>' +
+                    '<div class="photo-grid">' + photosHtml + videosHtml + '</div>' +
                     '<div class="upload-actions">' +
                         (g.status !== 'approved' ? '<button class="btn-approve" onclick=\'approveGroup(' + groupIdsJson + ')\'>✅ Freigeben</button>' : '') +
                         (g.status !== 'rejected' ? '<button class="btn-reject" onclick=\'rejectGroup(' + groupIdsJson + ')\'>❌ Ablehnen</button>' : '') +
