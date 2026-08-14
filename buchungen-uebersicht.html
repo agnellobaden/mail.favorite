@@ -580,6 +580,11 @@
             font-weight: bold;
             color: #667eea;
             transition: all 0.2s;
+            /* Verhindert die ~300ms-Verzögerung mobiler Browser (Doppeltipp-
+               Zoom-Erkennung), die bei überlappenden Elementen zu einem
+               "Geister-Klick" führen kann, der das gerade geöffnete Menü
+               sofort wieder schließt. */
+            touch-action: manipulation;
         }
 
         .card-menu-button:hover {
@@ -1502,6 +1507,10 @@
                 gap: 8px;
                 margin-bottom: 10px;
                 padding-bottom: 10px;
+                /* Platz für das absolut positionierte "⋮"-Menü oben rechts
+                   freihalten - sonst läuft der Titel/das Datum im Spalten-
+                   Layout unter dem Button durch (Überlappung + Klick-Konflikt). */
+                padding-right: 50px;
             }
 
             .card-date {
