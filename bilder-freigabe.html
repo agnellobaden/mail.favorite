@@ -492,7 +492,7 @@
         function addPhotosToGroup(groupId, title, groupStatus) {
             var input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'image/*';
+            input.accept = 'image/*,.mpo,.mpf';
             input.multiple = true;
             input.onchange = function() {
                 var files = Array.from(input.files || []);
