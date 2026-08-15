@@ -847,6 +847,34 @@
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 100px;
+            right: 38px;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            z-index: 999;
+            clip-path: circle(50%);
+        }
+
+        .scroll-top-btn:hover {
+            transform: scale(1.1);
+            background: #667eea;
+            color: white;
+        }
+
+        body.dark-mode .scroll-top-btn {
+            background: #1a1f2e;
+        }
+
         /* Rechnungs-Styles */
         .invoice-modal {
             display: none;
@@ -1601,6 +1629,14 @@
                 font-size: 20px;
             }
 
+            .scroll-top-btn {
+                width: 28px;
+                height: 28px;
+                bottom: 70px;
+                right: 21px;
+                font-size: 12px;
+            }
+
             .burger-icon {
                 width: 45px;
                 height: 45px;
@@ -1838,6 +1874,14 @@
                 bottom: 12px;
                 right: 12px;
                 font-size: 18px;
+            }
+
+            .scroll-top-btn {
+                width: 24px;
+                height: 24px;
+                bottom: 58px;
+                right: 18px;
+                font-size: 10px;
             }
 
             .burger-icon {
@@ -2446,6 +2490,7 @@
 
     <!-- Floating Button zum Hinzufügen -->
     <button class="add-booking-btn" id="addBookingBtn" title="Neue Buchung hinzufügen">+</button>
+    <button class="scroll-top-btn" id="scrollTopBtn" title="Ganz nach oben">⬆️</button>
 
     <!-- Formular Modal -->
     <div class="form-modal" id="formModal">
@@ -4678,6 +4723,10 @@
             activeSpecialFilter = null;
             filterAndDisplay();
         }
+
+        document.getElementById('scrollTopBtn').addEventListener('click', function() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
 
         document.getElementById('nameFilter').addEventListener('input', manualFilterChange);
         document.getElementById('statusFilter').addEventListener('change', manualFilterChange);
