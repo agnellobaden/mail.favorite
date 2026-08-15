@@ -8079,17 +8079,49 @@
         // Filter-Leiste blendet sich während des Scrollens aus (nimmt sonst
         // dauerhaft Platz am Bildschirm weg, weil sie "position: sticky" ist)
         // und erscheint 4 Sekunden nach dem letzten Scroll-Event automatisch
-        // wieder.
+        // wieder. Solange die Leiste geöffnet ist oder gerade benutzt wird
+        // (Fokus/Klick/Touch auf einem Filterfeld), bleibt sie sichtbar.
         let filterHideTimeout;
+
+        function isFilterOpenOrFocused() {
+            const filterContent = document.getElementById('filterContent');
+            const filterBar = document.querySelector('.filter-burger-row');
+            const isOpen = filterContent && !filterContent.classList.contains('collapsed');
+            const hasFocus = filterBar && filterBar.contains(document.activeElement);
+            return isOpen || hasFocus;
+        }
+
         window.addEventListener('scroll', function() {
             const filterBar = document.querySelector('.filter-burger-row');
             if (!filterBar) return;
+            if (isFilterOpenOrFocused()) {
+                filterBar.classList.remove('filter-bar-hidden');
+                clearTimeout(filterHideTimeout);
+                return;
+            }
             filterBar.classList.add('filter-bar-hidden');
             clearTimeout(filterHideTimeout);
             filterHideTimeout = setTimeout(() => {
-                filterBar.classList.remove('filter-bar-hidden');
+                if (!isFilterOpenOrFocused()) {
+                    filterBar.classList.remove('filter-bar-hidden');
+                }
             }, 4000);
         }, { passive: true });
+
+        // Sobald der Nutzer die Leiste anfasst (Klick/Touch/Fokus auf ein
+        // Filterfeld), sofort sichtbar halten - auch wenn sie gerade wegen
+        // Scrollens ausgeblendet war.
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterBar = document.querySelector('.filter-burger-row');
+            if (!filterBar) return;
+            const keepVisible = () => {
+                filterBar.classList.remove('filter-bar-hidden');
+                clearTimeout(filterHideTimeout);
+            };
+            filterBar.addEventListener('mousedown', keepVisible);
+            filterBar.addEventListener('touchstart', keepVisible, { passive: true });
+            filterBar.addEventListener('focusin', keepVisible);
+        });
 
         // Vor dem Schließen des Fensters speichern
         window.addEventListener('beforeunload', function() {
