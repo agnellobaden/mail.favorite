@@ -112,6 +112,21 @@
     .reserve-banner li .pill-count { opacity: 0.85; font-weight: 800; margin-left: 4px; }
     .reserve-banner .alert-group h3 { color: #3d4b9e; }
 
+    .reserve-filter-btn {
+        display: inline-block;
+        margin-bottom: 16px;
+        padding: 8px 16px;
+        border: 2px solid #667eea;
+        border-radius: 20px;
+        background: white;
+        color: #667eea;
+        font-weight: 700;
+        font-size: 0.85em;
+        cursor: pointer;
+    }
+    .reserve-filter-btn:hover { background: #eef1fd; }
+    .reserve-filter-btn.active { background: #667eea; color: white; }
+
     .categories {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -317,6 +332,8 @@
         <h1>🍦 Eissorten-Bestand</h1>
         <p class="subtitle">"Verkauf" = was gerade im Auto ist, "Reserve" = was noch im Lager wartet. Mit ⬆️ holst du eine Wanne aus der Reserve ins Auto. Schokolade &amp; Vanille brauchen immer mindestens 2 im Verkauf.</p>
 
+        <button id="reserveFilterBtn" class="reserve-filter-btn" onclick="toggleReserveOnly()">🔎 Nur Reserve anzeigen</button>
+
         <div id="reserveArea"></div>
 
         <div id="alertArea"></div>
@@ -369,6 +386,16 @@
         ];
 
         var stockData = {}; // { flavorId: { currentStock (=Im Verkauf), reserveStock, minStock, name/emoji/category (nur bei custom) } }
+        var reserveOnly = false;
+
+        function toggleReserveOnly() {
+            reserveOnly = !reserveOnly;
+            var btn = document.getElementById('reserveFilterBtn');
+            btn.classList.toggle('active', reserveOnly);
+            btn.textContent = reserveOnly ? '✕ Alles wieder anzeigen' : '🔎 Nur Reserve anzeigen';
+            document.getElementById('alertArea').style.display = reserveOnly ? 'none' : '';
+            document.getElementById('categoriesArea').style.display = reserveOnly ? 'none' : '';
+        }
 
         // Liefert die Definition (Name/Emoji/Kategorie/Standard-Mindestmenge) für
         // eine fest eingebaute ODER eine manuell hinzugefügte (custom) Sorte.
