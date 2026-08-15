@@ -8121,6 +8121,12 @@
             filterBar.addEventListener('mousedown', keepVisible);
             filterBar.addEventListener('touchstart', keepVisible, { passive: true });
             filterBar.addEventListener('focusin', keepVisible);
+            // 'input'/'keydown' zusätzlich zu 'focusin': Tippen in einem Filterfeld
+            // lässt z.B. die Ergebnisliste schrumpfen, wodurch der Browser die
+            // Scroll-Position anpasst und dabei ein 'scroll'-Event auslöst -
+            // das darf die Leiste während der Eingabe nicht ausblenden.
+            filterBar.addEventListener('input', keepVisible);
+            filterBar.addEventListener('keydown', keepVisible);
         });
 
         // Vor dem Schließen des Fensters speichern
