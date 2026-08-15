@@ -253,6 +253,8 @@
     }
     .btn:hover { opacity: 0.9; }
     .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-secondary.active { background: #667eea; color: white; }
+    #monthOverviewTable tbody tr:hover { background: #f5f6ff; }
     .btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
     .btn-sm { padding: 6px 10px; font-size: 0.8em; }
     .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -394,6 +396,19 @@
                 <option value="bar">Nur Kasse</option>
                 <option value="ueberweisung">Nur Überweisung</option>
             </select>
+            <button type="button" class="btn btn-secondary" id="monthOverviewToggleBtn" onclick="toggleMonthOverview()">📊 Monatsübersicht</button>
+        </div>
+
+        <div class="table-wrap" id="monthOverviewWrap" style="display:none; margin-bottom:20px;">
+            <table id="monthOverviewTable">
+                <thead>
+                    <tr>
+                        <th>Monat</th>
+                        <th>Umsatz</th>
+                    </tr>
+                </thead>
+                <tbody id="monthOverviewBody"></tbody>
+            </table>
         </div>
 
         <div class="table-wrap">
@@ -612,6 +627,54 @@
             document.getElementById('statWeek').textContent = formatEuro(sumWeek);
             document.getElementById('statMonth').textContent = formatEuro(sumMonth);
             document.getElementById('statTotal').textContent = formatEuro(sumTotal);
+
+            renderMonthOverview();
+        }
+
+        // Zeigt für jeden Monat, in dem es Einträge gibt, den Gesamtumsatz -
+        // damit man auf einen Blick sieht, was man in welchem Monat gemacht
+        // hat, statt den Monatsfilter einzeln durchzuklicken.
+        function renderMonthOverview() {
+            const paymentFilter = document.getElementById('paymentMethodFilter').value;
+            const sumsByMonth = {};
+
+            combinedEntries()
+                .filter(e => paymentFilter === 'alle' || e.paymentMethod === paymentFilter)
+                .forEach(e => {
+                    const month = (e.dateIso || '').slice(0, 7);
+                    if (!month) return;
+                    sumsByMonth[month] = (sumsByMonth[month] || 0) + (parseFloat(e.amount) || 0);
+                });
+
+            const months = Object.keys(sumsByMonth).sort().reverse();
+            const body = document.getElementById('monthOverviewBody');
+
+            if (months.length === 0) {
+                body.innerHTML = '<tr><td colspan="2" style="color:#999;">Noch keine Einträge.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = months.map(m =>
+                `<tr style="cursor:pointer;" onclick="jumpToMonth('${m}')">
+                    <td>${monthLabel(m)}</td>
+                    <td style="font-weight:700;">${formatEuro(sumsByMonth[m])}</td>
+                </tr>`
+            ).join('');
+        }
+
+        function toggleMonthOverview() {
+            const wrap = document.getElementById('monthOverviewWrap');
+            const isHidden = wrap.style.display === 'none';
+            wrap.style.display = isHidden ? 'block' : 'none';
+            document.getElementById('monthOverviewToggleBtn').classList.toggle('active', isHidden);
+        }
+
+        // Klick auf einen Monat in der Übersicht: Tabelle unten direkt auf
+        // diesen Monat filtern, damit man die einzelnen Tage sehen kann.
+        function jumpToMonth(month) {
+            document.getElementById('monthFilter').value = month;
+            renderTable();
+            document.getElementById('entriesTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function updateMonthFilterOptions() {
