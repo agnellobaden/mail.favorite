@@ -340,6 +340,8 @@
         </div>
         <p class="subtitle">Täglicher Eisverkauf (z.B. freier Verkauf ohne Buchung) - Datum + Umsatz erfassen und nach Tag/Woche/Monat/gesamt auswerten.</p>
 
+        <button type="button" class="btn btn-secondary" id="refreshDataBtn" onclick="loadAllData()" style="margin-bottom:15px;">🔄 Aktualisieren</button>
+
         <div class="stats">
             <div class="stat-card today">
                 <div class="label">Heute</div>
@@ -486,22 +488,39 @@
                 });
             }
             db = firebase.firestore();
-            db.collection('tageseinnahmen').onSnapshot(snapshot => {
+            loadAllData();
+        }
+
+        // Lädt beide Collections einmalig per get() statt mit einem dauerhaften
+        // Live-Listener (onSnapshot) - diese Seite braucht keine Sekunden-genaue
+        // Live-Synchronisation zwischen Geräten, und onSnapshot auf der kompletten
+        // "buchungen"-Collection hier zusätzlich zu buchungen-uebersicht.html hat
+        // unnötig stark am Firebase-Tageskontingent gezehrt. Nach eigenen
+        // Änderungen (Eintrag hinzufügen/bearbeiten/löschen) wird gezielt neu
+        // geladen; für Änderungen von anderen Geräten gibt's den "Aktualisieren"-Button.
+        function loadAllData() {
+            const btn = document.getElementById('refreshDataBtn');
+            if (btn) btn.textContent = '🔄 Lädt...';
+
+            Promise.all([
+                db.collection('tageseinnahmen').get(),
+                db.collection('buchungen').get()
+            ]).then(([entriesSnap, bookingsSnap]) => {
                 allEntries = [];
-                snapshot.forEach(doc => allEntries.push({ ...doc.data(), id: doc.id }));
-                refreshAll();
-            }, error => {
-                console.error('Firestore-Fehler:', error);
-            });
-            db.collection('buchungen').onSnapshot(snapshot => {
+                entriesSnap.forEach(doc => allEntries.push({ ...doc.data(), id: doc.id }));
+
                 allBookingEntries = [];
-                snapshot.forEach(doc => {
+                bookingsSnap.forEach(doc => {
                     const entry = bookingToEntry(doc.id, doc.data());
                     if (entry) allBookingEntries.push(entry);
                 });
+
                 refreshAll();
-            }, error => {
-                console.error('Firestore-Fehler (Buchungen):', error);
+            }).catch(error => {
+                console.error('Firestore-Fehler:', error);
+                alert('❌ Daten konnten nicht geladen werden: ' + error.message);
+            }).finally(() => {
+                if (btn) btn.textContent = '🔄 Aktualisieren';
             });
         }
 
@@ -753,6 +772,8 @@
 
             db.collection('buchungen').doc(bookingId).update({
                 'invoiceData.paymentMethod': paymentMethod
+            }).then(() => {
+                loadAllData();
             }).catch(err => {
                 alert('❌ Konnte Zahlungsart nicht speichern: ' + err.message);
             });
@@ -768,7 +789,9 @@
 
             if (!confirm(`Achtung: Das löscht die komplette Buchung "${entry.note}" (${entry.date}, ${formatEuro(entry.amount)}) unwiderruflich - nicht nur diesen Umsatz-Eintrag!\n\nWirklich löschen?`)) return;
 
-            db.collection('buchungen').doc(bookingId).delete().catch(err => {
+            db.collection('buchungen').doc(bookingId).delete().then(() => {
+                loadAllData();
+            }).catch(err => {
                 alert('❌ Konnte Buchung nicht löschen: ' + err.message);
             });
         }
@@ -912,6 +935,7 @@
             }).then(() => {
                 document.getElementById('entryAmount').value = '';
                 document.getElementById('entryNote').value = '';
+                loadAllData();
             }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
@@ -931,7 +955,9 @@
                 amount: newAmount,
                 note: newNote === null ? (entry.note || '') : newNote.trim(),
                 paymentMethod: paymentMethod
-            }, { merge: true }).catch(err => {
+            }, { merge: true }).then(() => {
+                loadAllData();
+            }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }
@@ -940,7 +966,9 @@
             const entry = allEntries.find(e => e.id === id);
             if (!entry) return;
             if (!confirm(`Eintrag vom ${entry.date || entry.dateIso} (${formatEuro(parseFloat(entry.amount) || 0)}) wirklich löschen?`)) return;
-            db.collection('tageseinnahmen').doc(id).delete().catch(err => {
+            db.collection('tageseinnahmen').doc(id).delete().then(() => {
+                loadAllData();
+            }).catch(err => {
                 alert('❌ Konnte nicht gelöscht werden: ' + err.message);
             });
         }

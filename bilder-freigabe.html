@@ -413,9 +413,13 @@
         // Verkleinert & komprimiert ein Bild im Browser zu einem JPEG-Data-URL,
         // damit es sicher unter dem 1-MB-Limit pro Firestore-Dokument bleibt
         // (gleiche Technik wie auf der öffentlichen Upload-Seite).
+        // maxDim/maxBytes bewusst moderat gehalten (nicht 1280px/500KB): jedes
+        // Foto steckt als Base64 direkt im Firestore-Dokument und wird bei
+        // jedem Laden komplett neu uebertragen - das kostenlose Firebase-
+        // Kontingent hat ein hartes Tages-/Monatslimit fuer Datenuebertragung.
         function compressImageToDataUrl(file, maxDim, maxBytes) {
-            maxDim = maxDim || 1280;
-            maxBytes = maxBytes || 500 * 1024;
+            maxDim = maxDim || 1000;
+            maxBytes = maxBytes || 280 * 1024;
             return new Promise(function(resolve, reject) {
                 var objectUrl = URL.createObjectURL(file);
                 var img = new Image();
