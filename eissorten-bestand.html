@@ -459,19 +459,28 @@
         // Auto-Verkaufsbestand - damit man ohne Scrollen sieht, wovon noch
         // genug im Lager wartet und wo die Reserve knapp/leer ist.
         function renderReserveOverview() {
-            var flavors = getAllFlavors();
+            // Nur Sorten mit tatsächlich vorhandener Reserve (>0) zeigen -
+            // eine leere Reserve ist keine "Reserve", die soll hier nicht auftauchen.
+            var flavors = getAllFlavors().filter(function(f) {
+                var s = stockData[f.id] || {};
+                return (s.reserveStock || 0) > 0;
+            });
             var renderGroup = function(title, list) {
                 if (list.length === 0) return '';
                 var items = list.map(function(f) {
                     var s = stockData[f.id] || {};
                     var reserve = s.reserveStock || 0;
-                    var cls = reserve === 0 ? 'pill-empty' : (reserve <= 1 ? 'pill-low' : '');
+                    var cls = reserve <= 1 ? 'pill-low' : '';
                     return '<li class="' + cls + '">' + f.emoji + ' ' + f.name + '<span class="pill-count">' + reserve + '</span></li>';
                 }).join('');
                 return '<div class="alert-group"><h3>' + title + '</h3><ul>' + items + '</ul></div>';
             };
             var milch = flavors.filter(function(f) { return f.category === 'milch'; });
             var frucht = flavors.filter(function(f) { return f.category === 'frucht'; });
+            if (flavors.length === 0) {
+                return '<div class="reserve-banner"><h2>📦 Reserve auf einen Blick</h2>' +
+                    '<p style="color:#666;font-size:0.9em;">Keine Reserve vorhanden - alles ist im Auto.</p></div>';
+            }
             return '<div class="reserve-banner">' +
                 '<h2>📦 Reserve auf einen Blick</h2>' +
                 renderGroup('Milcheis', milch) +
