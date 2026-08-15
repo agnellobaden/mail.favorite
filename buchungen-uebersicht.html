@@ -7654,6 +7654,13 @@
                     saveToFirebase();
                 }
 
+                // Falls beim ersten Laden (bevor Firebase antworten konnte) schon die
+                // "keine Verbindung"-Fehlermeldung angezeigt wurde, jetzt wieder
+                // ausblenden - Firebase ist ja gerade erfolgreich angekommen. Ohne das
+                // blieb die Meldung für immer stehen, auch wenn die Daten längst da sind.
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
+
                 updateFirebaseStatus('connected', '🟢 Live verbunden');
             }, (error) => {
                 console.error('✗ Synchronisations-Fehler:', error);
