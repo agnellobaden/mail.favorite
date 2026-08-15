@@ -2954,6 +2954,14 @@
         let firebaseInitialized = false;
         let unsubscribeListener = null;
 
+        // Merkt sich pro Buchungs-ID den zuletzt erfolgreich zu Firebase
+        // hochgeladenen Stand (als JSON-String), damit saveToFirebase() nur
+        // tatsächlich geänderte Buchungen erneut schreibt - vorher wurde bei
+        // JEDER Änderung (auch nur an einer einzigen Buchung) die KOMPLETTE
+        // Liste neu hochgeladen, was das tägliche Schreib-Kontingent von
+        // Firebase bei vielen gespeicherten Buchungen extrem schnell aufbraucht.
+        let lastSyncedBookingJson = {};
+
         // IDs, die gerade lokal gelöscht wurden, aber deren Firebase-Löschung noch nicht bestätigt ist.
         // Verhindert, dass der Realtime-Listener eine gerade gelöschte Buchung wieder "auferstehen" lässt.
         const pendingDeletions = new Map();
@@ -3546,8 +3554,11 @@
 
                 const batch = db.batch();
                 let processedCount = 0;
+                let skippedUnchanged = 0;
+                const writtenEntries = []; // { cleanId, json } - für Cache-Update nach erfolgreichem Commit
 
-                // Alle Buchungen in Firebase speichern
+                // Nur tatsächlich geänderte Buchungen in Firebase speichern (siehe
+                // lastSyncedBookingJson weiter oben) - nicht mehr die komplette Liste.
                 for (let i = 0; i < allBookings.length; i++) {
                     const booking = allBookings[i];
 
@@ -3597,11 +3608,18 @@
                             }
                         }
 
+                        const bookingJson = JSON.stringify(cleanBooking);
+                        if (lastSyncedBookingJson[cleanId] === bookingJson) {
+                            skippedUnchanged++;
+                            continue;
+                        }
+
                         batch.set(docRef, {
                             ...cleanBooking,
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }, { merge: true });
 
+                        writtenEntries.push({ cleanId, bookingJson });
                         processedCount++;
                     } catch (docError) {
                         console.error(`✗ Fehler bei Buchung ${i} (ID: ${cleanId}):`, docError);
@@ -3610,12 +3628,24 @@
                     }
                 }
 
+                if (processedCount === 0) {
+                    console.log('📤 Nichts zu speichern -', skippedUnchanged, 'Buchungen bereits synchron, kein Firebase-Schreibvorgang nötig.');
+                    updateFirebaseStatus('connected', '🟢 Live verbunden');
+                    return;
+                }
+
                 console.log('📤 Committe Batch zu Firebase...');
                 await batch.commit();
 
+                // Cache erst NACH erfolgreichem Commit aktualisieren, damit ein
+                // fehlgeschlagener Upload beim nächsten Versuch erneut mitgeschrieben wird.
+                writtenEntries.forEach(({ cleanId, bookingJson }) => {
+                    lastSyncedBookingJson[cleanId] = bookingJson;
+                });
+
                 console.log('✅ ==========================================');
                 console.log('✅ FIREBASE-UPLOAD ERFOLGREICH!');
-                console.log('✅ Gespeichert:', processedCount, 'von', allBookings.length, 'Buchungen');
+                console.log('✅ Gespeichert:', processedCount, 'geänderte von', allBookings.length, 'Buchungen (', skippedUnchanged, 'bereits synchron übersprungen)');
                 console.log('✅ Zeitpunkt:', new Date().toLocaleTimeString());
                 console.log('✅ ==========================================');
 
@@ -6604,6 +6634,7 @@
                     .then(() => {
                         console.log('✅ Erfolgreich aus Firebase gelöscht');
                         pendingDeletions.delete(bookingIdToDelete);
+                        delete lastSyncedBookingJson[cleanId];
                     })
                     .catch(error => {
                         console.error('❌ Firebase-Fehler:', error);
