@@ -325,7 +325,7 @@
                 }).join('');
                 var videosHtml = g.videos.map(function(video) {
                     return '<div class="photo-item">' +
-                        '<video src="' + video.url + '" controls preload="metadata" style="width:100%;height:100%;object-fit:cover;"></video>' +
+                        '<video src="' + video.url + '" controls preload="metadata" style="width:100%;height:260px;object-fit:cover;border-radius:10px;border:1px solid #ddd;"></video>' +
                         '<button class="photo-delete-btn" title="Nur dieses Video löschen" onclick=\'deletePhoto("' + video.docId + '")\'>✕</button>' +
                     '</div>';
                 }).join('');

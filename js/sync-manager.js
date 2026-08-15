@@ -7,7 +7,6 @@
 window.AppSync = (function() {
     let db = null;
     let firebaseInitialized = false;
-    let isUpdatingFromFirebase = false;
     let listeners = [];
     
     // Status UI-Update Funktion (falls vorhanden in der HTML-Datei)
@@ -131,12 +130,10 @@ window.AppSync = (function() {
         if (!firebaseInitialized || !db) return;
 
         db.collection('buchungen').onSnapshot((snapshot) => {
-            // Verhindere Rückkopplung während wir gerade hochladen
-            if (isUpdatingFromFirebase) return;
-            
-            // Pausiere kurz das Speichern, während wir die neuen Daten verarbeiten
-            isUpdatingFromFirebase = true;
-            
+            // KEIN Blocking-Flag hier - der Listener muss immer laufen, sonst
+            // verpassen wir Änderungen von anderen Geräten während wir selbst
+            // gerade hochladen (echtes Live-Update). Rückkopplungen werden
+            // stattdessen unten über den hasChanges-Vergleich vermieden.
             const firebaseBookings = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
@@ -173,11 +170,20 @@ window.AppSync = (function() {
                     }
                     // bei Gleichstand: Firebase Version behalten
                 } else {
-                    // Buchung existiert nur lokal (z.B. vor dem Sync erstellt)
-                    // Wir laden sie IMMER hoch, damit nichts verloren geht.
-                    mergedMap.set(loc.id, { data: loc, ts: locTs, source: 'local-new' });
-                    hasChanges = true;
-                    shouldUploadLocal = true;
+                    // Buchung existiert nur lokal und nicht in Firebase. Das ist
+                    // nur dann "gerade erst lokal erstellt" (hochladen!), wenn sie
+                    // frisch ist. Ist sie älter als 30s, wurde sie mit hoher
+                    // Wahrscheinlichkeit auf einem anderen Gerät gelöscht - sonst
+                    // würde jede Löschung vom Listener direkt wieder rückgängig
+                    // gemacht (re-uploaded), sobald das nächste Snapshot ankommt.
+                    const ageInSeconds = (Date.now() - locTs) / 1000;
+                    if (ageInSeconds < 30) {
+                        mergedMap.set(loc.id, { data: loc, ts: locTs, source: 'local-new' });
+                        hasChanges = true;
+                        shouldUploadLocal = true;
+                    } else {
+                        hasChanges = true; // aus dem lokalen Bestand entfernen
+                    }
                 }
             });
 
@@ -200,13 +206,11 @@ window.AppSync = (function() {
                 }
             }
 
-            isUpdatingFromFirebase = false;
             updateFirebaseStatus('connected', '🟢 Live verbunden');
-            
+
         }, (error) => {
             console.error('❌ Synchronisations-Fehler:', error);
             updateFirebaseStatus('error', '🔴 Sync-Fehler');
-            isUpdatingFromFirebase = false;
         });
     }
 
@@ -256,10 +260,7 @@ window.AppSync = (function() {
         firebaseUploadTimeout = setTimeout(async () => {
             try {
                 updateFirebaseStatus('syncing', '🔄 Speichere...');
-                
-                const wasUpdating = isUpdatingFromFirebase;
-                isUpdatingFromFirebase = true;
-                
+
                 const batch = db.batch();
                 let count = 0;
                 
@@ -294,9 +295,6 @@ window.AppSync = (function() {
             } catch (error) {
                 console.error("Fehler beim Firebase-Upload:", error);
                 updateFirebaseStatus('error', '🔴 Upload fehlgeschlagen');
-            } finally {
-                // Listener wieder aktivieren
-                isUpdatingFromFirebase = false; 
             }
         }, 300); // 300ms Verzögerung
     }
