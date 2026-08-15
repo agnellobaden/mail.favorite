@@ -75,6 +75,13 @@
             position: sticky;
             top: 20px;
             z-index: 1000;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+
+        .filter-burger-row.filter-bar-hidden {
+            opacity: 0;
+            transform: translateY(-12px);
+            pointer-events: none;
         }
 
         .filter-section {
@@ -8068,6 +8075,21 @@
                 saveAppState();
             }, 500);
         });
+
+        // Filter-Leiste blendet sich während des Scrollens aus (nimmt sonst
+        // dauerhaft Platz am Bildschirm weg, weil sie "position: sticky" ist)
+        // und erscheint 4 Sekunden nach dem letzten Scroll-Event automatisch
+        // wieder.
+        let filterHideTimeout;
+        window.addEventListener('scroll', function() {
+            const filterBar = document.querySelector('.filter-burger-row');
+            if (!filterBar) return;
+            filterBar.classList.add('filter-bar-hidden');
+            clearTimeout(filterHideTimeout);
+            filterHideTimeout = setTimeout(() => {
+                filterBar.classList.remove('filter-bar-hidden');
+            }, 4000);
+        }, { passive: true });
 
         // Vor dem Schließen des Fensters speichern
         window.addEventListener('beforeunload', function() {
