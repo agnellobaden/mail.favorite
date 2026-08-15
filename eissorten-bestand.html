@@ -81,6 +81,37 @@
         font-weight: 700;
     }
 
+    .reserve-banner {
+        background: #eef1fd;
+        border: 2px solid #667eea;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 24px;
+    }
+    .reserve-banner h2 {
+        color: #3d4b9e;
+        font-size: 1.05em;
+        margin-bottom: 8px;
+    }
+    .reserve-banner ul {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .reserve-banner li {
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.9em;
+        color: white;
+        background: #667eea;
+    }
+    .reserve-banner li.pill-empty { background: #dc3545; }
+    .reserve-banner li.pill-low { background: #e6a100; }
+    .reserve-banner li .pill-count { opacity: 0.85; font-weight: 800; margin-left: 4px; }
+    .reserve-banner .alert-group h3 { color: #3d4b9e; }
+
     .categories {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -286,6 +317,8 @@
         <h1>🍦 Eissorten-Bestand</h1>
         <p class="subtitle">"Verkauf" = was gerade im Auto ist, "Reserve" = was noch im Lager wartet. Mit ⬆️ holst du eine Wanne aus der Reserve ins Auto. Schokolade &amp; Vanille brauchen immer mindestens 2 im Verkauf.</p>
 
+        <div id="reserveArea"></div>
+
         <div id="alertArea"></div>
 
         <div class="categories" id="categoriesArea"></div>
@@ -395,7 +428,33 @@
             '</div>';
         }
 
+        // Reserve-Bestand aller Sorten auf einen Blick, unabhängig vom
+        // Auto-Verkaufsbestand - damit man ohne Scrollen sieht, wovon noch
+        // genug im Lager wartet und wo die Reserve knapp/leer ist.
+        function renderReserveOverview() {
+            var flavors = getAllFlavors();
+            var renderGroup = function(title, list) {
+                if (list.length === 0) return '';
+                var items = list.map(function(f) {
+                    var s = stockData[f.id] || {};
+                    var reserve = s.reserveStock || 0;
+                    var cls = reserve === 0 ? 'pill-empty' : (reserve <= 1 ? 'pill-low' : '');
+                    return '<li class="' + cls + '">' + f.emoji + ' ' + f.name + '<span class="pill-count">' + reserve + '</span></li>';
+                }).join('');
+                return '<div class="alert-group"><h3>' + title + '</h3><ul>' + items + '</ul></div>';
+            };
+            var milch = flavors.filter(function(f) { return f.category === 'milch'; });
+            var frucht = flavors.filter(function(f) { return f.category === 'frucht'; });
+            return '<div class="reserve-banner">' +
+                '<h2>📦 Reserve auf einen Blick</h2>' +
+                renderGroup('Milcheis', milch) +
+                renderGroup('Fruchteis', frucht) +
+            '</div>';
+        }
+
         function render() {
+            document.getElementById('reserveArea').innerHTML = renderReserveOverview();
+
             // Alarm-Banner "Jetzt nachproduzieren": Reserve zählt als Bestand mit -
             // ist noch genug in Reserve, muss NICHT neu produziert werden, nur mit
             // ⬆️ ins Auto nachgefüllt. Nur wenn Verkauf+Reserve zusammen nicht
