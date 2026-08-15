@@ -8094,7 +8094,7 @@
         window.addEventListener('scroll', function() {
             const filterBar = document.querySelector('.filter-burger-row');
             if (!filterBar) return;
-            if (isFilterOpenOrFocused()) {
+            if (isFilterOpenOrFocused() || window.scrollY <= 0) {
                 filterBar.classList.remove('filter-bar-hidden');
                 clearTimeout(filterHideTimeout);
                 return;
