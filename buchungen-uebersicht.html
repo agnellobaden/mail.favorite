@@ -8180,27 +8180,6 @@
             // Prüfe, ob eine 24h-Erinnerung fällig ist und zeige ggf. das Popup
             setTimeout(checkDueReminders, 1500);
             setInterval(checkDueReminders, 15 * 60 * 1000); // alle 15 Minuten erneut prüfen
-
-            // Dauerhafter Hintergrund-Abgleich: lokale Änderungen (z.B. während
-            // Firebase kurz nicht erreichbar war/Kontingent voll war) werden
-            // NICHT nur einmal kurz nach dem Speichern erneut versucht, sondern
-            // alle 30s so lange, bis sie erfolgreich hochgeladen wurden - dank
-            // des Diff-Caches in saveToFirebase() ist das auch bei ständigem
-            // Wiederholen kein unnötiger Mehrverbrauch, wenn ohnehin alles schon synchron ist.
-            setInterval(() => {
-                if (firebaseInitialized && db) {
-                    saveToFirebase().catch(() => {}); // Fehler sind hier bereits in saveToFirebase() geloggt
-                }
-            }, 30000);
-        });
-
-        // Sobald der Browser wieder online ist (z.B. nach Netzwerkausfall), sofort
-        // versuchen nachzuholen, statt bis zum nächsten 30s-Intervall zu warten.
-        window.addEventListener('online', () => {
-            console.log('🌐 Wieder online - versuche ausstehende Änderungen hochzuladen...');
-            if (firebaseInitialized && db) {
-                saveToFirebase().catch(() => {});
-            }
         });
 
         // Scroll-Position speichern bei Änderungen
