@@ -2096,9 +2096,6 @@
             max-height: 0 !important;
             padding: 0 15px !important;
         }
-
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #manualRefreshBtn:disabled { animation: spin 0.8s linear infinite; cursor: default; opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -2333,7 +2330,6 @@
                 <p class="subtitle">Alle Buchungen im Überblick</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button id="manualRefreshBtn" onclick="manualRefreshAll()" title="Alles aktualisieren (Buchungen, Rechnungen, Termine - egal wo geändert)" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #20c997 0%, #17a589 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(32,201,151,0.3); flex-shrink: 0;">🔄</button>
                 <button onclick="openCalendar()" title="Terminkalender öffnen" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(102,126,234,0.3); flex-shrink: 0;">📅</button>
                 <button onclick="window.location.href='strichliste-frei.html'" title="Freier Verkauf (ohne Buchung)" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(245,124,0,0.3); flex-shrink: 0;">🧮</button>
                 <button onclick="window.location.href='tageseinnahmen.html'" title="Tageseinnahmen" style="width: 46px; height: 46px; border: none; border-radius: 50%; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; font-size: 1.3em; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(40,167,69,0.3); flex-shrink: 0;">💶</button>
@@ -7730,8 +7726,7 @@
         }
 
         // Gemeinsame Merge-Logik für Buchungen (inkl. allem, was daraus abgeleitet
-        // ist wie Rechnungsstatus/Termine) - genutzt sowohl vom Live-Listener oben
-        // als auch vom manuellen "Aktualisieren"-Button (manualRefreshAll).
+        // ist wie Rechnungsstatus/Termine) - wird vom Live-Listener genutzt.
         function applyIncomingBookingsSnapshot(snapshot) {
             const firebaseBookings = [];
             snapshot.forEach((doc) => {
@@ -7763,31 +7758,6 @@
             document.getElementById('loading').style.display = 'none';
 
             updateFirebaseStatus('connected', '🟢 Live verbunden');
-        }
-
-        // Manueller "Alles aktualisieren"-Button: holt den aktuellen Stand aller
-        // Buchungen (und damit auch Rechnungsstatus/Termine, die Teil derselben
-        // Buchungsdaten sind) sowie die Anzahl ausstehender Event-Bilder frisch
-        // von Firebase, egal auf welchem Gerät/welcher Seite zuletzt etwas
-        // geändert wurde - unabhängig vom Live-Listener, für den Fall, dass man
-        // sich einfach sicher sein will, den neuesten Stand zu sehen.
-        function manualRefreshAll() {
-            if (!firebaseInitialized || !db) {
-                alert('⚠️ Keine Firebase-Verbindung - kann nicht aktualisieren.');
-                return;
-            }
-            const btn = document.getElementById('manualRefreshBtn');
-            if (btn) { btn.disabled = true; btn.textContent = '🔄'; }
-
-            db.collection('buchungen').get().then((snapshot) => {
-                applyIncomingBookingsSnapshot(snapshot);
-                return checkPendingEventPhotos();
-            }).catch((error) => {
-                console.error('❌ Manuelles Aktualisieren fehlgeschlagen:', error);
-                alert('❌ Aktualisieren fehlgeschlagen: ' + error.message);
-            }).finally(() => {
-                if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
-            });
         }
 
         // ==========================================
