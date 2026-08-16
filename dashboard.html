@@ -319,7 +319,28 @@
         // damit die auf dieser Seite berechneten Zahlen (offene Rechnungen etc.)
         // nie veraltet sind, nur weil man buchungen-uebersicht.html gerade nicht
         // offen hatte. silent=true unterdrückt Button-Feedback (Hintergrund-Check).
+        // Vergleichs-Signatur, die NICHT von der (bei Firestore nicht garantiert
+        // stabilen) Reihenfolge der Dokumente oder von der Objekt-Key-Reihenfolge
+        // abhängt - sonst würde ein reiner JSON.stringify()-Vergleich der ganzen
+        // Liste bei jedem Laden faelschlich "geändert" melden (weil sich nur die
+        // Reihenfolge unterscheidet, nicht der Inhalt) und in eine Reload-
+        // Endlosschleife laufen.
+        function bookingsSignature(list) {
+            return list
+                .map(b => (b.id || '') + ':' + (b.lastModifiedMs || 0))
+                .sort()
+                .join('|');
+        }
+
         async function refreshDashboardFromFirebase(silent) {
+            // Sicherheitsnetz: pro Tab/Session maximal EIN automatischer
+            // Hintergrund-Reload, egal was der Vergleich oben ergibt - verhindert
+            // eine Endlosschleife, falls sich die Daten (z.B. wegen laufend
+            // aktualisierter Zeitstempel) immer wieder minimal "neu" anfühlen.
+            if (silent && sessionStorage.getItem('dashboardAutoRefreshed')) {
+                return;
+            }
+
             const btn = document.getElementById('dashboardRefreshBtn');
             if (btn && !silent) { btn.disabled = true; btn.textContent = '🔄 Lädt...'; }
             try {
@@ -333,11 +354,11 @@
                     freshBookings.push({ ...data, id: doc.id });
                 });
 
-                const freshJson = JSON.stringify(freshBookings);
-                const cachedJson = localStorage.getItem('eisfavorite_bookings') || '[]';
+                const cachedBookings = JSON.parse(localStorage.getItem('eisfavorite_bookings') || '[]');
 
-                if (freshJson !== cachedJson) {
-                    localStorage.setItem('eisfavorite_bookings', freshJson);
+                if (bookingsSignature(freshBookings) !== bookingsSignature(cachedBookings)) {
+                    localStorage.setItem('eisfavorite_bookings', JSON.stringify(freshBookings));
+                    if (silent) sessionStorage.setItem('dashboardAutoRefreshed', '1');
                     location.reload();
                     return;
                 }
