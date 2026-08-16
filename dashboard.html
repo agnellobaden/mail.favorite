@@ -277,6 +277,7 @@
     <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script>
         (function() {
             var __cfg = {
@@ -301,9 +302,59 @@
                 } else {
                     var gate = document.getElementById('__authGate');
                     if (gate) gate.remove();
+                    // Dashboard zeigt sonst nur den zuletzt lokal gecachten Stand
+                    // (kein eigener Live-Listener wie buchungen-uebersicht.html) -
+                    // deshalb beim Öffnen einmal im Hintergrund gegen Firebase
+                    // prüfen, ob es einen neueren Stand gibt.
+                    if (typeof refreshDashboardFromFirebase === 'function') {
+                        refreshDashboardFromFirebase(true);
+                    }
                 }
             });
         })();
+    </script>
+    <script>
+        // Lädt den aktuellen Buchungsstand direkt aus Firestore (nicht nur aus dem
+        // lokalen Cache) und lädt die Seite neu, falls sich etwas geändert hat -
+        // damit die auf dieser Seite berechneten Zahlen (offene Rechnungen etc.)
+        // nie veraltet sind, nur weil man buchungen-uebersicht.html gerade nicht
+        // offen hatte. silent=true unterdrückt Button-Feedback (Hintergrund-Check).
+        async function refreshDashboardFromFirebase(silent) {
+            const btn = document.getElementById('dashboardRefreshBtn');
+            if (btn && !silent) { btn.disabled = true; btn.textContent = '🔄 Lädt...'; }
+            try {
+                if (!firebase.apps.length) throw new Error('Firebase nicht initialisiert');
+                const db = firebase.firestore();
+                const snapshot = await db.collection('buchungen').get();
+                const freshBookings = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    delete data.updatedAt;
+                    freshBookings.push({ ...data, id: doc.id });
+                });
+
+                const freshJson = JSON.stringify(freshBookings);
+                const cachedJson = localStorage.getItem('eisfavorite_bookings') || '[]';
+
+                if (freshJson !== cachedJson) {
+                    localStorage.setItem('eisfavorite_bookings', freshJson);
+                    location.reload();
+                    return;
+                }
+
+                if (btn && !silent) {
+                    btn.textContent = '✓ Aktuell';
+                    setTimeout(() => { btn.disabled = false; btn.textContent = '🔄 Aktualisieren'; }, 1500);
+                }
+            } catch (err) {
+                console.error('❌ Dashboard-Aktualisierung fehlgeschlagen:', err);
+                if (btn && !silent) {
+                    alert('❌ Konnte nicht aktualisieren: ' + err.message);
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Aktualisieren';
+                }
+            }
+        }
     </script>
     <div class="container">
         <div class="header">
@@ -311,7 +362,10 @@
                 <h1>Dashboard</h1>
                 <p class="subtitle">Finanz- und Umsatzübersicht</p>
             </div>
-            <a href="buchungen-uebersicht.html" class="btn btn-primary">Zurück zur Buchungsübersicht</a>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary" id="dashboardRefreshBtn" onclick="refreshDashboardFromFirebase()" title="Aktuellen Stand direkt aus der Datenbank laden (dieses Dashboard zeigt sonst nur den zuletzt lokal gespeicherten Stand)">🔄 Aktualisieren</button>
+                <a href="buchungen-uebersicht.html" class="btn btn-primary">Zurück zur Buchungsübersicht</a>
+            </div>
         </div>
 
         <!-- Statistik-Karten -->
