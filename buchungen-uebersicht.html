@@ -3024,13 +3024,23 @@
                 firebaseInitialized = true;
                 console.log('✅ Firebase Firestore verbunden');
 
-                // Echtzeit-Synchronisation starten
-                console.log('🚀 Starte Echtzeit-Synchronisation...');
-                startRealtimeSync();
-                watchPendingEventPhotos();
+                // Multi-Tab-Synchronisation: haelt nur EINE echte Firestore-Verbindung
+                // ueber alle offenen Tabs dieser Seite hinweg (IndexedDB-Cache wird
+                // zwischen Tabs geteilt) - ohne das liest JEDER offene Tab die komplette
+                // Buchungsliste separat vom Server, was bei mehreren offenen Tabs das
+                // Firebase-Lesekontingent vervielfacht. Muss VOR dem ersten Listener
+                // aufgerufen werden, deshalb startRealtimeSync() erst danach.
+                db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+                    console.warn('⚠️ Multi-Tab-Persistenz nicht verfuegbar (' + err.code + ') - jeder Tab liest einzeln, funktioniert aber weiterhin.', err);
+                }).finally(() => {
+                    // Echtzeit-Synchronisation starten
+                    console.log('🚀 Starte Echtzeit-Synchronisation...');
+                    startRealtimeSync();
+                    watchPendingEventPhotos();
+                });
 
                 updateFirebaseStatus('connected', '🟢 Live verbunden');
-                console.log('✅ Firebase KOMPLETT initialisiert und Listener aktiv!');
+                console.log('✅ Firebase KOMPLETT initialisiert!');
                 return true;
             } catch (error) {
                 console.error('❌ Firebase-Initialisierung fehlgeschlagen:', error);

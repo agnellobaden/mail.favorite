@@ -257,6 +257,12 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         var db = firebase.firestore();
+        // Multi-Tab-Synchronisation: bei mehreren offenen Tabs dieser Seite liest nur
+        // einer wirklich vom Server, die anderen teilen sich den lokalen Cache - sonst
+        // liest jeder offene Tab die (teils grossen) Fotodaten separat neu.
+        db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
+            console.warn('⚠️ Multi-Tab-Persistenz nicht verfuegbar:', err.code);
+        });
 
         var allPhotoDocs = [];
         var currentFilter = 'pending';

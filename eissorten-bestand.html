@@ -353,6 +353,11 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         var db = firebase.firestore();
+        // Multi-Tab-Synchronisation: bei mehreren offenen Tabs dieser Seite liest nur
+        // einer wirklich vom Server, die anderen teilen sich den lokalen Cache.
+        db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
+            console.warn('⚠️ Multi-Tab-Persistenz nicht verfuegbar:', err.code);
+        });
 
         // Gleiche Sorten & Emojis wie auf eisfavorite.de. Die 15 Milcheis-Sorten
         // sind der feste Auto-Verkaufsbestand - müssen immer verfügbar sein
