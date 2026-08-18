@@ -96,9 +96,11 @@ function buildFlyerGreeting(lead) {
 function buildFlyerEmail(lead) {
     const copy = FLYER_COPY[lead.category] || FLYER_COPY.firma;
     const greeting = buildFlyerGreeting(lead);
-    // Button führt direkt zur echten Website (nicht über eine Zwischenseite) -
-    // Klick wird über den Tracking-Redirect gezählt ("🌐 Website besucht").
-    const websiteUrl = 'https://maileisfavorite.vercel.app/api/track?event=click&id=' + encodeURIComponent(lead.id) + '&dest=' + encodeURIComponent('https://eisfavorite.de');
+    // Button führt IMMER direkt zur echten Website (nie über einen Zwischen-
+    // Redirect) - Werbeblocker blockieren zuverlässig jede URL mit "track" im
+    // Pfad, das würde den Klick sonst komplett verhindern. Das "🌐 Website
+    // besucht"-Tracking läuft stattdessen als Hintergrund-Beacon auf eisfavorite.de.
+    const websiteUrl = 'https://eisfavorite.de/?lead=' + encodeURIComponent(lead.id);
     const subject = copy.subjectPrefix + lead.name;
     const featuresHtml = copy.features.map(([icon, label], i) => `
         <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">${icon}<br><span style="font-size:0.85em; font-weight:600; color:#333;">${label}</span></td>${i < copy.features.length - 1 ? '<td style="width:4%;"></td>' : ''}`).join('');
@@ -131,9 +133,9 @@ function buildFlyerEmail(lead) {
     Favoritenstrasse 11 · 76456 Kuppenheim<br>
     Tel: +49 176 56813172 · eisfavorit@gmail.com<br><br>
     Kein Interesse? Einfach mit "Kein Interesse" antworten, oder
-    <a href="https://maileisfavorite.vercel.app/api/track?event=unsubscribe&id=${encodeURIComponent(lead.id)}" style="color:#999;">hier von weiteren Werbe-Mails abmelden</a>.
+    <a href="https://maileisfavorite.vercel.app/api/e?event=unsubscribe&id=${encodeURIComponent(lead.id)}" style="color:#999;">hier von weiteren Werbe-Mails abmelden</a>.
   </div>
-  <img src="https://maileisfavorite.vercel.app/api/track?event=open&id=${encodeURIComponent(lead.id)}" width="1" height="1" alt="" style="display:block; border:0;">
+  <img src="https://maileisfavorite.vercel.app/api/e?event=open&id=${encodeURIComponent(lead.id)}" width="1" height="1" alt="" style="display:block; border:0;">
 </div>`;
     return { subject, html };
 }

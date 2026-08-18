@@ -182,14 +182,13 @@
             noteEl.style.display = 'block';
         }
 
-        // Klick auf den Website-Button läuft über den Tracking-Redirect, damit
-        // in der Werbung-Statistik sichtbar wird, wer wirklich zu eisfavorite.de
-        // weitergegangen ist (nicht nur die E-Mail geöffnet hat).
+        // Website-Button führt IMMER direkt zu eisfavorite.de (kein Zwischen-
+        // Redirect mehr - Werbeblocker blockieren zuverlässig jede URL mit
+        // "track" im Pfad, das hat den Klick sonst komplett verhindert). Das
+        // "Website besucht"-Tracking läuft als Hintergrund-Beacon auf eisfavorite.de.
         const leadId = params.get('id');
         if (leadId) {
-            const dest = encodeURIComponent('https://eisfavorite.de');
-            document.getElementById('ctaLink').href =
-                'https://maileisfavorite.vercel.app/api/track?event=click&id=' + encodeURIComponent(leadId) + '&dest=' + dest;
+            document.getElementById('ctaLink').href = 'https://eisfavorite.de/?lead=' + encodeURIComponent(leadId);
         }
     </script>
 </body>
