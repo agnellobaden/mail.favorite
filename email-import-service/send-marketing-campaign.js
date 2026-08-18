@@ -93,19 +93,12 @@ function buildFlyerGreeting(lead) {
     return firstPerson ? ('Hallo ' + firstPerson + ',') : 'Sehr geehrte Damen und Herren,';
 }
 
-function buildFlyerUrl(lead) {
-    const cp = (lead.contactPerson || '').replace(/\(.*?\)/g, '').trim();
-    const firstPerson = cp ? cp.split(',')[0].trim() : '';
-    let url = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
-    if (firstPerson) url += '&name=' + encodeURIComponent(firstPerson);
-    url += '&id=' + encodeURIComponent(lead.id);
-    return url;
-}
-
 function buildFlyerEmail(lead) {
     const copy = FLYER_COPY[lead.category] || FLYER_COPY.firma;
     const greeting = buildFlyerGreeting(lead);
-    const flyerUrl = buildFlyerUrl(lead);
+    // Button führt direkt zur echten Website (nicht über eine Zwischenseite) -
+    // Klick wird über den Tracking-Redirect gezählt ("🌐 Website besucht").
+    const websiteUrl = 'https://maileisfavorite.vercel.app/api/track?event=click&id=' + encodeURIComponent(lead.id) + '&dest=' + encodeURIComponent('https://eisfavorite.de');
     const subject = copy.subjectPrefix + lead.name;
     const featuresHtml = copy.features.map(([icon, label], i) => `
         <td style="width:25%; text-align:center; padding:10px; background:#f8f9fa; border-radius:10px;">${icon}<br><span style="font-size:0.85em; font-weight:600; color:#333;">${label}</span></td>${i < copy.features.length - 1 ? '<td style="width:4%;"></td>' : ''}`).join('');
@@ -128,12 +121,13 @@ function buildFlyerEmail(lead) {
       </tr>
     </table>
     <div style="text-align:center; margin:26px 0 10px;">
-      <a href="${flyerUrl}" target="_blank" style="display:inline-block; background:linear-gradient(135deg, #ff9800 0%, #f57c00 100%); background-color:#f57c00; color:#ffffff; text-decoration:none; font-weight:700; font-size:1.1em; padding:15px 38px; border-radius:50px;">🍦 Jetzt unverbindlich anfragen</a>
+      <a href="${websiteUrl}" target="_blank" style="display:inline-block; background:linear-gradient(135deg, #ff9800 0%, #f57c00 100%); background-color:#f57c00; color:#ffffff; text-decoration:none; font-weight:700; font-size:1.1em; padding:15px 38px; border-radius:50px;">🍦 Jetzt unverbindlich anfragen</a>
       <p style="margin-top:10px; color:#888; font-size:0.85em;">Klicken Sie hier für mehr Infos und um direkt anzufragen</p>
     </div>
   </div>
   <div style="background:#f8f9fa; padding:22px 26px; text-align:center; color:#666; font-size:0.85em; line-height:1.8; border-top:1px solid #eee;">
     <strong style="color:#333;">Eis Agnello · EisFavorite</strong><br>
+    <a href="${websiteUrl}" style="color:#667eea; text-decoration:none; font-weight:600;">www.eisfavorite.de</a><br>
     Favoritenstrasse 11 · 76456 Kuppenheim<br>
     Tel: +49 176 56813172 · eisfavorit@gmail.com<br><br>
     Kein Interesse? Einfach mit "Kein Interesse" antworten, oder
