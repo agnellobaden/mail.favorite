@@ -128,9 +128,11 @@ async function archiveReminder(booking, bookingId, daysOverdue, reminderCount) {
     });
 }
 
+const DRY_RUN = process.argv.includes('--preview');
+
 async function run() {
     console.log('='.repeat(60));
-    console.log('EisFavorite: Automatischer Zahlungserinnerungs-Versand');
+    console.log('EisFavorite: ' + (DRY_RUN ? 'VORSCHAU (kein Versand)' : 'Automatischer Versand') + ' - Zahlungserinnerungen');
     console.log('='.repeat(60));
 
     const snapshot = await db.collection('buchungen').where('invoiceSent', '==', true).get();
@@ -185,6 +187,13 @@ async function run() {
         }
 
         const reminderCount = (booking.paymentReminderCount || 0) + 1;
+
+        if (DRY_RUN) {
+            console.log(`  📧 WÜRDE senden an: ${booking.email} (${booking.name || booking.company || '-'}), Erinnerung #${reminderCount}, ${daysOverdue} Tage überfällig, Betrag ${booking.invoiceAmount || '?'}`);
+            sent++;
+            continue;
+        }
+
         const { subject, text } = buildReminderEmail(booking, daysOverdue);
 
         try {
@@ -217,7 +226,7 @@ async function run() {
     }
 
     console.log('\n' + '='.repeat(60));
-    console.log(`Fertig. ${sent} Erinnerung(en) versendet, ${skipped} Buchung(en) übersprungen.`);
+    console.log(`Fertig. ${sent} Erinnerung(en) ${DRY_RUN ? 'würden versendet werden' : 'versendet'}, ${skipped} Buchung(en) übersprungen.`);
     console.log('='.repeat(60));
 }
 
