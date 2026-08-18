@@ -418,9 +418,11 @@
             <div id="campaignMatchCount" style="background:#f8f9fa; border-radius:8px; padding:10px 14px; font-size:0.9em; font-weight:600; color:#333; margin-bottom:18px;">0 Empfänger ausgewählt</div>
 
             <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-secondary" id="campaignTestBtn" onclick="sendCampaignTestEmail()">🧪 Testmail an mich senden (eisfavorit@gmail.com)</button>
                 <button class="btn btn-flyer" id="campaignStartBtn" onclick="startCampaignSend()">🚀 Kampagne jetzt senden</button>
                 <button class="btn btn-secondary" onclick="closeCampaignModal()">✖ Abbrechen</button>
             </div>
+            <p id="campaignTestStatus" style="font-size:0.85em; color:#28a745; margin:10px 0 0; text-align:center; display:none;"></p>
         </div>
     </div>
 
@@ -847,6 +849,38 @@
             const matches = campaignMatches();
             document.getElementById('campaignMatchCount').textContent = matches.length + ' Empfänger ausgewählt';
             document.getElementById('campaignStartBtn').disabled = matches.length === 0;
+        }
+
+        // Schickt genau EINE Beispiel-Mail (so wie sie ein echter Empfänger
+        // bekommen würde, inkl. Tracking-Pixel/Abmelde-Link) an die eigene
+        // Adresse - zum Gegenchecken, bevor die eigentliche Kampagne läuft.
+        // Markiert dabei NICHTS als kontaktiert (ist ja kein echter Empfänger).
+        function sendCampaignTestEmail() {
+            const matches = campaignMatches();
+            const sampleLead = matches[0] || {
+                id: 'test-vorschau',
+                name: 'Musterfirma GmbH',
+                category: 'firma',
+                contactPerson: 'Max Mustermann',
+                email: 'eisfavorit@gmail.com'
+            };
+
+            const { subject, html } = buildFlyerEmail(sampleLead);
+            const statusEl = document.getElementById('campaignTestStatus');
+            const btn = document.getElementById('campaignTestBtn');
+            btn.disabled = true;
+            btn.textContent = '🧪 Wird gesendet...';
+
+            sendGmailApiHtmlMessage('eisfavorit@gmail.com', '[TEST] ' + subject, html, function() {
+                btn.disabled = false;
+                btn.textContent = '🧪 Testmail an mich senden (eisfavorit@gmail.com)';
+                statusEl.textContent = '✅ Testmail gesendet an eisfavorit@gmail.com (Beispiel: "' + sampleLead.name + '") - im Postfach nachschauen.';
+                statusEl.style.display = 'block';
+            }, function(err) {
+                btn.disabled = false;
+                btn.textContent = '🧪 Testmail an mich senden (eisfavorit@gmail.com)';
+                alert('❌ Testmail konnte nicht gesendet werden: ' + err.message);
+            }, false);
         }
 
         function startCampaignSend() {
