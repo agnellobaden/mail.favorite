@@ -230,6 +230,7 @@
 
         <div class="stats">
             <div class="stat-card neu"><div class="num" id="statNeu">0</div><div class="label">Neu</div></div>
+            <div class="stat-card" style="background:#764ba2;"><div class="num" id="statGesendet">0</div><div class="label">📧 E-Mails gesendet</div></div>
             <div class="stat-card gebucht"><div class="num" id="statGebucht">0</div><div class="label">Gebucht</div></div>
             <div class="stat-card" style="background:#2196F3;"><div class="num" id="statGeoeffnet">0</div><div class="label">📬 E-Mail geöffnet</div></div>
             <div class="stat-card" style="background:#009688;"><div class="num" id="statWebsiteBesucht">0</div><div class="label">🌐 Website besucht</div></div>
@@ -651,6 +652,7 @@
         function updateStats() {
             const withEmail = allLeads.filter(l => !!l.email);
             document.getElementById('statNeu').textContent = withEmail.filter(l => (l.status || 'neu') === 'neu').length;
+            document.getElementById('statGesendet').textContent = withEmail.filter(l => !!l.lastContactedAt).length;
             document.getElementById('statGebucht').textContent = withEmail.filter(l => l.status === 'gebucht').length;
             document.getElementById('statGeoeffnet').textContent = withEmail.filter(l => l.emailOpened).length;
             document.getElementById('statWebsiteBesucht').textContent = withEmail.filter(l => l.websiteVisited).length;
