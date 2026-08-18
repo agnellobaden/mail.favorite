@@ -146,7 +146,7 @@
                 angefragt und passend für jede Unternehmensgröße.
             </p>
             <div class="cta-section">
-                <a href="https://eisfavorite.de" target="_blank" rel="noopener" class="cta-button">
+                <a href="https://eisfavorite.de" target="_blank" rel="noopener" class="cta-button" id="ctaLink">
                     🍦 Jetzt Anfrage senden
                 </a>
                 <p class="cta-hint">Klicken Sie hier, um direkt bei EisFavorite anzufragen</p>
@@ -180,6 +180,16 @@
             const noteEl = document.getElementById('personalNote');
             noteEl.textContent = text.trim();
             noteEl.style.display = 'block';
+        }
+
+        // Klick auf den Website-Button läuft über den Tracking-Redirect, damit
+        // in der Werbung-Statistik sichtbar wird, wer wirklich zu eisfavorite.de
+        // weitergegangen ist (nicht nur die E-Mail geöffnet hat).
+        const leadId = params.get('id');
+        if (leadId) {
+            const dest = encodeURIComponent('https://eisfavorite.de');
+            document.getElementById('ctaLink').href =
+                'https://maileisfavorite.vercel.app/api/track?event=click&id=' + encodeURIComponent(leadId) + '&dest=' + dest;
         }
     </script>
 </body>

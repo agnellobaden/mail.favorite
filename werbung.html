@@ -230,10 +230,10 @@
 
         <div class="stats">
             <div class="stat-card neu"><div class="num" id="statNeu">0</div><div class="label">Neu</div></div>
-            <div class="stat-card kontaktiert"><div class="num" id="statKontaktiert">0</div><div class="label">Kontaktiert</div></div>
             <div class="stat-card gebucht"><div class="num" id="statGebucht">0</div><div class="label">Gebucht</div></div>
-            <div class="stat-card abgelehnt"><div class="num" id="statAbgelehnt">0</div><div class="label">Abgelehnt</div></div>
-            <div class="stat-card" style="background:#999;"><div class="num" id="statArchiviert">0</div><div class="label">Archiviert (ohne E-Mail)</div></div>
+            <div class="stat-card" style="background:#2196F3;"><div class="num" id="statGeoeffnet">0</div><div class="label">📬 E-Mail geöffnet</div></div>
+            <div class="stat-card" style="background:#009688;"><div class="num" id="statWebsiteBesucht">0</div><div class="label">🌐 Website besucht</div></div>
+            <div class="stat-card" style="background:#ff9800;"><div class="num" id="statConversion">0</div><div class="label">📝 Anfrage/Planer genutzt</div></div>
             <div class="stat-card" style="background:#333;"><div class="num" id="statGesamt">0</div><div class="label">Gesamt</div></div>
         </div>
 
@@ -321,6 +321,7 @@
                         <th>Entfernung</th>
                         <th>Status</th>
                         <th>Zuletzt kontaktiert</th>
+                        <th title="Geöffnet / Website besucht / Anfrage-Planer genutzt">Tracking</th>
                     </tr>
                 </thead>
                 <tbody id="leadsBody"></tbody>
@@ -648,10 +649,10 @@
         function updateStats() {
             const withEmail = allLeads.filter(l => !!l.email);
             document.getElementById('statNeu').textContent = withEmail.filter(l => (l.status || 'neu') === 'neu').length;
-            document.getElementById('statKontaktiert').textContent = withEmail.filter(l => l.status === 'kontaktiert').length;
             document.getElementById('statGebucht').textContent = withEmail.filter(l => l.status === 'gebucht').length;
-            document.getElementById('statAbgelehnt').textContent = withEmail.filter(l => l.status === 'abgelehnt').length;
-            document.getElementById('statArchiviert').textContent = allLeads.filter(l => !l.email).length;
+            document.getElementById('statGeoeffnet').textContent = withEmail.filter(l => l.emailOpened).length;
+            document.getElementById('statWebsiteBesucht').textContent = withEmail.filter(l => l.websiteVisited).length;
+            document.getElementById('statConversion').textContent = withEmail.filter(l => l.usedAnfrage || l.usedPlaner).length;
             document.getElementById('statGesamt').textContent = allLeads.length;
         }
 
@@ -738,7 +739,7 @@
                     const count = filtered.filter(l => (l.category || 'firma') === category).length;
                     groupHeaderHtml = `
                     <tr class="category-group-header">
-                        <td colspan="11">${CATEGORY_LABELS[category] || category} (${count})</td>
+                        <td colspan="12">${CATEGORY_LABELS[category] || category} (${count})</td>
                     </tr>`;
                 }
 
@@ -763,6 +764,12 @@
                             </select>
                         </td>
                         <td>${lastContacted}</td>
+                        <td style="white-space:nowrap; font-size:1.1em;" title="${lead.emailOpened ? 'E-Mail geöffnet' : 'E-Mail noch nicht geöffnet'} · ${lead.websiteVisited ? 'Website besucht' : 'Website nicht besucht'} · ${(lead.usedAnfrage || lead.usedPlaner) ? 'Anfrage/Planer genutzt' : 'Anfrage/Planer nicht genutzt'}${lead.unsubscribed ? ' · Hat sich abgemeldet' : ''}">
+                            <span style="opacity:${lead.emailOpened ? 1 : 0.2};">📬</span>
+                            <span style="opacity:${lead.websiteVisited ? 1 : 0.2};">🌐</span>
+                            <span style="opacity:${(lead.usedAnfrage || lead.usedPlaner) ? 1 : 0.2};">📝</span>
+                            ${lead.unsubscribed ? '<span title="Abgemeldet">🚫</span>' : ''}
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -1222,6 +1229,7 @@
             const firstPerson = cp ? cp.split(',')[0].trim() : '';
             let url = 'https://maileisfavorite.vercel.app/flyer-firmen.html?firma=' + encodeURIComponent(lead.name);
             if (firstPerson) url += '&name=' + encodeURIComponent(firstPerson);
+            url += '&id=' + encodeURIComponent(lead.id);
             return url;
         }
 
@@ -1299,8 +1307,10 @@
     <strong style="color:#333;">Eis Agnello · EisFavorite</strong><br>
     Favoritenstrasse 11 · 76456 Kuppenheim<br>
     Tel: +49 176 56813172 · eisfavorit@gmail.com<br><br>
-    Kein Interesse? Einfach mit "Kein Interesse" antworten.
+    Kein Interesse? Einfach mit "Kein Interesse" antworten, oder
+    <a href="https://maileisfavorite.vercel.app/api/track?event=unsubscribe&id=${encodeURIComponent(lead.id)}" style="color:#999;">hier von weiteren Werbe-Mails abmelden</a>.
   </div>
+  <img src="https://maileisfavorite.vercel.app/api/track?event=open&id=${encodeURIComponent(lead.id)}" width="1" height="1" alt="" style="display:block; border:0;">
 </div>`;
             return { subject, html };
         }
