@@ -174,7 +174,6 @@ async function run() {
             await transporter.sendMail({
                 from: `Eis Agnello <${EMAIL}>`,
                 to: lead.email,
-                bcc: EMAIL,
                 subject: subject,
                 html: html
             });
