@@ -7708,7 +7708,11 @@
 
         function watchPendingEventPhotos() {
             checkPendingEventPhotos();
-            setInterval(checkPendingEventPhotos, 60000);
+            // Vorher jede Minute geprüft - lief bei offenem Tab unnötig oft im
+            // Hintergrund und verbrauchte Firestore-Lesekontingent, auch wenn
+            // niemand aktiv etwas gemacht hat. Alle 4 Stunden reicht für eine
+            // Badge-Anzeige völlig aus (max. 2-4x/Tag bei ganztägig offenem Tab).
+            setInterval(checkPendingEventPhotos, 4 * 60 * 60 * 1000);
         }
 
         function startRealtimeSync() {
