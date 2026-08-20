@@ -286,6 +286,7 @@
                     <button onclick="closeVersandMenu(); openSendLog();">📜 Versand-Verlauf</button>
                 </div>
             </div>
+            <button class="btn btn-secondary" onclick="loadLeadsOnce()" title="Liste neu von Firestore laden (z.B. um Aenderungen von anderen Geraeten oder der Tages-Kampagne zu sehen)">🔄 Aktualisieren</button>
         </div>
 
         <div class="filter-row">
@@ -596,18 +597,24 @@
                 firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
-            startRealtimeSync();
+            loadLeadsOnce();
         }
 
-        function startRealtimeSync() {
-            db.collection('marketingLeads').onSnapshot(snapshot => {
+        // Bewusst kein dauerhafter onSnapshot-Listener auf der kompletten
+        // ~1800-Eintraege-Collection: das kostet bei jedem (Neu-)Laden der Seite
+        // erneut ein volles Lesen aller Dokumente und hat unser Firestore-
+        // Lesekontingent (Spark-Tarif, 50.000/Tag) an einem Vormittag fast
+        // aufgebraucht. Stattdessen einmaliges Laden + Aktualisieren-Button;
+        // eigene Aenderungen werden direkt lokal in allLeads gespiegelt.
+        function loadLeadsOnce() {
+            db.collection('marketingLeads').get().then(snapshot => {
                 allLeads = [];
                 snapshot.forEach(doc => {
                     allLeads.push({ ...doc.data(), id: doc.id });
                 });
                 updateStats();
                 renderLeads();
-            }, error => {
+            }).catch(error => {
                 console.error('Firestore-Fehler:', error);
             });
         }
@@ -661,8 +668,11 @@
                     category,
                     lastModifiedMs: Date.now()
                 }, { merge: true }).then(() => {
+                    lead.category = category;
+                    lead.lastModifiedMs = Date.now();
                     done++;
                     if (done === allLeads.length) {
+                        renderLeads();
                         alert('✅ Kategorien für ' + done + ' Einträge aktualisiert.');
                     }
                 }).catch(err => {
@@ -956,6 +966,9 @@
                     lastContactedAt: now,
                     lastModifiedMs: now
                 }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+                if (lead.status !== 'gebucht') lead.status = 'kontaktiert';
+                lead.lastContactedAt = now;
+                lead.lastModifiedMs = now;
                 campaignQueue.shift();
                 setTimeout(campaignSendNext, 400); // kleine Pause zwischen Sendungen, um die Gmail-API nicht zu überlasten
             }, function(err) {
@@ -1017,7 +1030,15 @@
             db.collection('marketingLeads').doc(leadId).set({
                 status: newStatus,
                 lastModifiedMs: Date.now()
-            }, { merge: true }).catch(err => {
+            }, { merge: true }).then(() => {
+                const lead = allLeads.find(l => l.id === leadId);
+                if (lead) {
+                    lead.status = newStatus;
+                    lead.lastModifiedMs = Date.now();
+                    updateStats();
+                    renderLeads();
+                }
+            }).catch(err => {
                 console.error('Fehler beim Status-Update:', err);
                 alert('Status konnte nicht gespeichert werden: ' + err.message);
             });
@@ -1037,8 +1058,11 @@
                     status: 'archiviert',
                     lastModifiedMs: Date.now()
                 }, { merge: true }).then(() => {
+                    lead.status = 'archiviert';
+                    lead.lastModifiedMs = Date.now();
                     done++;
                     if (done === toArchive.length) {
+                        renderLeads();
                         alert('✅ ' + done + ' Einträge archiviert.');
                     }
                 }).catch(err => {
@@ -1112,7 +1136,7 @@
                 .replace(/^-+|-+$/g, '');
             const docId = 'lead-manuell-' + (slug || 'firma') + '-' + Date.now();
 
-            db.collection('marketingLeads').doc(docId).set({
+            const newLeadData = {
                 name,
                 category,
                 contactPerson,
@@ -1122,7 +1146,11 @@
                 employees,
                 distanceKm,
                 lastModifiedMs: Date.now()
-            }).then(() => {
+            };
+            db.collection('marketingLeads').doc(docId).set(newLeadData).then(() => {
+                allLeads.push({ ...newLeadData, id: docId });
+                updateStats();
+                renderLeads();
                 closeManualLeadForm();
                 alert('✅ "' + name + '" wurde hinzugefügt.');
             }).catch(err => {
@@ -1443,6 +1471,9 @@
                     lastContactedAt: now,
                     lastModifiedMs: now
                 }, { merge: true }).catch(err => console.error('Fehler beim Markieren als kontaktiert:', lead.name, err));
+                if (lead.status !== 'gebucht') lead.status = 'kontaktiert';
+                lead.lastContactedAt = now;
+                lead.lastModifiedMs = now;
 
                 flyerQueue.shift();
                 renderFlyerQueueModal();
@@ -1459,6 +1490,8 @@
         function closeFlyerQueueModal() {
             document.getElementById('flyerQueueModal').style.display = 'none';
             flyerQueue = [];
+            updateStats();
+            renderLeads();
         }
 
         function importRecherchierteLeads() {
@@ -1479,6 +1512,7 @@
                 }, { merge: true }).then(() => {
                     done++;
                     if (done === RECHERCHIERTE_LEADS_KUPPENHEIM.length) {
+                        loadLeadsOnce();
                         alert('✅ Import abgeschlossen: ' + done + ' Einträge.');
                     }
                 }).catch(err => {
