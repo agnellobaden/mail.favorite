@@ -197,8 +197,9 @@
         .container { padding: 15px; }
         table { font-size: 0.8em; }
         th, td { padding: 8px 6px; }
-        .sticky-header { padding-top: 15px; margin-top: -15px; }
-        .table-wrap { max-height: 55vh; }
+        .sticky-header { position: static; padding-top: 0; margin-top: 0; box-shadow: none; }
+        .table-wrap { max-height: none; overflow-x: auto; overflow-y: visible; border: none; }
+        th { position: static; }
     }
 </style>
 </head>
