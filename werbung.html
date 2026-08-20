@@ -181,12 +181,24 @@
     }
     .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
 
-    .table-wrap { overflow-x: auto; }
+    .table-wrap { overflow: auto; max-height: 65vh; border: 1px solid #eee; border-radius: 8px; }
+
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: white;
+        padding-top: 25px;
+        margin-top: -25px;
+        box-shadow: 0 8px 12px -8px rgba(0,0,0,0.15);
+    }
 
     @media (max-width: 700px) {
         .container { padding: 15px; }
         table { font-size: 0.8em; }
         th, td { padding: 8px 6px; }
+        .sticky-header { padding-top: 15px; margin-top: -15px; }
+        .table-wrap { max-height: 55vh; }
     }
 </style>
 </head>
@@ -222,6 +234,7 @@
         })();
     </script>
     <div class="container">
+        <div class="sticky-header">
         <div class="top-bar">
             <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
         </div>
@@ -294,6 +307,13 @@
                 <option value="bestandskunde">👤 Bestandskunde</option>
             </select>
             <input type="text" id="searchFilter" placeholder="Firma, Ort suchen..." oninput="renderLeads()">
+            <select id="trackingFilter" onchange="renderLeads()">
+                <option value="alle">Alle (Tracking)</option>
+                <option value="emailOpened">📩 E-Mail geöffnet</option>
+                <option value="websiteVisited">🌐 Website besucht</option>
+                <option value="usedAnfrage">📝 Anfrage/Planer genutzt</option>
+                <option value="unsubscribed">🚫 Will keine Werbung mehr</option>
+            </select>
             <select id="sortField" onchange="renderLeads()">
                 <option value="category">Kategorie</option>
                 <option value="">Sortieren nach...</option>
@@ -305,6 +325,7 @@
                 <option value="desc">Absteigend (größte/weiteste zuerst)</option>
                 <option value="asc">Aufsteigend (kleinste/nächste zuerst)</option>
             </select>
+        </div>
         </div>
 
         <div class="table-wrap">
@@ -664,6 +685,7 @@
             const statusFilter = document.getElementById('statusFilter').value;
             const categoryFilter = document.getElementById('categoryFilter').value;
             const searchFilter = document.getElementById('searchFilter').value.toLowerCase().trim();
+            const trackingFilter = document.getElementById('trackingFilter').value;
 
             // Nur Einträge mit E-Mail-Adresse werden in der Liste angezeigt -
             // alles andere gilt als archiviert (weiterhin in Firestore vorhanden).
@@ -682,6 +704,15 @@
                     (l.address || '').toLowerCase().includes(searchFilter) ||
                     (l.contactPerson || '').toLowerCase().includes(searchFilter)
                 );
+            }
+            if (trackingFilter === 'emailOpened') {
+                filtered = filtered.filter(l => l.emailOpened);
+            } else if (trackingFilter === 'websiteVisited') {
+                filtered = filtered.filter(l => l.websiteVisited);
+            } else if (trackingFilter === 'usedAnfrage') {
+                filtered = filtered.filter(l => l.usedAnfrage || l.usedPlaner);
+            } else if (trackingFilter === 'unsubscribed') {
+                filtered = filtered.filter(l => l.unsubscribed);
             }
 
             const sortField = document.getElementById('sortField').value;
