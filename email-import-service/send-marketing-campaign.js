@@ -20,6 +20,13 @@
  *   - firebase-service-account.json
  */
 
+// STOPP (2026-08-20): Werbekampagne auf Wunsch komplett deaktiviert - keine
+// automatischen Kampagnen-Mails mehr, egal woher dieses Skript aufgerufen
+// wird (geplante Aufgabe ist zusaetzlich deaktiviert, das hier ist die
+// zweite Sicherung direkt im Code). Zum Reaktivieren diesen Block entfernen.
+console.log('🛑 Werbekampagne ist deaktiviert - es wird nichts verschickt.');
+process.exit(0);
+
 const fs = require('fs');
 const path = require('path');
 const admin = require('firebase-admin');

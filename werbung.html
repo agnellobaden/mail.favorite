@@ -927,7 +927,10 @@
             }, false);
         }
 
+        const KAMPAGNE_GESTOPPT = true; // 2026-08-20: Werbekampagne auf Wunsch komplett deaktiviert - kein Versand mehr, auch nicht manuell. Zum Reaktivieren auf false setzen.
+
         function startCampaignSend() {
+            if (KAMPAGNE_GESTOPPT) { alert('🛑 Die Werbekampagne ist deaktiviert. Es werden keine E-Mails verschickt.'); return; }
             const matches = campaignMatches();
             if (matches.length === 0) { alert('Keine Empfänger für diese Auswahl gefunden.'); return; }
             if (!confirm(`${matches.length} E-Mails werden jetzt automatisch nacheinander über Gmail (eisfavorit@gmail.com) verschickt - ohne weitere Einzel-Bestätigung.\n\nBeim ersten Mal musst du dich einmalig bei Google anmelden und den Versand erlauben.\n\nJetzt starten?`)) return;
@@ -1409,6 +1412,7 @@
         }
 
         function sendFlyerToSelected() {
+            if (KAMPAGNE_GESTOPPT) { alert('🛑 Die Werbekampagne ist deaktiviert. Es werden keine E-Mails verschickt.'); return; }
             const selected = allLeads.filter(l => selectedLeadIds.has(l.id));
             if (selected.length === 0) {
                 alert('Bitte zuerst mindestens eine Firma/Schule mit Häkchen markieren.');
@@ -1459,6 +1463,7 @@
         // Nutzt die gemeinsame Anbindung aus js/gmail-api.js (dort auch die
         // einmalig einzurichtende GMAIL_OAUTH_CLIENT_ID, siehe ANLEITUNG-WERBUNG.md).
         function sendCurrentFlyerEmail() {
+            if (KAMPAGNE_GESTOPPT) { alert('🛑 Die Werbekampagne ist deaktiviert. Es werden keine E-Mails verschickt.'); return; }
             const lead = flyerQueue[0];
             if (!lead) return;
 
