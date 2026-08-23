@@ -204,6 +204,53 @@
 </style>
 </head>
 <body>
+    <!-- Zusätzliche Passwort-Sperre vor der eigentlichen Google-Anmeldung
+         (__authGate weiter unten) - rein clientseitig, für schnellen Zugriff
+         ohne jedes Mal den Google-Login durchzugehen. Ersetzt NICHT die
+         echte Absicherung (Firebase Auth + Firestore-Regeln), die greift
+         unabhängig davon weiterhin. -->
+    <div id="__pwGate" style="position:fixed;inset:0;background:#fff;z-index:9999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;">
+        <form id="__pwGateForm" style="text-align:center; max-width:280px; width:100%; padding:20px;">
+            <div style="font-size:2.5em; margin-bottom:10px;">🔒</div>
+            <div style="font-weight:700; color:#333; margin-bottom:14px;">Passwort erforderlich</div>
+            <input type="password" id="__pwGateInput" placeholder="Passwort" autocomplete="off"
+                style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:1em; margin-bottom:10px; box-sizing:border-box;">
+            <button type="submit" style="width:100%; padding:10px; border:none; border-radius:8px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; font-weight:700; cursor:pointer;">Entsperren</button>
+            <div id="__pwGateError" style="color:#e74c3c; font-size:0.85em; margin-top:10px; display:none;">❌ Falsches Passwort.</div>
+        </form>
+    </div>
+    <script>
+        (function() {
+            var PW_STORAGE_KEY = 'werbungPwGateUnlocked';
+            var CORRECT_PASSWORD = 'Wassermax.22';
+
+            var gate = document.getElementById('__pwGate');
+            var form = document.getElementById('__pwGateForm');
+            var input = document.getElementById('__pwGateInput');
+            var errorEl = document.getElementById('__pwGateError');
+
+            // Einmal pro Browser-Tab-Sitzung eingeben reicht - sessionStorage
+            // statt localStorage, damit ein neuer Tab/Browser-Neustart wieder sperrt.
+            if (sessionStorage.getItem(PW_STORAGE_KEY) === 'true') {
+                gate.remove();
+                return;
+            }
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (input.value === CORRECT_PASSWORD) {
+                    sessionStorage.setItem(PW_STORAGE_KEY, 'true');
+                    gate.remove();
+                } else {
+                    errorEl.style.display = 'block';
+                    input.value = '';
+                    input.focus();
+                }
+            });
+
+            setTimeout(function() { input.focus(); }, 50);
+        })();
+    </script>
     <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script>
@@ -276,7 +323,7 @@
                 <button class="btn btn-flyer" onclick="toggleVersandMenu(event)">📧 Versand ▾</button>
                 <div id="versandDropdown" class="actions-dropdown">
                     <div class="actions-group-label">🎯 Auswahl</div>
-                    <button onclick="selectVereineUndFirmen(); closeVersandMenu();">🤝🏢 Alle Vereine + Firmen (mit E-Mail) auswählen</button>
+                    <button onclick="selectVereineUndFirmen(); closeVersandMenu();">📰 Alle Newsletter-Abonnenten (mit E-Mail) auswählen</button>
                     <hr>
                     <div class="actions-group-label">🚀 Senden</div>
                     <button onclick="closeVersandMenu(); sendFlyerToSelected();">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
@@ -959,16 +1006,21 @@ Ihr EisFavorite-Team</textarea>
         // die Auswahl beim Filterwechsel wieder verwerfen würde, siehe
         // renderLeads()). Setzt den Filter danach auf "Alle Kategorien",
         // damit beide Gruppen gleichzeitig sichtbar/markiert bleiben.
+        // Wählt alle Newsletter-Abonnenten mit E-Mail aus - das sind die
+        // einzigen Kontakte mit bestätigter Einwilligung (Double-Opt-in).
+        // Vereine/Firmen/Schulen usw. sind recherchierte Kaltakquise-Adressen
+        // ohne Einwilligung und dürfen nicht per E-Mail beworben werden
+        // (§ 7 UWG) - siehe auch die harte Sperre in campaignMatches().
         function selectVereineUndFirmen() {
             document.getElementById('categoryFilter').value = 'alle';
             const targets = allLeads.filter(l =>
-                (l.category === 'verein' || l.category === 'firma') &&
+                l.category === 'newsletter' &&
                 l.email && l.status !== 'archiviert'
             );
             selectedLeadIds = new Set(targets.map(l => l.id));
             renderLeads();
             updateSelectedCount();
-            alert(`✅ ${targets.length} Einträge ausgewählt (Vereine + Firmen mit E-Mail-Adresse).\n\nJetzt auf "📧 Flyer an Ausgewählte senden" klicken, um den Versand zu starten.`);
+            alert(`✅ ${targets.length} Newsletter-Abonnenten ausgewählt.\n\nJetzt auf "📧 Flyer an Ausgewählte senden" klicken, um den Versand zu starten.`);
         }
 
         // ===== Kampagne (Kategorien + km-Grenze wählen, dann automatisch
@@ -979,14 +1031,20 @@ Ihr EisFavorite-Team</textarea>
         let campaignFailed = 0;
         let campaignCancelled = false;
 
+        // Nur "newsletter" (bestätigte Einwilligung) darf angehakt werden -
+        // alle anderen Kategorien sind recherchierte Kaltakquise-Adressen
+        // ohne Einwilligung und deshalb dauerhaft gesperrt (disabled, nicht
+        // nur standardmäßig abgewählt). Siehe auch campaignMatches().
         function openCampaignModal() {
             const list = document.getElementById('campaignCategoryList');
-            list.innerHTML = CATEGORY_ORDER.map(cat => `
-                <label style="display:flex; align-items:center; gap:8px; font-size:0.92em; color:#333; cursor:pointer;">
-                    <input type="checkbox" class="campaign-cat-cb" value="${cat}" ${cat === 'newsletter' ? 'checked' : ''} onchange="updateCampaignMatchCount()">
-                    ${CATEGORY_LABELS[cat] || cat}
-                </label>
-            `).join('');
+            list.innerHTML = CATEGORY_ORDER.map(cat => {
+                const allowed = cat === 'newsletter';
+                return `
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.92em; color:${allowed ? '#333' : '#aaa'}; cursor:${allowed ? 'pointer' : 'not-allowed'};" title="${allowed ? '' : 'Gesperrt: keine bestätigte Einwilligung (§ 7 UWG)'}">
+                    <input type="checkbox" class="campaign-cat-cb" value="${cat}" ${allowed ? 'checked' : ''} ${allowed ? '' : 'disabled'} onchange="updateCampaignMatchCount()">
+                    ${CATEGORY_LABELS[cat] || cat} ${allowed ? '' : '🔒'}
+                </label>`;
+            }).join('');
             document.getElementById('campaignMaxKm').value = '';
             document.getElementById('campaignModal').style.display = 'flex';
             updateCampaignMatchCount();
@@ -997,7 +1055,12 @@ Ihr EisFavorite-Team</textarea>
         }
 
         function campaignMatches() {
-            const checkedCats = [...document.querySelectorAll('.campaign-cat-cb:checked')].map(cb => cb.value);
+            // Harte Sperre unabhängig von der Checkbox-UI: nur "newsletter"
+            // hat bestätigte Einwilligung, alle anderen Kategorien dürfen
+            // niemals in einer Kampagne landen, egal was angehakt ist.
+            const checkedCats = [...document.querySelectorAll('.campaign-cat-cb:checked')]
+                .map(cb => cb.value)
+                .filter(cat => cat === 'newsletter');
             const maxKmRaw = document.getElementById('campaignMaxKm').value.trim();
             const maxKm = maxKmRaw === '' ? null : parseFloat(maxKmRaw);
             return allLeads.filter(l =>
@@ -1073,6 +1136,15 @@ Ihr EisFavorite-Team</textarea>
                 return;
             }
             const lead = campaignQueue[0];
+            // Letzte Verteidigungslinie: unabhängig davon, wie diese Warteschlange
+            // befüllt wurde, wird niemals an eine nicht-"newsletter"-Kategorie
+            // gesendet (keine bestätigte Einwilligung, § 7 UWG).
+            if (lead.category !== 'newsletter') {
+                console.warn('🔒 Kampagne: Eintrag ohne Einwilligung übersprungen:', lead.name, lead.category);
+                campaignQueue.shift();
+                campaignSendNext();
+                return;
+            }
             const position = campaignTotal - campaignQueue.length + 1;
             document.getElementById('campaignProgressBar').style.width = Math.round((position - 1) / campaignTotal * 100) + '%';
             document.getElementById('campaignProgressText').textContent = `Sende ${position} von ${campaignTotal}: ${lead.name}...`;
@@ -1540,13 +1612,25 @@ Ihr EisFavorite-Team</textarea>
                 return;
             }
 
-            const withEmail = selected.filter(l => l.email);
-            const withoutEmail = selected.filter(l => !l.email);
-
-            if (withEmail.length === 0) {
-                alert('Keine der ' + selected.length + ' ausgewählten Einträge hat eine E-Mail-Adresse hinterlegt.');
+            // Harte Sperre: nur "newsletter" hat bestätigte Einwilligung
+            // (Double-Opt-in). Alle anderen Kategorien sind recherchierte
+            // Kaltakquise-Adressen ohne Einwilligung und dürfen nie per
+            // E-Mail beworben werden (§ 7 UWG) - unabhängig davon, wie sie
+            // ausgewählt wurden.
+            const gesperrt = selected.filter(l => l.category !== 'newsletter');
+            const withEmailAll = selected.filter(l => l.category === 'newsletter' && l.email);
+            if (gesperrt.length > 0) {
+                alert(`🔒 ${gesperrt.length} von ${selected.length} ausgewählten Einträgen sind gesperrt (keine bestätigte Einwilligung) und werden nicht angeschrieben:\n\n` +
+                    gesperrt.slice(0, 15).map(l => '- ' + l.name).join('\n') + (gesperrt.length > 15 ? `\n… und ${gesperrt.length - 15} weitere` : '') +
+                    `\n\nNur Newsletter-Abonnenten dürfen per E-Mail beworben werden.`);
+            }
+            if (withEmailAll.length === 0) {
+                if (gesperrt.length === 0) alert('Keine der ausgewählten Einträge hat eine E-Mail-Adresse hinterlegt.');
                 return;
             }
+
+            const withEmail = withEmailAll;
+            const withoutEmail = selected.filter(l => l.category === 'newsletter' && !l.email);
 
             let warning = '';
             if (withoutEmail.length > 0) {
@@ -1587,6 +1671,12 @@ Ihr EisFavorite-Team</textarea>
             if (KAMPAGNE_GESTOPPT) { alert('🛑 Die Werbekampagne ist deaktiviert. Es werden keine E-Mails verschickt.'); return; }
             const lead = flyerQueue[0];
             if (!lead) return;
+            // Letzte Verteidigungslinie: keine E-Mail ohne bestätigte Einwilligung.
+            if (lead.category !== 'newsletter') {
+                alert(`🔒 "${lead.name}" ist gesperrt (keine bestätigte Einwilligung) und wird übersprungen.`);
+                skipCurrent();
+                return;
+            }
 
             const { subject, html } = buildFlyerEmail(lead);
             sendGmailApiHtmlMessage(lead.email, subject, html, function() {
