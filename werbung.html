@@ -339,6 +339,11 @@
             <button class="btn btn-secondary" onclick="loadLeadsOnce()" title="Liste neu von Firestore laden (z.B. um Aenderungen von anderen Geraeten oder der Tages-Kampagne zu sehen)">🔄 Aktualisieren</button>
         </div>
 
+        <h3 onclick="toggleLeadsList()" style="margin: 20px 0 0; padding: 15px 20px; font-size: 1.1em; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
+            <span>📋 Firmenliste (<span id="leadsListCount">0</span> Einträge) - eingeklappt, Klick zum Anzeigen</span>
+            <span id="leadsListToggleIcon" style="font-size: 1.2em; transition: transform 0.3s;">▶</span>
+        </h3>
+        <div id="leadsListContainer" style="display: none; margin-top: 15px;">
         <div class="filter-row">
             <select id="statusFilter" onchange="renderLeads()">
                 <option value="alle">Alle Status (ohne Archiv)</option>
@@ -350,6 +355,7 @@
             </select>
             <select id="categoryFilter" onchange="renderLeads()">
                 <option value="alle">Alle Kategorien</option>
+                <option value="newsletter">📰 Newsletter-Abonnent</option>
                 <option value="firma">🏢 Firma</option>
                 <option value="schule">🏫 Schule</option>
                 <option value="kindergarten">🧸 Kindergarten/Kita</option>
@@ -404,6 +410,7 @@
                 <div class="icon">📭</div>
                 <p>Noch keine Firmen gefunden. Starte die Firmensuche über den Button oben.</p>
             </div>
+        </div>
         </div>
     </div>
 
@@ -856,6 +863,19 @@ Ihr EisFavorite-Team</textarea>
             document.getElementById('statWebsiteBesucht').textContent = withEmail.filter(l => l.websiteVisited).length;
             document.getElementById('statConversion').textContent = withEmail.filter(l => l.usedAnfrage || l.usedPlaner).length;
             document.getElementById('statGesamt').textContent = allLeads.length;
+            const countEl = document.getElementById('leadsListCount');
+            if (countEl) countEl.textContent = allLeads.length;
+        }
+
+        // Firmenliste ist standardmäßig eingeklappt (u.a. damit die 1445+
+        // Einträge nicht sofort offen sichtbar sind, wenn jemand kurz über
+        // die Schulter schaut) - Klick auf die Überschrift klappt sie auf/zu.
+        function toggleLeadsList() {
+            const container = document.getElementById('leadsListContainer');
+            const icon = document.getElementById('leadsListToggleIcon');
+            const isOpen = container.style.display !== 'none';
+            container.style.display = isOpen ? 'none' : 'block';
+            icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
         }
 
         function renderLeads() {
