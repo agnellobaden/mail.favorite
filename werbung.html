@@ -223,6 +223,7 @@
         (function() {
             var PW_STORAGE_KEY = 'werbungPwGateUnlocked';
             var CORRECT_PASSWORD = 'Wassermax.22';
+            window.WERBUNG_PASSWORD = CORRECT_PASSWORD; // auch fuer toggleLeadsList() (erneute Abfrage beim Aufklappen der Firmenliste)
 
             var gate = document.getElementById('__pwGate');
             var form = document.getElementById('__pwGateForm');
@@ -869,13 +870,28 @@ Ihr EisFavorite-Team</textarea>
 
         // Firmenliste ist standardmäßig eingeklappt (u.a. damit die 1445+
         // Einträge nicht sofort offen sichtbar sind, wenn jemand kurz über
-        // die Schulter schaut) - Klick auf die Überschrift klappt sie auf/zu.
+        // die Schulter schaut). Aufklappen fragt zusätzlich nochmal das
+        // Passwort ab (nicht nur die einmalige Seiten-Sperre) - Zuklappen
+        // braucht kein Passwort.
         function toggleLeadsList() {
             const container = document.getElementById('leadsListContainer');
             const icon = document.getElementById('leadsListToggleIcon');
             const isOpen = container.style.display !== 'none';
-            container.style.display = isOpen ? 'none' : 'block';
-            icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+
+            if (isOpen) {
+                container.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+                return;
+            }
+
+            const input = prompt('🔒 Passwort zum Öffnen der Firmenliste:');
+            if (input === null) return; // abgebrochen
+            if (input !== window.WERBUNG_PASSWORD) {
+                alert('❌ Falsches Passwort.');
+                return;
+            }
+            container.style.display = 'block';
+            icon.style.transform = 'rotate(90deg)';
         }
 
         function renderLeads() {
