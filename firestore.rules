@@ -42,8 +42,12 @@ service cloud.firestore {
     // Bestätigung (pending -> confirmed) darf ebenfalls unauthentifiziert
     // passieren - aber nur mit genau diesem Token als Doc-ID (wer den Link
     // aus der E-Mail nicht kennt, kann den Token nicht erraten) und nur als
-    // exakt dieser eine Statuswechsel, sonst nichts. Lesen/Löschen bleibt dem
-    // Owner vorbehalten, damit niemand fremde E-Mail-Adressen einsehen kann.
+    // exakt dieser eine Statuswechsel, sonst nichts. Einzelnes Lesen per
+    // bekanntem Token ist ebenfalls erlaubt (die Bestätigungsseite braucht
+    // die E-Mail-Adresse, um daraus den Werbung-Lead anzulegen - siehe
+    // marketingLeads unten) - das ist keine zusätzliche Offenlegung, wer den
+    // Token kennt, kann den Eintrag ohnehin schon bestätigen. Auflisten aller
+    // Anmeldungen und Löschen bleibt dem Owner vorbehalten.
     match /newsletterSubscribers/{token} {
       allow create: if request.resource.data.status == 'pending'
                     && request.resource.data.email is string
@@ -53,7 +57,24 @@ service cloud.firestore {
                     && request.resource.data.status == 'confirmed'
                     && request.resource.data.email == resource.data.email
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedAt']);
-      allow read, delete: if isOwner();
+      allow get: if true;
+      allow list, delete: if isOwner();
+    }
+
+    // Sobald eine Newsletter-Anmeldung bestätigt ist (siehe oben), legt
+    // eisfavorite.de selbst - unauthentifiziert - einen passenden Eintrag in
+    // der Werbung-Adressliste (werbung.html) an, Kategorie fest "newsletter"
+    // und Doc-ID fest "newsletter-<token>". So landen dort ausschließlich
+    // Leute, die aktiv und bestätigt zugestimmt haben - nie die recherchierten
+    // Firmen-/Vereins-Kaltakquise-Leads. Lesen/Ändern/Löschen bleibt dem
+    // Owner vorbehalten wie bei allen anderen marketingLeads-Einträgen.
+    match /marketingLeads/{leadId} {
+      allow create: if leadId.matches('^newsletter-.+$')
+                    && request.resource.data.category == 'newsletter'
+                    && request.resource.data.email is string
+                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+                    && request.resource.data.keys().hasOnly(['name', 'category', 'email', 'sourceType', 'sourceToken', 'status', 'createdAtMs', 'lastModifiedMs']);
+      allow read, update, delete: if isOwner();
     }
 
     // Winziges öffentliches Meta-Dokument (z.B. "gibt es freigegebene Fotos?"),
