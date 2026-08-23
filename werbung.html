@@ -341,7 +341,7 @@
         </div>
 
         <h3 onclick="toggleLeadsList()" style="margin: 20px 0 0; padding: 15px 20px; font-size: 1.1em; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
-            <span>📋 Firmenliste (<span id="leadsListCount">0</span> Einträge) - eingeklappt, Klick zum Anzeigen</span>
+            <span>📋 Firmenliste (<span id="leadsListCount">0</span> Einträge) - <span id="leadsListStateLabel">eingeklappt, Klick zum Anzeigen</span></span>
             <span id="leadsListToggleIcon" style="font-size: 1.2em; transition: transform 0.3s;">▶</span>
         </h3>
         <div id="leadsListContainer" style="display: none; margin-top: 15px;">
@@ -876,11 +876,13 @@ Ihr EisFavorite-Team</textarea>
         function toggleLeadsList() {
             const container = document.getElementById('leadsListContainer');
             const icon = document.getElementById('leadsListToggleIcon');
+            const label = document.getElementById('leadsListStateLabel');
             const isOpen = container.style.display !== 'none';
 
             if (isOpen) {
                 container.style.display = 'none';
                 icon.style.transform = 'rotate(0deg)';
+                label.textContent = 'eingeklappt, Klick zum Anzeigen';
                 return;
             }
 
@@ -892,6 +894,7 @@ Ihr EisFavorite-Team</textarea>
             }
             container.style.display = 'block';
             icon.style.transform = 'rotate(90deg)';
+            label.textContent = 'aufgeklappt, Klick zum Verstecken';
         }
 
         function renderLeads() {
