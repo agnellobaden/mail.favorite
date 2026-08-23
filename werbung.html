@@ -1148,7 +1148,13 @@ Ihr EisFavorite-Team</textarea>
             }, false);
         }
 
-        const KAMPAGNE_GESTOPPT = true; // 2026-08-20: Werbekampagne auf Wunsch komplett deaktiviert - kein Versand mehr, auch nicht manuell. Zum Reaktivieren auf false setzen.
+        // 2026-08-20 deaktiviert (Kaltakquise ohne Einwilligung), 2026-08-23 auf
+        // Wunsch wieder freigegeben - inzwischen technisch auf Kategorie
+        // "newsletter" (bestaetigte Einwilligung) beschraenkt, siehe
+        // campaignMatches()/campaignSendNext()/sendFlyerToSelected()/
+        // sendCurrentFlyerEmail(). Der eigentliche Schutz vor Kaltakquise ist
+        // diese Kategorie-Sperre, nicht dieser Schalter.
+        const KAMPAGNE_GESTOPPT = false;
 
         function startCampaignSend() {
             if (KAMPAGNE_GESTOPPT) { alert('🛑 Die Werbekampagne ist deaktiviert. Es werden keine E-Mails verschickt.'); return; }
