@@ -12,6 +12,12 @@
  * landet die Nachricht automatisch als "empfangen" im emailHistory-Chat
  * dieser Buchung - genau wie in buchungen-uebersicht.html angezeigt.
  *
+ * Jede sonstige externe E-Mail (kein "Contact Us:"-Template, kein Absender
+ * einer bestehenden Buchung, kein offensichtlich automatisierter Absender
+ * wie no-reply/Mailer-Daemon) wird ebenfalls als neue Buchung angelegt und
+ * zur manuellen Prüfung markiert - damit keine Anfrage verloren geht, nur
+ * weil sie nicht exakt über das Kontaktformular kam.
+ *
  * Schreibt über das Firebase Admin SDK (Service-Account) in die Sammlung
  * "buchungen" (nicht "bookings"!) - genau die, die buchungen-uebersicht.html
  * tatsächlich anzeigt. Ein Admin-Zugang ist nötig, seit die Firestore-Regeln
@@ -83,6 +89,54 @@ async function addBookingToFirestore(booking) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Offensichtlich automatisierte/nicht-menschliche Absender (Zustellfehler,
+// Newsletter-Bestätigungen, Kalender-Benachrichtigungen usw.) - das sind keine
+// echten Kunden-Anfragen und sollen keine Buchungskarte erzeugen.
+const AUTOMATED_SENDER_RE = /no-?reply|mailer-daemon|postmaster|notifications?@|calendar-notification|@google\.com$|@facebookmail\.com$|@linkedin\.com$/i;
+
+// Legt für eine sonst nicht erkannte, aber "echt wirkende" externe E-Mail
+// trotzdem eine neue Buchung an (Status "Neu", zur manuellen Prüfung markiert),
+// statt sie zu verwerfen - damit keine Anfrage verloren geht, die nicht exakt
+// ins "Contact Us:"-Template passt (z.B. eine direkt an eisfavorit@gmail.com
+// geschriebene E-Mail statt über das Kontaktformular).
+function buildFallbackBooking(parsed, fromAddress, subject, receivedDate) {
+    const fromName = (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].name || '').trim();
+    const text = (parsed.text || '').trim().slice(0, 2000);
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    return {
+        status: 'Neu',
+        name: fromName || fromAddress,
+        email: fromAddress,
+        phone: '',
+        company: '',
+        eventType: '',
+        date: '',
+        time: '',
+        guests: '',
+        kugeln: '',
+        kugelPerGuest: '2',
+        location: '',
+        street: '',
+        plz: '',
+        city: '',
+        distance: '',
+        wunschsorten: '',
+        notizen: text,
+        eigeneNotizen: `⚠️ Automatisch importiert, kein bekanntes Formular-Template - bitte E-Mail prüfen. Betreff: "${subject}" (${receivedDate})`,
+        angebotUrl: '',
+        angebotVorlage: '',
+        rechnungUrl: '',
+        erstelltAm: todayStr,
+        aktualisiertAm: todayStr,
+        lastModified: new Date().toISOString(),
+        lastModifiedMs: Date.now(),
+        isNewFromEmail: true,
+        source: 'email',
+    };
+}
 
 // Spiegelt eine Buchung mit gültiger E-Mail als "Bestandskunde"-Lead in
 // "marketingLeads" (siehe werbung.html) - damit landen auch automatisch
@@ -288,62 +342,86 @@ async function run() {
         if (newUids.length > 0) console.log(`${newUids.length} neue E-Mail(s) seit dem letzten Lauf gefunden.`);
 
         for (const uid of newUids) {
-            const msg = await client.fetchOne(uid, { source: true }, { uid: true });
-            if (uid > highestUid) highestUid = uid;
+            try {
+                const msg = await client.fetchOne(uid, { source: true }, { uid: true });
 
-            const parsed = await simpleParser(msg.source);
-            const subject = parsed.subject || '';
+                const parsed = await simpleParser(msg.source);
+                const subject = parsed.subject || '';
 
-            if (subject.includes(CONTACT_SUBJECT)) {
-                const text = parsed.text || '';
-                const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
+                if (subject.includes(CONTACT_SUBJECT)) {
+                    const text = parsed.text || '';
+                    const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
 
-                const booking = parseContactUsEmail(text, receivedDate);
+                    const booking = parseContactUsEmail(text, receivedDate);
 
-                if (!booking.name && !booking.email) {
-                    console.log(`  ⚠️ UID ${uid} übersprungen (keine Daten erkannt, evtl. anderes Template)`);
-                    continue;
+                    if (!booking.name && !booking.email) {
+                        // Anderes/unbekanntes Template - trotzdem als Buchung anlegen
+                        // (mit Rohtext + Warnhinweis), statt die Anfrage stillschweigend
+                        // zu verwerfen. Landet so in "Neue Anfragen" zur manuellen Prüfung,
+                        // statt für immer zu verschwinden.
+                        booking.name = '(unbekannt - manuell prüfen)';
+                        booking.notizen = text.slice(0, 2000);
+                        booking.eigeneNotizen = `⚠️ Automatischer Import konnte diese Anfrage nicht auslesen (unbekanntes Template) vom ${receivedDate}. Bitte E-Mail manuell prüfen.`;
+                        console.log(`  ⚠️ UID ${uid}: keine Daten erkannt (evtl. anderes Template) - als Buchung zur manuellen Prüfung angelegt`);
+                    }
+
+                    const conflicts = await checkDateConflict(booking.date);
+                    if (conflicts.length > 0) {
+                        booking.dateConflict = true;
+                        booking.dateConflictInfo = conflicts.map(c => `${c.name || '-'} (${c.time || 'keine Uhrzeit'})`).join(', ');
+                        console.log(`  ⚠️ Terminkonflikt am ${booking.date}: bereits gebucht - ${booking.dateConflictInfo}`);
+                    }
+
+                    const docId = await addBookingToFirestore(booking);
+                    imported++;
+                    console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
+                    await syncBookingToMarketingLeads(docId, booking);
+                } else {
+                    // Kein Contact-Us-Formular - erst prüfen, ob es die Antwort eines
+                    // Kunden auf eine bestehende Buchung ist (nach Absender-E-Mail
+                    // zuordnen). Wenn nicht, trotzdem als neue Anfrage anlegen, statt
+                    // die E-Mail zu verwerfen - siehe buildFallbackBooking().
+                    const fromAddress = (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].address || '').trim();
+
+                    if (!fromAddress || fromAddress.toLowerCase() === EMAIL.toLowerCase()) {
+                        console.log(`  ⏭ UID ${uid} übersprungen (kein Anfrage-Betreff, keine externe Kunden-Antwort): "${subject}"`);
+                    } else if (AUTOMATED_SENDER_RE.test(fromAddress)) {
+                        console.log(`  ⏭ UID ${uid} übersprungen (automatisierter Absender ${fromAddress}): "${subject}"`);
+                    } else {
+                        const booking = await findBookingByEmail(fromAddress);
+                        if (booking) {
+                            const replyText = (parsed.text || '').trim().slice(0, 2000);
+                            if (!replyText) {
+                                console.log(`  ⏭ UID ${uid} übersprungen (leere Nachricht)`);
+                            } else {
+                                const receivedIso = (parsed.date || new Date()).toISOString();
+                                const docId = await appendReceivedMessageToBooking(booking, replyText, receivedIso);
+                                replied++;
+                                console.log(`  ✓ Antwort von ${fromAddress} im Chat der Buchung [Doc-ID ${docId}] gespeichert`);
+                            }
+                        } else if ((parsed.text || '').trim()) {
+                            const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
+                            const fallback = buildFallbackBooking(parsed, fromAddress, subject, receivedDate);
+                            const docId = await addBookingToFirestore(fallback);
+                            imported++;
+                            console.log(`  ✓ Anfrage (unbekanntes Template) importiert: ${fallback.name} [Doc-ID ${docId}] - Betreff: "${subject}"`);
+                            await syncBookingToMarketingLeads(docId, fallback);
+                        } else {
+                            console.log(`  ⏭ UID ${uid} übersprungen (leere Nachricht, Absender ${fromAddress} zu keiner Buchung gefunden): "${subject}"`);
+                        }
+                    }
                 }
 
-                const conflicts = await checkDateConflict(booking.date);
-                if (conflicts.length > 0) {
-                    booking.dateConflict = true;
-                    booking.dateConflictInfo = conflicts.map(c => `${c.name || '-'} (${c.time || 'keine Uhrzeit'})`).join(', ');
-                    console.log(`  ⚠️ Terminkonflikt am ${booking.date}: bereits gebucht - ${booking.dateConflictInfo}`);
-                }
-
-                const docId = await addBookingToFirestore(booking);
-                imported++;
-                console.log(`  ✓ Neue Anfrage importiert: ${booking.name} - ${booking.date || '(kein Datum)'} [Doc-ID ${docId}]`);
-                await syncBookingToMarketingLeads(docId, booking);
-                continue;
+                // Erst nach erfolgreicher Verarbeitung als "erledigt" markieren - so wird
+                // eine E-Mail, bei der unten ein Fehler auftritt, beim nächsten Lauf erneut
+                // versucht statt endgültig übersprungen zu werden.
+                if (uid > highestUid) highestUid = uid;
+            } catch (err) {
+                // Eine einzelne fehlerhafte E-Mail darf weder den ganzen Lauf abbrechen
+                // noch dazu führen, dass bereits erfolgreich importierte Anfragen aus
+                // diesem Lauf erneut dupliziert werden (siehe highestUid-Handling oben).
+                console.error(`  ❌ UID ${uid} fehlgeschlagen, wird beim nächsten Lauf erneut versucht:`, err.message);
             }
-
-            // Kein Anfrage-Formular - prüfen, ob es die Antwort eines Kunden
-            // auf eine bestehende Buchung ist (nach Absender-E-Mail zuordnen).
-            const fromAddress = (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].address || '').trim();
-
-            if (!fromAddress || fromAddress.toLowerCase() === EMAIL.toLowerCase()) {
-                console.log(`  ⏭ UID ${uid} übersprungen (kein Anfrage-Betreff, keine externe Kunden-Antwort): "${subject}"`);
-                continue;
-            }
-
-            const booking = await findBookingByEmail(fromAddress);
-            if (!booking) {
-                console.log(`  ⏭ UID ${uid} übersprungen (Absender ${fromAddress} zu keiner Buchung gefunden): "${subject}"`);
-                continue;
-            }
-
-            const replyText = (parsed.text || '').trim().slice(0, 2000);
-            if (!replyText) {
-                console.log(`  ⏭ UID ${uid} übersprungen (leere Nachricht)`);
-                continue;
-            }
-
-            const receivedIso = (parsed.date || new Date()).toISOString();
-            const docId = await appendReceivedMessageToBooking(booking, replyText, receivedIso);
-            replied++;
-            console.log(`  ✓ Antwort von ${fromAddress} im Chat der Buchung [Doc-ID ${docId}] gespeichert`);
         }
     } finally {
         lock.release();

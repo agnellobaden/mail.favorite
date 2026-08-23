@@ -36,6 +36,26 @@ service cloud.firestore {
       allow update, delete: if isOwner();
     }
 
+    // Newsletter-Anmeldung (Double-Opt-in) von eisfavorite.de: die Doc-ID IST
+    // der zufällige Bestätigungs-Token, den der Besucher per E-Mail bekommt.
+    // Anlegen (Status "pending") darf jeder unauthentifizierte Besucher, die
+    // Bestätigung (pending -> confirmed) darf ebenfalls unauthentifiziert
+    // passieren - aber nur mit genau diesem Token als Doc-ID (wer den Link
+    // aus der E-Mail nicht kennt, kann den Token nicht erraten) und nur als
+    // exakt dieser eine Statuswechsel, sonst nichts. Lesen/Löschen bleibt dem
+    // Owner vorbehalten, damit niemand fremde E-Mail-Adressen einsehen kann.
+    match /newsletterSubscribers/{token} {
+      allow create: if request.resource.data.status == 'pending'
+                    && request.resource.data.email is string
+                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+                    && request.resource.data.keys().hasOnly(['email', 'status', 'createdAt']);
+      allow update: if resource.data.status == 'pending'
+                    && request.resource.data.status == 'confirmed'
+                    && request.resource.data.email == resource.data.email
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedAt']);
+      allow read, delete: if isOwner();
+    }
+
     // Winziges öffentliches Meta-Dokument (z.B. "gibt es freigegebene Fotos?"),
     // damit die Website nicht bei jedem Seitenaufruf die komplette
     // eventPhotos-Collection samt Bilddaten abfragen muss, nur um zu prüfen,

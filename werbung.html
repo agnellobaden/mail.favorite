@@ -282,6 +282,9 @@
                     <button onclick="closeVersandMenu(); sendFlyerToSelected();">📧 Flyer an Ausgewählte senden (<span id="selectedCount">0</span>)</button>
                     <button onclick="closeVersandMenu(); openCampaignModal();">🚀 Kampagne starten (alle auf einmal)</button>
                     <hr>
+                    <div class="actions-group-label">📬 Post (E-Mail-Kampagne ist gestoppt)</div>
+                    <button onclick="closeVersandMenu(); openSerienbriefModal();">📄 Serienbrief erstellen (<span id="selectedCountBrief">0</span> ausgewählt)</button>
+                    <hr>
                     <div class="actions-group-label">📜 Historie</div>
                     <button onclick="closeVersandMenu(); openSendLog();">📜 Versand-Verlauf</button>
                 </div>
@@ -488,6 +491,41 @@
         </div>
     </div>
 
+    <div id="serienbriefModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:16px; max-width:720px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h3 style="margin:0; color:#667eea;">📄 Serienbrief erstellen</h3>
+                <button class="btn btn-secondary" onclick="closeSerienbriefModal()">✖ Schließen</button>
+            </div>
+            <p style="font-size:0.85em; color:#666; margin:0 0 16px;">
+                Werbe-E-Mails an Firmen ohne bestehenden Kontakt sind rechtlich nicht erlaubt (§ 7 UWG) - Werbebriefe per Post dagegen schon, ohne Einwilligung. Dieser Generator erstellt aus den <strong id="serienbriefCount">0</strong> ausgewählten Adressen (mit vollständiger Anschrift) fertige Briefe zum Ausdrucken/Als-PDF-Speichern.
+            </p>
+
+            <label style="display:block; font-weight:600; font-size:0.9em; color:#333; margin-bottom:6px;">Betreff</label>
+            <input id="serienbriefBetreff" type="text" value="Eis-Catering für Ihre nächste Veranstaltung"
+                style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em; margin-bottom:14px;">
+
+            <label style="display:block; font-weight:600; font-size:0.9em; color:#333; margin-bottom:6px;">
+                Brieftext - Platzhalter: <code>{{firma}}</code>, <code>{{ansprechpartner}}</code>, <code>{{adresse}}</code>, <code>{{datum}}</code>
+            </label>
+            <textarea id="serienbriefText" rows="12" style="width:100%; padding:12px; border:2px solid #ddd; border-radius:8px; font-size:0.9em; font-family:inherit; line-height:1.5; margin-bottom:16px;">Sehr geehrte(r) {{ansprechpartner}},
+
+vielleicht kennen Sie uns schon vom Wochenmarkt oder von Veranstaltungen in der Region: EisFavorite bringt frisch zubereitetes Eis direkt zu Ihrem Fest, Firmenevent oder Vereinsanlass - mit unserem Eiswagen vor Ort.
+
+Für {{firma}} könnten wir uns das gut für Sommerfeste, Jubiläen oder Kundenevents vorstellen. Gerne erstellen wir Ihnen ein unverbindliches Angebot.
+
+Sie erreichen uns telefonisch oder per E-Mail unter eisfavorit@gmail.com, oder schauen Sie einfach auf www.eisfavorite.de vorbei.
+
+Mit eisigen Grüßen
+Ihr EisFavorite-Team</textarea>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-flyer" onclick="generateSerienbrief()">📄 Briefe erzeugen &amp; drucken/als PDF speichern</button>
+                <button class="btn btn-secondary" onclick="closeSerienbriefModal()">✖ Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let db = null;
         let allLeads = [];
@@ -534,6 +572,82 @@
 
         function closeSendLog() {
             document.getElementById('sendLogModal').style.display = 'none';
+        }
+
+        // Serienbrief-Generator: erzeugt aus den ausgewählten Leads (mit
+        // Anschrift) fertige, druckbare Briefe - für den Postversand, der im
+        // Gegensatz zu Werbe-E-Mails an Firmen ohne bestehenden Kontakt keine
+        // vorherige Einwilligung braucht (§ 7 UWG betrifft nur elektronische
+        // Werbung).
+        function openSerienbriefModal() {
+            const withAddress = allLeads.filter(l => selectedLeadIds.has(l.id) && (l.address || '').trim());
+            document.getElementById('serienbriefCount').textContent = withAddress.length;
+            if (withAddress.length === 0) {
+                alert('Keine ausgewählten Einträge mit hinterlegter Anschrift gefunden.\n\nBitte zuerst in der Liste Firmen/Vereine mit Häkchen markieren (Adresse muss eingetragen sein).');
+                return;
+            }
+            document.getElementById('serienbriefModal').style.display = 'flex';
+        }
+
+        function closeSerienbriefModal() {
+            document.getElementById('serienbriefModal').style.display = 'none';
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        function generateSerienbrief() {
+            const withAddress = allLeads.filter(l => selectedLeadIds.has(l.id) && (l.address || '').trim());
+            if (withAddress.length === 0) {
+                alert('Keine ausgewählten Einträge mit hinterlegter Anschrift gefunden.');
+                return;
+            }
+
+            const subject = document.getElementById('serienbriefBetreff').value.trim();
+            const template = document.getElementById('serienbriefText').value;
+            const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            const fill = (text, lead) => text
+                .replace(/\{\{firma\}\}/g, lead.name || '')
+                .replace(/\{\{ansprechpartner\}\}/g, lead.contactPerson || 'Damen und Herren')
+                .replace(/\{\{adresse\}\}/g, lead.address || '')
+                .replace(/\{\{datum\}\}/g, today);
+
+            const pages = withAddress.map(lead => `
+                <div class="brief-seite">
+                    <div class="brief-absender">EisFavorite &middot; eisfavorit@gmail.com &middot; www.eisfavorite.de</div>
+                    <div class="brief-empfaenger">${escapeHtml(lead.name || '')}${lead.contactPerson ? '<br>' + escapeHtml(lead.contactPerson) : ''}<br>${escapeHtml(lead.address || '').replace(/\n/g, '<br>')}</div>
+                    <div class="brief-datum">${escapeHtml(today)}</div>
+                    <div class="brief-betreff">${escapeHtml(fill(subject, lead))}</div>
+                    <div class="brief-text">${escapeHtml(fill(template, lead)).replace(/\n/g, '<br>')}</div>
+                </div>
+            `).join('');
+
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <!DOCTYPE html>
+                <html lang="de"><head><meta charset="UTF-8"><title>Serienbrief - EisFavorite</title>
+                <style>
+                    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; }
+                    .brief-seite { width: 210mm; min-height: 297mm; padding: 25mm 20mm; box-sizing: border-box; page-break-after: always; }
+                    .brief-seite:last-child { page-break-after: auto; }
+                    .brief-absender { font-size: 0.75em; color: #666; border-bottom: 1px solid #ccc; padding-bottom: 6px; margin-bottom: 30px; }
+                    .brief-empfaenger { font-size: 0.95em; margin-bottom: 40px; white-space: pre-line; }
+                    .brief-datum { text-align: right; font-size: 0.9em; margin-bottom: 24px; }
+                    .brief-betreff { font-weight: 700; margin-bottom: 18px; }
+                    .brief-text { font-size: 0.95em; line-height: 1.6; }
+                    @media print { .brief-seite { padding: 20mm 18mm; } }
+                </style></head>
+                <body>${pages}</body></html>
+            `);
+            win.document.close();
+            win.focus();
+            setTimeout(() => win.print(), 400);
+
+            closeSerienbriefModal();
         }
 
         // Öffnet ein E-Mail-Compose-Fenster: am Handy per mailto: (native
@@ -1027,6 +1141,8 @@
         function updateSelectedCount() {
             const el = document.getElementById('selectedCount');
             if (el) el.textContent = selectedLeadIds.size;
+            const elBrief = document.getElementById('selectedCountBrief');
+            if (elBrief) elBrief.textContent = selectedLeadIds.size;
         }
 
         function updateLeadStatus(leadId, newStatus) {

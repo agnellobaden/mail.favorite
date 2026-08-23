@@ -2294,6 +2294,7 @@
 
                 <div class="group-label">Kommunikation</div>
                 <button onclick="document.getElementById('jsonImportInput').click(); closeBurgerMenu();">📧 E-Mails prüfen</button>
+                <button onclick="window.location.href='werbung.html';">📇 Firmenadressen / Akquise</button>
                 <button id="bilderFreigebenBtn" onclick="window.location.href='bilder-freigabe.html';">🖼️ Event-Bilder freigeben</button>
 
                 <div class="group-label">Buchhaltung</div>
@@ -3806,6 +3807,10 @@
             // Kontingent-/Netzwerkproblemen).
             if (activeSpecialFilter) {
                 applySpecialFilter(activeSpecialFilter);
+                // Karten (Neue Anfragen / Nächster Termin) müssen trotzdem aktuell
+                // bleiben, auch während ein Spezialfilter die Tabelle einschränkt.
+                if (typeof updateNewRequestsUI === 'function') updateNewRequestsUI();
+                if (typeof updateNextAppointmentUI === 'function') updateNextAppointmentUI();
                 return;
             }
 
