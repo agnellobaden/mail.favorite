@@ -403,6 +403,7 @@
                         <th>Status</th>
                         <th>Zuletzt kontaktiert</th>
                         <th title="Geöffnet / Website besucht / Anfrage-Planer genutzt">Tracking</th>
+                        <th>Aktion</th>
                     </tr>
                 </thead>
                 <tbody id="leadsBody"></tbody>
@@ -417,7 +418,7 @@
 
     <div id="manualLeadModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:20px;">
         <div style="background:#fff; border-radius:16px; max-width:460px; width:100%; padding:26px; box-shadow:0 10px 40px rgba(0,0,0,0.3); max-height:92vh; overflow-y:auto;">
-            <h3 style="margin:0 0 18px 0; color:#667eea;">➕ Firma/Schule manuell hinzufügen</h3>
+            <h3 style="margin:0 0 18px 0; color:#667eea;">➕ Eintrag manuell hinzufügen</h3>
             <form id="manualLeadForm" onsubmit="submitManualLead(event)">
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div>
@@ -427,12 +428,15 @@
                     <div>
                         <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Kategorie</label>
                         <select id="mlCategory" style="width:100%; padding:10px 12px; border:2px solid #ddd; border-radius:8px; font-size:0.95em;">
+                            <option value="newsletter">📰 Newsletter-Abonnent</option>
                             <option value="firma">🏢 Firma</option>
                             <option value="schule">🏫 Schule</option>
                             <option value="kindergarten">🧸 Kindergarten/Kita</option>
                             <option value="verein">🤝 Verein/Förderverein</option>
                             <option value="verwaltung">🏛️ Verwaltung</option>
+                            <option value="bestandskunde">👤 Bestandskunde</option>
                         </select>
+                        <p style="font-size:0.78em; color:#999; margin:4px 0 0;">⚠️ "Newsletter-Abonnent" ist die einzige Kategorie, die per E-Mail angeschrieben werden darf - nur wählen, wenn wirklich eine Einwilligung vorliegt.</p>
                     </div>
                     <div>
                         <label style="display:block; font-weight:600; font-size:0.9em; margin-bottom:4px;">Ansprechpartner</label>
@@ -990,7 +994,7 @@ Ihr EisFavorite-Team</textarea>
                     const count = filtered.filter(l => (l.category || 'firma') === category).length;
                     groupHeaderHtml = `
                     <tr class="category-group-header">
-                        <td colspan="12">${CATEGORY_LABELS[category] || category} (${count})</td>
+                        <td colspan="13">${CATEGORY_LABELS[category] || category} (${count})</td>
                     </tr>`;
                 }
 
@@ -998,11 +1002,11 @@ Ihr EisFavorite-Team</textarea>
                     <tr>
                         <td><input type="checkbox" class="lead-checkbox" data-id="${lead.id}" ${checked} onchange="toggleLeadSelection('${lead.id}', this.checked)"></td>
                         <td>${CATEGORY_LABELS[category] || category}</td>
-                        <td><strong>${lead.name || 'Unbekannt'}</strong></td>
-                        <td>${lead.contactPerson || '-'}</td>
-                        <td>${lead.address || '-'}</td>
-                        <td>${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</td>
-                        <td>${lead.email ? `<a href="#" onclick="openEmailCompose('${lead.email.replace(/'/g, "\\'")}', '', ''); return false;">${lead.email}</a>` : '-'}</td>
+                        <td><strong contenteditable="true" data-field="name" data-id="${lead.id}" onblur="saveEditedField(this)" title="Klicken zum Bearbeiten">${lead.name || 'Unbekannt'}</strong></td>
+                        <td contenteditable="true" data-field="contactPerson" data-id="${lead.id}" onblur="saveEditedField(this)" title="Klicken zum Bearbeiten">${lead.contactPerson || ''}</td>
+                        <td contenteditable="true" data-field="address" data-id="${lead.id}" onblur="saveEditedField(this)" title="Klicken zum Bearbeiten">${lead.address || ''}</td>
+                        <td contenteditable="true" data-field="phone" data-id="${lead.id}" onblur="saveEditedField(this)" title="Klicken zum Bearbeiten">${lead.phone || ''}</td>
+                        <td contenteditable="true" data-field="email" data-id="${lead.id}" onblur="saveEditedField(this)" title="Klicken zum Bearbeiten">${lead.email || ''}</td>
                         <td>${lead.employees || '-'}</td>
                         <td>${typeof lead.distanceKm === 'number' ? lead.distanceKm.toFixed(1) + ' km' : '-'}</td>
                         <td>
@@ -1021,6 +1025,7 @@ Ihr EisFavorite-Team</textarea>
                             <span style="opacity:${(lead.usedAnfrage || lead.usedPlaner) ? 1 : 0.2};">📝</span>
                             ${lead.unsubscribed ? '<span title="Abgemeldet">🚫</span>' : ''}
                         </td>
+                        <td><button onclick="deleteLead('${lead.id}', '${(lead.name || '').replace(/'/g, "\\'")}')" style="background:none; border:none; cursor:pointer; font-size:1.1em;" title="Eintrag löschen">🗑️</button></td>
                     </tr>
                 `;
             }).join('');
@@ -1282,6 +1287,43 @@ Ihr EisFavorite-Team</textarea>
             }).catch(err => {
                 console.error('Fehler beim Status-Update:', err);
                 alert('Status konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        // Direktes Bearbeiten in der Tabelle (Name/Ansprechpartner/Adresse/
+        // Telefon/E-Mail sind contenteditable) - speichert beim Verlassen
+        // des Felds (onblur), kein extra Speichern-Button nötig.
+        function saveEditedField(el) {
+            const leadId = el.dataset.id;
+            const field = el.dataset.field;
+            const value = el.textContent.trim();
+            const lead = allLeads.find(l => l.id === leadId);
+            if (lead && lead[field] === value) return; // unveraendert, kein Schreibzugriff verschwenden
+
+            db.collection('marketingLeads').doc(leadId).set({
+                [field]: value,
+                lastModifiedMs: Date.now()
+            }, { merge: true }).then(() => {
+                if (lead) {
+                    lead[field] = value;
+                    lead.lastModifiedMs = Date.now();
+                }
+            }).catch(err => {
+                console.error('Fehler beim Speichern:', err);
+                alert('Änderung konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        function deleteLead(leadId, name) {
+            if (!confirm(`"${name || 'Diesen Eintrag'}" wirklich unwiderruflich löschen?`)) return;
+            db.collection('marketingLeads').doc(leadId).delete().then(() => {
+                allLeads = allLeads.filter(l => l.id !== leadId);
+                selectedLeadIds.delete(leadId);
+                updateStats();
+                renderLeads();
+            }).catch(err => {
+                console.error('Fehler beim Löschen:', err);
+                alert('Eintrag konnte nicht gelöscht werden: ' + err.message);
             });
         }
 
