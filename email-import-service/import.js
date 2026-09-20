@@ -93,7 +93,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Offensichtlich automatisierte/nicht-menschliche Absender (Zustellfehler,
 // Newsletter-Bestätigungen, Kalender-Benachrichtigungen usw.) - das sind keine
 // echten Kunden-Anfragen und sollen keine Buchungskarte erzeugen.
-const AUTOMATED_SENDER_RE = /no-?reply|mailer-daemon|postmaster|notifications?@|calendar-notification|@google\.com$|@facebookmail\.com$|@linkedin\.com$/i;
+// Eigene Adressen des Inhabers: Mails von dort (Notizen/Fotos an sich selbst,
+// Tagesübersicht usw.) sind nie Kundenanfragen.
+const OWN_ADDRESSES = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com'];
+
+// Nur für einmaliges Nachholen nach einem Ausfall (node import.js --no-fallback):
+// legt aus unbekannten Mails KEINE Fallback-Karten an, sondern nur echte
+// "Contact Us:"-Anfragen (+ Kundenantworten in bestehenden Buchungen) - sonst
+// würde ein wochenlanger Rückstau die Anfragenliste mit Rechnungs-/Portal-Mails fluten.
+const NO_FALLBACK = process.argv.includes('--no-fallback');
+
+const AUTOMATED_SENDER_RE =/no-?reply|mailer-daemon|postmaster|notifications?@|calendar-notification|@google\.com$|@facebookmail\.com$|@linkedin\.com$/i;
 
 // Legt für eine sonst nicht erkannte, aber "echt wirkende" externe E-Mail
 // trotzdem eine neue Buchung an (Status "Neu", zur manuellen Prüfung markiert),
@@ -327,7 +337,16 @@ async function run() {
     await client.connect();
     console.log('✅ Mit Gmail verbunden.');
 
-    const lock = await client.getMailboxLock('[Gmail]/All Mail');
+    // Der Ordnername von "All Mail" hängt von der Gmail-Sprache ab und kann sich
+    // ändern (englisch "[Gmail]/All Mail", deutsch "[Gmail]/Alle Nachrichten") -
+    // Ende August 2026 wechselte er beim Postfach, wodurch der Import wochenlang
+    // mit "Unknown Mailbox" fehlschlug und keine Anfrage mehr ankam. Deshalb
+    // über das Special-Use-Flag \All suchen statt über den Namen.
+    const mailboxes = await client.list();
+    const allMail = mailboxes.find(m => m.specialUse === '\\All');
+    const allMailPath = allMail ? allMail.path : '[Gmail]/All Mail';
+    console.log(`📂 Durchsuche Ordner: ${allMailPath}`);
+    const lock = await client.getMailboxLock(allMailPath);
     let imported = 0;
     let replied = 0;
     let highestUid = state.lastUid;
@@ -383,7 +402,7 @@ async function run() {
                     // die E-Mail zu verwerfen - siehe buildFallbackBooking().
                     const fromAddress = (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].address || '').trim();
 
-                    if (!fromAddress || fromAddress.toLowerCase() === EMAIL.toLowerCase()) {
+                    if (!fromAddress || OWN_ADDRESSES.includes(fromAddress.toLowerCase())) {
                         console.log(`  ⏭ UID ${uid} übersprungen (kein Anfrage-Betreff, keine externe Kunden-Antwort): "${subject}"`);
                     } else if (AUTOMATED_SENDER_RE.test(fromAddress)) {
                         console.log(`  ⏭ UID ${uid} übersprungen (automatisierter Absender ${fromAddress}): "${subject}"`);
@@ -399,7 +418,7 @@ async function run() {
                                 replied++;
                                 console.log(`  ✓ Antwort von ${fromAddress} im Chat der Buchung [Doc-ID ${docId}] gespeichert`);
                             }
-                        } else if ((parsed.text || '').trim()) {
+                        } else if ((parsed.text || '').trim() && !NO_FALLBACK) {
                             const receivedDate = (parsed.date || new Date()).toLocaleString('de-DE');
                             const fallback = buildFallbackBooking(parsed, fromAddress, subject, receivedDate);
                             const docId = await addBookingToFirestore(fallback);
