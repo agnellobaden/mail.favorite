@@ -2368,7 +2368,7 @@
         <!-- Neue Anfragen Tabelle (aufklappbar) -->
         <div id="newRequestsSection" style="display: none; margin-bottom: 20px;">
             <div style="background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
-                <h2 style="font-size: 1.8em; color: #333; margin: 0; padding: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea;">Neue Anfragen (ab 17.07.2026)</h2>
+                <h2 style="font-size: 1.8em; color: #333; margin: 0; padding: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea;">Offene Anfragen</h2>
                 <div class="table-container">
                     <table id="newRequestsTable">
                         <thead>
@@ -3964,20 +3964,10 @@
                 console.log('🔔 24h-Erinnerungen gefiltert:', filtered.length);
 
             } else if (filterType === 'newRequests') {
-                // Neue Anfragen: Status "Neu"/"Anfrage", die diese Woche (ab Montag) reingekommen sind
-                const dayOfWeek = today.getDay();
-                const daysSinceMonday = (dayOfWeek + 6) % 7;
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - daysSinceMonday);
+                // Neue Anfragen: alle mit Status "Neu"/"Anfrage", solange der Status nicht geändert wurde
+                filtered = filtered.filter(b => b.status === 'Neu' || b.status === 'Anfrage');
 
-                filtered = filtered.filter(b => {
-                    if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
-                    if (!b.erstelltAm) return true;
-                    const created = parseDate(b.erstelltAm);
-                    return created.getTime() >= startOfWeek.getTime();
-                });
-
-                filterLabel = '🔔 Neue Anfragen (diese Woche)';
+                filterLabel = '🔔 Offene Anfragen';
                 console.log('🔔 Neue Anfragen gefiltert:', filtered.length);
             }
 
@@ -8353,20 +8343,10 @@
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Beginn dieser Woche (Montag 00:00) berechnen
-            const dayOfWeek = today.getDay(); // 0 = Sonntag, 1 = Montag, ...
-            const daysSinceMonday = (dayOfWeek + 6) % 7;
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - daysSinceMonday);
-
-            // Anfragen = Status "Neu" ODER "Anfrage", die diese Woche (ab Montag) reingekommen sind.
-            // Kein Erstellungsdatum bekannt -> sicherheitshalber trotzdem anzeigen.
-            const newRequests = allBookings.filter(b => {
-                if (b.status !== 'Neu' && b.status !== 'Anfrage') return false;
-                if (!b.erstelltAm) return true;
-                const created = parseDate(b.erstelltAm);
-                return created.getTime() >= startOfWeek.getTime();
-            });
+            // Anfragen = ALLE Buchungen mit Status "Neu" ODER "Anfrage" - ohne Zeitfenster.
+            // Die Karte bleibt vorne sichtbar, bis der Status geändert wird (vorher
+            // verschwand sie nach Ablauf der Woche, auch wenn die Anfrage noch offen war).
+            const newRequests = allBookings.filter(b => b.status === 'Neu' || b.status === 'Anfrage');
 
             console.log('🔔 Neue Anfragen gefunden:', newRequests.length);
             if (newRequests.length > 0) {
