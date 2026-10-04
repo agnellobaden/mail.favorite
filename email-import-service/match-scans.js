@@ -1,14 +1,29 @@
-// Einmalig ausführbares Skript: gleicht die PDFs im scan/-Ordner (Beträge,
-// Datum aus dem PDF-Text extrahiert) mit den Kontoauszug-Buchungen in
-// Firestore ab und trägt bei Treffern den Dateinamen ein (Feld "scanFile"),
-// damit die Buchhaltungsordner-Ansicht anzeigen kann, ob der Beleg
-// tatsächlich eingescannt vorliegt. Die PDF selbst wird als Base64-Data-URI
+// Einmalig ausführbares Skript: gleicht die Belege im scan/-Ordner (Beträge,
+// Datum extrahiert) mit den Kontoauszug-Buchungen in Firestore ab und trägt
+// bei Treffern den Dateinamen ein (Feld "scanFile"), damit die
+// Buchhaltungsordner-Ansicht anzeigen kann, ob der Beleg tatsächlich
+// eingescannt vorliegt. Die Datei selbst wird als Base64-Data-URI
 // mitgespeichert (Feld "scanDataUri"), damit man sie direkt im Browser
 // öffnen kann - genau wie die Rechnungs-PDFs im Rechnungsarchiv.
+//
+// Unterstützt zwei Belegarten:
+//  1. "Echte" PDFs mit Text-Ebene (digitale Rechnungen von Metro, Amazon,
+//     Fritz Köllemann usw.) - Datum/Betrag per pdftotext gelesen.
+//  2. Fotografierte/gescannte Belege ohne Text-Ebene (JPG direkt, oder PDF
+//     mit einem eingebetteten Bild pro Seite, wie es Scan-Apps erzeugen) -
+//     per Texterkennung (OCR, tesseract.js) gelesen. Bei eingebetteten
+//     PDF-Bildern wird das Rohbild erst aus der PDF extrahiert (nur der
+//     einfache, aber häufige Fall "ein FlateDecode-Bild pro Seite" wird
+//     unterstützt) und dabei senkrecht gespiegelt - PDF-Bilddaten sind von
+//     unten nach oben gespeichert, PNG von oben nach unten, sonst kommt ein
+//     exakt spiegelverkehrtes Bild raus (per Hand ausprobiert und bestätigt).
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { execSync } = require('child_process');
 const admin = require('firebase-admin');
+const Tesseract = require('tesseract.js');
+const { PNG } = require('pngjs');
 
 const serviceAccount = require('./firebase-service-account.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
@@ -116,6 +131,104 @@ function extractTotalsTriple(text) {
     return best;
 }
 
+// Extrahiert das (einzige) eingebettete Bild einer einfachen Scan-App-PDF
+// (ein FlateDecode-Image-XObject pro Seite) als PNG-Buffer, senkrecht
+// gespiegelt. Gibt null zurück, wenn die PDF nicht in dieses einfache Muster
+// passt (z.B. mehrere Bilder, JPEG-komprimiert, o.ä.) - dann bleibt nur die
+// manuelle Prüfung.
+function extractEmbeddedImageAsPng(filePath) {
+    const buf = fs.readFileSync(filePath);
+    const text = buf.toString('latin1');
+    const m = text.match(/\d+\s+0\s+obj\s*<<([^>]*\/Subtype\s*\/Image[^>]*)>>\s*stream\r?\n/);
+    if (!m) return null;
+    const dict = m[1];
+    if (!/\/Filter\s*\/FlateDecode/.test(dict)) return null; // nur unkomprimierte (geflatete) Rohbilder, kein JPEG/CCITT
+
+    const widthM = dict.match(/\/Width\s+(\d+)/);
+    const heightM = dict.match(/\/Height\s+(\d+)/);
+    const lengthM = dict.match(/\/Length\s+(\d+)/);
+    if (!widthM || !heightM || !lengthM) return null;
+    const width = parseInt(widthM[1], 10);
+    const height = parseInt(heightM[1], 10);
+    const length = parseInt(lengthM[1], 10);
+    const colorSpace = (dict.match(/\/ColorSpace\s*\/(\w+)/) || [, 'DeviceRGB'])[1];
+
+    const streamStart = m.index + m[0].length;
+    let pixels;
+    try {
+        pixels = zlib.inflateSync(buf.slice(streamStart, streamStart + length));
+    } catch (e) {
+        return null;
+    }
+
+    const channels = colorSpace === 'DeviceGray' ? 1 : 3;
+    if (pixels.length < width * height * channels) return null;
+
+    const png = new PNG({ width, height });
+    // Vertikal gespiegelt schreiben (PDF: Bildzeilen von unten nach oben).
+    for (let y = 0; y < height; y++) {
+        const srcY = height - 1 - y;
+        for (let x = 0; x < width; x++) {
+            const srcIdx = (srcY * width + x) * channels;
+            const dstIdx = (y * width + x) * 4;
+            if (channels === 1) {
+                png.data[dstIdx] = png.data[dstIdx + 1] = png.data[dstIdx + 2] = pixels[srcIdx];
+            } else {
+                png.data[dstIdx] = pixels[srcIdx];
+                png.data[dstIdx + 1] = pixels[srcIdx + 1];
+                png.data[dstIdx + 2] = pixels[srcIdx + 2];
+            }
+            png.data[dstIdx + 3] = 255;
+        }
+    }
+    return PNG.sync.write(png);
+}
+
+// Liest Datum + Betrag aus freiem OCR-Text (Kassenbons, fotografierte
+// Rechnungen) - deutlich unstrukturierter als eine echte PDF-Textebene,
+// deshalb robustere/allgemeinere Muster als extractDateAndAmount() oben.
+function parseReceiptText(text) {
+    // Datum: erstes TT.MM.JJJJ oder TT.MM.JJ im Text (Kassenbons zeigen das
+    // Kaufdatum meist ganz oben oder in der TSE-Zeile).
+    const dateMatch = text.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/) || text.match(/\b(\d{2})\.(\d{2})\.(\d{2})\b/);
+    if (!dateMatch) return null;
+    const yyyy = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
+    const dateIso = `${yyyy}-${dateMatch[2]}-${dateMatch[1]}`;
+
+    // Betrag: zuerst gezielt nach den üblichen "Summe"-Zeilen suchen (in
+    // Prioritätsreihenfolge), erst danach der größte im Text gefundene
+    // Betrag als letzter Ausweg - Belege haben öfter Einzelposten, die
+    // alle kleiner als die Gesamtsumme sind, aber nicht immer (z.B. bei
+    // Rabattzeilen mit Minusbeträgen), daher lieber ein Schlüsselwort treffen.
+    const keywordPatterns = [
+        /SUMME\s*(?:\[\d+\])?\s*([\d.]+,\d{2})/i,
+        /Kartenzahlung\s*EUR\s*([\d.]+,\d{2})/i,
+        /Bruttoumsatz[\s\S]{0,10}?([\d.]+,\d{2})/i,
+        /Barzahlung\s*([\d.]+,\d{2})/i,
+        /Gesamtbetrag[\s\S]{0,20}?([\d.]+,\d{2})/i,
+        /Rechnungsbetrag[\s\S]{0,20}?([\d.]+,\d{2})/i,
+        /zahlende[rn]?\s+Betrag[\s\S]{0,20}?([\d.]+,\d{2})/i
+    ];
+    let amount = null;
+    for (const re of keywordPatterns) {
+        const m = text.match(re);
+        if (m) { amount = parseGermanNumber(m[1]); break; }
+    }
+    if (amount == null) {
+        const all = [...text.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)].map(m => parseGermanNumber(m[1])).filter(n => !isNaN(n) && n > 0);
+        if (all.length > 0) amount = Math.max(...all);
+    }
+    if (amount == null) return null;
+
+    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact: null };
+}
+
+// OCR eines Bild-Buffers (PNG/JPG) - gibt dieselbe Form wie extractDateAndAmount() zurück.
+async function ocrImageBuffer(buffer) {
+    const { data } = await Tesseract.recognize(buffer, 'deu');
+    return parseReceiptText(data.text || '');
+}
+
 function extractDateAndAmount(filePath) {
     const text = runPdftotext(filePath);
     if (!text) return null;
@@ -183,13 +296,38 @@ function extractDateAndAmount(filePath) {
     return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact };
 }
 
+// Liefert { info, imageBuffer, mime } für einen einzelnen Beleg - imageBuffer
+// ist nur bei JPG oder per OCR gelesenem PDF-Scan gesetzt (dann wird dieses
+// Bild statt der Original-PDF als Data-URI gespeichert, weil die Original-
+// PDF bei diesen Scan-Apps meist viel zu groß ist).
+async function readReceipt(filePath, fileName) {
+    const ext = path.extname(fileName).toLowerCase();
+
+    if (ext === '.jpg' || ext === '.jpeg') {
+        const buffer = fs.readFileSync(filePath);
+        const info = await ocrImageBuffer(buffer);
+        return info ? { info, imageBuffer: buffer, mime: 'image/jpeg' } : null;
+    }
+
+    // PDF: zuerst die schnelle, zuverlässige Text-Ebene versuchen (digitale
+    // Rechnungen) - erst wenn das nichts findet, auf OCR des eingebetteten
+    // Bilds ausweichen (fotografierte/gescannte Belege ohne Text-Ebene).
+    const textInfo = extractDateAndAmount(filePath);
+    if (textInfo) return { info: textInfo, imageBuffer: null, mime: 'application/pdf' };
+
+    const png = extractEmbeddedImageAsPng(filePath);
+    if (!png) return null;
+    const ocrInfo = await ocrImageBuffer(png);
+    return ocrInfo ? { info: ocrInfo, imageBuffer: png, mime: 'image/png' } : null;
+}
+
 async function main() {
     if (!fs.existsSync(scanDir)) {
         console.log('Kein scan/-Ordner gefunden:', scanDir);
         return;
     }
-    const files = fs.readdirSync(scanDir).filter(f => f.toLowerCase().endsWith('.pdf'));
-    console.log(`${files.length} PDF(s) im scan/-Ordner gefunden.\n`);
+    const files = fs.readdirSync(scanDir).filter(f => /\.(pdf|jpe?g)$/i.test(f));
+    console.log(`${files.length} Beleg(e) (PDF/JPG) im scan/-Ordner gefunden.\n`);
 
     const snapshot = await db.collection('kontoauszug').get();
     const kontoauszug = [];
@@ -197,12 +335,13 @@ async function main() {
 
     let matched = 0, unmatched = 0;
     for (const file of files) {
-        const info = extractDateAndAmount(path.join(scanDir, file));
-        if (!info) {
-            console.log(`⚠ Konnte Datum/Betrag nicht aus "${file}" lesen.`);
+        const result = await readReceipt(path.join(scanDir, file), file);
+        if (!result) {
+            console.log(`⚠ Konnte Datum/Betrag nicht aus "${file}" lesen (auch nicht per Texterkennung).`);
             unmatched++;
             continue;
         }
+        const { info, imageBuffer, mime } = result;
 
         // Buchungsdatum liegt meist 1-3 Tage nach Kaufdatum (Kartenabrechnung),
         // aber bei Rechnungen (z.B. Steuerberater) können auch Wochen vergehen.
@@ -224,8 +363,11 @@ async function main() {
         }
 
         const match = candidates[0];
-        const pdfPath = path.join(scanDir, file);
-        const pdfBytes = fs.readFileSync(pdfPath);
+        // Bei OCR-gelesenen Scans (JPG oder per OCR gelesenes PDF-Bild) wird
+        // das (kleinere, bereits korrekt gedrehte) Bild gespeichert statt der
+        // Original-Datei - die Original-Scan-PDFs sind oft 10+ MB groß und
+        // würden sowieso nie als Data-URI reinpassen.
+        const sourceBytes = imageBuffer || fs.readFileSync(path.join(scanDir, file));
         const fields = { scanFile: file };
         if (info.kunde) {
             fields.kunde = info.kunde;
@@ -238,10 +380,10 @@ async function main() {
         // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
         // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen
         // speichern, keine Data-URI.
-        if (pdfBytes.length < 700 * 1024) {
-            fields.scanDataUri = 'data:application/pdf;base64,' + pdfBytes.toString('base64');
+        if (sourceBytes.length < 700 * 1024) {
+            fields.scanDataUri = `data:${mime};base64,` + sourceBytes.toString('base64');
         } else {
-            console.log(`ℹ "${file}" ist zu groß (${(pdfBytes.length / 1024).toFixed(0)} KB) - nur Dateiname gespeichert, keine Data-URI.`);
+            console.log(`ℹ "${file}" ist zu groß (${(sourceBytes.length / 1024).toFixed(0)} KB) - nur Dateiname gespeichert, keine Data-URI.`);
         }
 
         await db.collection('kontoauszug').doc(match.id).set(fields, { merge: true });

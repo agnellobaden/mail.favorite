@@ -16,3 +16,6 @@ kontoauszuege/
 
 # Niemals committen: eingescannte Rechnungen/Quittungen (persönliche Belege)
 scan/
+
+# Von tesseract.js automatisch heruntergeladenes OCR-Sprachmodell für match-scans.js
+email-import-service/*.traineddata
