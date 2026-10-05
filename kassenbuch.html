@@ -689,7 +689,10 @@
                     <td class="balance-cell">${formatEuro(e.balance)}</td>
                     <td>
                         ${e.fromTageseinnahmen
-                            ? `<button class="btn btn-danger btn-sm" onclick="deleteTageseinnahmeEntry('${e.id}')" title="Löscht den Eintrag in Tageseinnahmen">🗑️ Tageseinnahme löschen</button>`
+                            ? `<div class="row-actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editTageseinnahmeEntry('${e.id}')" title="Betrag/Notiz in Tageseinnahmen bearbeiten">✏️</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteTageseinnahmeEntry('${e.id}')" title="Löscht den Eintrag in Tageseinnahmen">🗑️ Tageseinnahme löschen</button>
+                               </div>`
                             : `<div class="row-actions">
                                 ${(e.type === 'einlage' || e.type === 'entnahme') ? `<button class="btn btn-secondary btn-sm" onclick="openEigenbeleg('${e.id}')" title="Eigenbeleg zum Ausdrucken/Unterschreiben">📝 Eigenbeleg</button>` : ''}
                                 <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">✏️</button>
@@ -762,6 +765,27 @@
 
         function setEntryMwstSatz(id, mwstSatz) {
             db.collection('kassenbuch').doc(id).set({ mwstSatz: parseInt(mwstSatz, 10) }, { merge: true }).catch(err => {
+                alert('❌ Konnte nicht gespeichert werden: ' + err.message);
+            });
+        }
+
+        // Bearbeitet den zugrundeliegenden Eintrag in tageseinnahmen.html direkt
+        // von hier aus - der Kassenbuch-Eintrag ist nur eine automatische
+        // Ableitung davon, die Änderung landet aber in derselben Collection
+        // und wirkt sich auch auf tageseinnahmen.html aus.
+        function editTageseinnahmeEntry(entryId) {
+            const entry = allTageseinnahmenEntries.find(e => e.id === entryId);
+            if (!entry) return;
+            const newAmountStr = prompt('Neuer Betrag (€) für ' + (entry.date || entry.dateIso) + ':', entry.amount);
+            if (newAmountStr === null) return;
+            const newAmount = parseFloat(newAmountStr.replace(',', '.'));
+            if (isNaN(newAmount) || newAmount < 0) { alert('Ungültiger Betrag.'); return; }
+            const newNote = prompt('Notiz (leer lassen für keine):', entry.note || '');
+            if (newNote === null) return;
+            db.collection('tageseinnahmen').doc(entry.sourceId).set({
+                amount: newAmount,
+                note: newNote.trim()
+            }, { merge: true }).catch(err => {
                 alert('❌ Konnte nicht gespeichert werden: ' + err.message);
             });
         }
