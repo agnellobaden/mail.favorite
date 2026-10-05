@@ -263,6 +263,7 @@
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
             <button class="btn btn-secondary" id="printAllBelegeBtn" onclick="printAllBelegeChronologisch()">🖨️ Alle Belege chronologisch drucken</button>
+            <button class="btn btn-secondary" id="printKontoauszugMitBelegenBtn" onclick="printKontoauszugMitBelegen()">📑 Kontoauszug komplett mit Belegen</button>
         </div>
         <p class="upload-hint">Tipp für den Papierordner: Die vergebene Beleg-Nr. (z.B. "2026-001") mit Stift auf die passende Quittung/Rechnung schreiben, bevor du sie einscannst - und die Scan-Datei genauso benennen (z.B. "2026-001.pdf"). So findet der Steuerberater über die Nummer den richtigen Beleg, auch im Papierordner.</p>
 
@@ -821,6 +822,108 @@
                 }
             } catch (err) {
                 alert('❌ Konnte Beleg-PDF nicht erstellen: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = oldLabel;
+            }
+        }
+
+        // Baut EINE PDF mit JEDER Buchung des Kontoauszugs (chronologisch),
+        // pro Buchung eine Deckblatt-Seite mit allen Details (Datum, Betrag,
+        // Verwendungszweck, Kategorie, Beleg-Nr., Notiz) - direkt gefolgt vom
+        // passenden gescannten Beleg, falls einer gespeichert ist. So ist
+        // lückenlos sichtbar, welche Buchung zu welchem Beleg gehört, auch
+        // wenn (noch) kein Beleg vorliegt.
+        async function printKontoauszugMitBelegen() {
+            if (allEntries.length === 0) {
+                alert('Keine Buchungen vorhanden.');
+                return;
+            }
+
+            const btn = document.getElementById('printKontoauszugMitBelegenBtn');
+            const oldLabel = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Erstelle PDF...';
+
+            try {
+                const entries = allEntries.slice().sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const outDoc = await PDFDocument.create();
+                const font = await outDoc.embedFont(StandardFonts.Helvetica);
+                const boldFont = await outDoc.embedFont(StandardFonts.HelveticaBold);
+
+                for (const e of entries) {
+                    const isEinnahme = e.richtung === 'einnahme';
+                    const betrag = (isEinnahme ? '+ ' : '- ') + formatEuro(parseFloat(e.betrag) || 0);
+                    const empfaenger = (e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '');
+                    const kategorieLabel = isEinnahme ? 'Zahlungseingang' : (e.category === 'geschaeft' ? (e.kategorie || 'Geschäftsausgabe') : e.category === 'privat' ? 'Privat' : '(noch nicht kategorisiert)');
+
+                    const page = outDoc.addPage([595.28, 841.89]); // A4
+                    const h = page.getHeight();
+                    page.drawText('EisFavorite - Kontoauszug', { x: 50, y: h - 50, size: 11, font: boldFont, color: rgb(0.4, 0.4, 0.4) });
+                    page.drawText(e.date || e.dateIso || '', { x: 50, y: h - 85, size: 20, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
+                    page.drawText(betrag, { x: 50, y: h - 115, size: 16, font: boldFont, color: isEinnahme ? rgb(0.1, 0.5, 0.2) : rgb(0.75, 0.15, 0.15) });
+
+                    let y = h - 150;
+                    const line = (label, value) => {
+                        if (!value) return;
+                        page.drawText(label, { x: 50, y, size: 10, font: boldFont, color: rgb(0.3, 0.3, 0.3) });
+                        page.drawText(String(value), { x: 180, y, size: 10, font, color: rgb(0.1, 0.1, 0.1) });
+                        y -= 20;
+                    };
+                    line('Buchungstext:', e.buchungstext);
+                    line('Verwendungszweck:', empfaenger);
+                    line('Kategorie:', kategorieLabel);
+                    line('Beleg-Nr.:', e.belegNr);
+                    line('Notiz:', e.note);
+                    line('Beleg-Datei:', e.scanFile);
+
+                    if (!e.scanFile) {
+                        page.drawText('(kein gescannter Beleg zu dieser Buchung gespeichert)', { x: 50, y: y - 10, size: 10, font, color: rgb(0.6, 0.6, 0.6) });
+                    }
+
+                    if (e.scanFile && e.scanDataUri) {
+                        const mime = dataUriMime(e.scanDataUri);
+                        try {
+                            if (mime === 'application/pdf') {
+                                const bytes = dataUriToBytes(e.scanDataUri);
+                                const srcPdf = await PDFDocument.load(bytes);
+                                const pages = await outDoc.copyPages(srcPdf, srcPdf.getPageIndices());
+                                pages.forEach(p => outDoc.addPage(p));
+                            } else if (mime === 'image/jpeg' || mime === 'image/png') {
+                                const bytes = dataUriToBytes(e.scanDataUri);
+                                const img = mime === 'image/jpeg' ? await outDoc.embedJpg(bytes) : await outDoc.embedPng(bytes);
+                                const imgPage = outDoc.addPage([595.28, 841.89]);
+                                const marginTop = 30, marginBottom = 20, marginSide = 20;
+                                const maxW = imgPage.getWidth() - marginSide * 2;
+                                const maxH = imgPage.getHeight() - marginTop - marginBottom;
+                                const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+                                const w = img.width * scale, hh = img.height * scale;
+                                imgPage.drawImage(img, {
+                                    x: (imgPage.getWidth() - w) / 2,
+                                    y: marginBottom + (maxH - hh) / 2,
+                                    width: w,
+                                    height: hh
+                                });
+                            }
+                        } catch (err) {
+                            page.drawText('(Beleg konnte nicht angehängt werden: ' + err.message + ')', { x: 50, y: y - 10, size: 9, font, color: rgb(0.8, 0.2, 0.2) });
+                            console.error('Beleg konnte nicht eingefügt werden:', e.scanFile, err);
+                        }
+                    } else if (e.scanFile) {
+                        page.drawText('(Beleg-Datei war zu groß zum Speichern, nicht als Vorschau verfügbar)', { x: 50, y: y - 10, size: 9, font, color: rgb(0.8, 0.5, 0.1) });
+                    }
+                }
+
+                const bytes = await outDoc.save();
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const win = window.open(url, '_blank');
+                if (!win) {
+                    alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben, dann erneut versuchen.');
+                }
+            } catch (err) {
+                alert('❌ Konnte PDF nicht erstellen: ' + err.message);
             } finally {
                 btn.disabled = false;
                 btn.textContent = oldLabel;
