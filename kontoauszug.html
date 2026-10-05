@@ -242,6 +242,10 @@
                 <div class="label">Privat (ausgeschlossen)</div>
                 <div class="value" id="statPrivat">0,00 €</div>
             </div>
+            <div class="stat-card" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%); cursor:pointer;" onclick="document.getElementById('catFilter').value='mitScan'; renderTable();" title="Klicken um nur Buchungen mit zugeordnetem Scan-Beleg zu sehen">
+                <div class="label">Mit Scan-Beleg aus scan/-Ordner</div>
+                <div class="value" id="statMitScan">0</div>
+            </div>
         </div>
 
         <div class="filter-row">
@@ -251,6 +255,8 @@
                 <option value="geschaeft">Nur Geschäftsausgaben</option>
                 <option value="privat">Nur Privat</option>
                 <option value="zahlungseingang">Nur Zahlungseingänge</option>
+                <option value="mitScan">Nur mit Scan-Beleg</option>
+                <option value="ohneScan">Nur ohne Scan-Beleg (Geschäftsausgaben)</option>
             </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
@@ -475,10 +481,12 @@
             const geschaeft = allEntries.filter(e => e.category === 'geschaeft').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
             const privat = allEntries.filter(e => e.category === 'privat').reduce((s, e) => s + (parseFloat(e.betrag) || 0), 0);
             const offen = allEntries.filter(e => e.richtung !== 'einnahme' && !e.category).length;
+            const mitScan = allEntries.filter(e => !!e.scanFile).length;
 
             document.getElementById('statOffen').textContent = offen;
             document.getElementById('statGeschaeft').textContent = formatEuro(geschaeft);
             document.getElementById('statPrivat').textContent = formatEuro(privat);
+            document.getElementById('statMitScan').textContent = mitScan;
 
             renderTable();
         }
@@ -487,6 +495,8 @@
             const filter = document.getElementById('catFilter').value;
             let entries = [...allEntries].sort((a, b) => (b.dateIso || '').localeCompare(a.dateIso || ''));
             if (filter === 'offen') entries = entries.filter(e => e.richtung !== 'einnahme' && !e.category);
+            else if (filter === 'mitScan') entries = entries.filter(e => !!e.scanFile);
+            else if (filter === 'ohneScan') entries = entries.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft' && !e.scanFile);
             else if (filter !== 'alle') entries = entries.filter(e => e.category === filter);
 
             const tbody = document.getElementById('entriesBody');
@@ -525,7 +535,7 @@
                           </select>`
                         : '-';
                 return `
-                <tr>
+                <tr${e.scanFile ? ' style="background:#eafaf0;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.buchungstext || '-'}</td>
                     <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${(!isEinnahme && e.category === 'geschaeft') ? kundeCell(e) : ''}</td>
@@ -534,10 +544,12 @@
                     <td>${kategorieHtml}</td>
                     <td>${mwstHtml}</td>
                     <td>
-                        <div style="display:flex; gap:4px; align-items:center;">
+                        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
                             <input type="text" class="note-input" style="width:80px;" value="${(e.belegNr || '').replace(/"/g, '&quot;')}" onchange="setBelegNr('${e.id}', this.value)" placeholder="-">
                             ${!e.belegNr ? `<button class="btn btn-secondary btn-sm" title="Nächste Beleg-Nr. vergeben" onclick="assignNextBelegNr('${e.id}', '${e.dateIso}')">🔢</button>` : ''}
-                            ${e.scanFile && e.scanDataUri ? `<button class="btn btn-secondary btn-sm" title="${e.scanFile}" onclick="openScanPdf('${e.id}')">✅ 📄</button>` : e.scanFile ? `<span title="Scan gefunden: ${e.scanFile}" style="color:#28a745;">✅</span>` : ''}
+                            ${e.scanFile && e.scanDataUri
+                                ? `<button class="btn btn-sm" style="background:#28a745; color:white; font-weight:700; white-space:nowrap;" title="${e.scanFile}" onclick="openScanPdf('${e.id}')">📄 Beleg ansehen</button>`
+                                : e.scanFile ? `<span title="Beleg gefunden, aber Datei zu groß zum Anzeigen: ${e.scanFile}" style="background:#d4edda; color:#155724; font-weight:700; padding:3px 8px; border-radius:6px; font-size:0.85em; white-space:nowrap;">📄 ${e.scanFile}</span>` : ''}
                         </div>
                     </td>
                     <td><input type="text" class="note-input" value="${(e.note || '').replace(/"/g, '&quot;')}" onchange="setNote('${e.id}', this.value)" placeholder="optional"></td>
