@@ -10,6 +10,8 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- pdf-lib: zum Zusammenfügen aller Belege zu einer chronologischen Sammel-PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
 <style>
     * { box-sizing: border-box; }
@@ -260,6 +262,7 @@
             </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
+            <button class="btn btn-secondary" id="printAllBelegeBtn" onclick="printAllBelegeChronologisch()">🖨️ Alle Belege chronologisch drucken</button>
         </div>
         <p class="upload-hint">Tipp für den Papierordner: Die vergebene Beleg-Nr. (z.B. "2026-001") mit Stift auf die passende Quittung/Rechnung schreiben, bevor du sie einscannst - und die Scan-Datei genauso benennen (z.B. "2026-001.pdf"). So findet der Steuerberater über die Nummer den richtigen Beleg, auch im Papierordner.</p>
 
@@ -726,6 +729,101 @@
                 win.document.write('<iframe src="' + entry.scanDataUri + '" style="width:100%;height:100%;border:none;"></iframe>');
             } else {
                 alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+            }
+        }
+
+        function dataUriToBytes(dataUri) {
+            const base64 = dataUri.split(',')[1];
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+
+        function dataUriMime(dataUri) {
+            const m = /^data:([^;,]+)/.exec(dataUri);
+            return m ? m[1] : '';
+        }
+
+        async function printAllBelegeChronologisch() {
+            const belege = allEntries
+                .filter(e => e.scanFile && e.scanDataUri)
+                .slice()
+                .sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || ''));
+
+            if (belege.length === 0) {
+                alert('Keine Buchungen mit gespeichertem Scan-Beleg vorhanden.');
+                return;
+            }
+
+            const btn = document.getElementById('printAllBelegeBtn');
+            const oldLabel = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Erstelle PDF...';
+
+            try {
+                const { PDFDocument, StandardFonts, rgb } = PDFLib;
+                const outDoc = await PDFDocument.create();
+                const font = await outDoc.embedFont(StandardFonts.Helvetica);
+                const boldFont = await outDoc.embedFont(StandardFonts.HelveticaBold);
+
+                for (const e of belege) {
+                    const betrag = formatEuro(parseFloat(e.betrag) || 0);
+                    const empfaenger = e.empfaenger || e.verwendungszweck || e.note || '';
+                    const caption = `${e.date || e.dateIso || ''}  |  ${betrag}  |  ${empfaenger}`;
+                    const mime = dataUriMime(e.scanDataUri);
+
+                    try {
+                        if (mime === 'application/pdf') {
+                            const bytes = dataUriToBytes(e.scanDataUri);
+                            const srcPdf = await PDFDocument.load(bytes);
+                            const pages = await outDoc.copyPages(srcPdf, srcPdf.getPageIndices());
+                            pages.forEach((p, i) => {
+                                outDoc.addPage(p);
+                                if (i === 0) {
+                                    const { width } = p.getSize();
+                                    p.drawRectangle({ x: 0, y: p.getHeight() - 22, width, height: 22, color: rgb(1, 0.92, 0.4) });
+                                    p.drawText(caption, { x: 8, y: p.getHeight() - 16, size: 9, font: boldFont, color: rgb(0.2, 0.2, 0.1) });
+                                }
+                            });
+                        } else if (mime === 'image/jpeg' || mime === 'image/png') {
+                            const bytes = dataUriToBytes(e.scanDataUri);
+                            const img = mime === 'image/jpeg' ? await outDoc.embedJpg(bytes) : await outDoc.embedPng(bytes);
+                            const page = outDoc.addPage([595.28, 841.89]); // A4
+                            page.drawRectangle({ x: 0, y: page.getHeight() - 22, width: page.getWidth(), height: 22, color: rgb(1, 0.92, 0.4) });
+                            page.drawText(caption, { x: 8, y: page.getHeight() - 16, size: 9, font: boldFont, color: rgb(0.2, 0.2, 0.1) });
+
+                            const marginTop = 30, marginBottom = 20, marginSide = 20;
+                            const maxW = page.getWidth() - marginSide * 2;
+                            const maxH = page.getHeight() - marginTop - marginBottom;
+                            const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+                            const w = img.width * scale, h = img.height * scale;
+                            page.drawImage(img, {
+                                x: (page.getWidth() - w) / 2,
+                                y: marginBottom + (maxH - h) / 2,
+                                width: w,
+                                height: h
+                            });
+                        } else {
+                            console.warn('Unbekannter Dateityp, übersprungen:', e.scanFile, mime);
+                        }
+                    } catch (err) {
+                        console.error('Beleg konnte nicht eingefügt werden:', e.scanFile, err);
+                    }
+                }
+
+                const bytes = await outDoc.save();
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const win = window.open(url, '_blank');
+                if (!win) {
+                    alert('⚠️ Popup wurde blockiert. Bitte Popups für diese Seite erlauben, dann erneut versuchen.');
+                }
+            } catch (err) {
+                alert('❌ Konnte Beleg-PDF nicht erstellen: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = oldLabel;
             }
         }
 
