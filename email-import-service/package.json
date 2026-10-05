@@ -15,6 +15,7 @@
     "jpeg-js": "^0.4.4",
     "mailparser": "^3.7.0",
     "nodemailer": "^9.0.3",
+    "pdf-lib": "^1.17.1",
     "pngjs": "^7.0.0",
     "tesseract.js": "^7.0.0"
   }

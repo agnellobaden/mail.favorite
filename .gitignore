@@ -19,3 +19,6 @@ scan/
 
 # Von tesseract.js automatisch heruntergeladenes OCR-Sprachmodell für match-scans.js
 email-import-service/*.traineddata
+
+# Niemals committen: zusammengestellte Beleg-PDFs (persönliche/geschäftliche Belege)
+email-import-service/exports/
