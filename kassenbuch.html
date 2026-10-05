@@ -672,7 +672,7 @@
                 const amountSign = t.sign >= 0 ? '+' : '-';
                 return `
                 <tr${e.fromTageseinnahmen ? ' style="background:#f0f7ff;"' : ''}>
-                    <td>${e.date || e.dateIso || '-'}</td>
+                    <td style="cursor:pointer; text-decoration:underline dotted; color:#667eea;" title="Kassenbericht für diesen Tag öffnen (zum Korrigieren)" onclick="openKassenberichtForDate('${e.dateIso}')">${e.date || e.dateIso || '-'}</td>
                     <td>${typeBadge(e.type)}</td>
                     <td>${e.note || '-'}${e.fromTageseinnahmen ? ' <span style="color:#667eea; font-size:0.8em;">(aus Tageseinnahmen)</span>' : ''}</td>
                     <td>${e.type === 'ausgabe'
@@ -909,9 +909,29 @@
                 }
             }
 
+            // Bareinnahmen dieses Tages direkt hier korrigierbar machen (statt
+            // extra zu tageseinnahmen.html wechseln zu müssen) - nur in der
+            // editierbaren Einzeltag-Ansicht, nicht im Sammeldruck.
+            const tagesTageseinnahmen = editable ? allTageseinnahmenEntries.filter(e => e.dateIso === dateIso) : [];
+            const correctionHtml = editable ? `
+                <div class="no-print" style="background:#f0f7ff; border:2px solid #cfe2ff; border-radius:10px; padding:14px 16px; margin-bottom:18px;">
+                    <strong style="font-size:0.95em;">💰 Bareinnahme(n) dieses Tages korrigieren</strong>
+                    ${tagesTageseinnahmen.length === 0
+                        ? '<p style="margin:6px 0 0; font-size:0.85em; color:#666;">Keine Bareinnahme aus tageseinnahmen.html für diesen Tag erfasst.</p>'
+                        : tagesTageseinnahmen.map(e => `
+                            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                                <span style="font-size:0.85em; color:#555; min-width:140px;">${e.note || 'Tageseinnahme'}</span>
+                                <input type="text" id="kbCorrect-${e.sourceId}" value="${e.amount}" style="width:100px; padding:6px 8px; border:2px solid #ddd; border-radius:6px;">
+                                <button class="btn btn-secondary btn-sm" onclick="saveTageseinnahmeAmountInline('${e.sourceId}', '${dateIso}')">💾 Speichern</button>
+                            </div>
+                        `).join('')}
+                </div>
+            ` : '';
+
             return `
                 <div class="kb-day-block">
                     <h2 style="margin:10px 0 20px;">Kassenbericht vom ${isoToDe(dateIso)}</h2>
+                    ${correctionHtml}
                     <table class="kb-summary-table">
                         <colgroup><col class="kb-col-a"><col class="kb-col-b"><col class="kb-col-c"></colgroup>
                         <tbody>${rows.join('')}</tbody>
@@ -948,6 +968,25 @@
             });
 
             renderKassenbericht();
+        }
+
+        // Speichert eine im Kassenbericht-Modal inline korrigierte Bareinnahme
+        // und aktualisiert den Bericht sofort neu (damit Kasseneingang/Summen
+        // ohne erneutes Öffnen stimmen).
+        function saveTageseinnahmeAmountInline(sourceId, dateIso) {
+            const input = document.getElementById('kbCorrect-' + sourceId);
+            const newAmount = parseFloat(input.value.replace(',', '.'));
+            if (isNaN(newAmount) || newAmount < 0) { alert('Ungültiger Betrag.'); return; }
+            db.collection('tageseinnahmen').doc(sourceId).set({ amount: newAmount }, { merge: true })
+                .then(() => renderKassenbericht())
+                .catch(err => alert('❌ Konnte nicht gespeichert werden: ' + err.message));
+        }
+
+        // Öffnet den Kassenbericht direkt für einen Tag - per Klick auf das
+        // Datum in der Haupttabelle, ohne erst das Datum oben auswählen zu müssen.
+        function openKassenberichtForDate(dateIso) {
+            document.getElementById('kbReportDate').value = dateIso;
+            openKassenbericht();
         }
 
         function closeKassenbericht() {
