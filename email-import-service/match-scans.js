@@ -389,12 +389,21 @@ async function main() {
         console.log('Kein scan/-Ordner gefunden:', scanDir);
         return;
     }
-    const files = fs.readdirSync(scanDir).filter(f => /\.(pdf|jpe?g)$/i.test(f));
-    console.log(`${files.length} Beleg(e) (PDF/JPG) im scan/-Ordner gefunden.\n`);
+    const allFiles = fs.readdirSync(scanDir).filter(f => /\.(pdf|jpe?g)$/i.test(f));
 
     const snapshot = await db.collection('kontoauszug').get();
     const kontoauszug = [];
     snapshot.forEach(doc => kontoauszug.push({ id: doc.id, ...doc.data() }));
+
+    // Dateien, die schon erfolgreich zugeordnet sind, beim nächsten Lauf
+    // überspringen (OCR ist langsam) - nur neue bzw. bisher erfolglose
+    // Dateien (--alle erzwingt trotzdem alles neu, z.B. nach einem Fix in
+    // diesem Skript selbst).
+    const alreadyMatchedFiles = new Set(kontoauszug.map(k => k.scanFile).filter(Boolean));
+    const forceAll = process.argv.includes('--alle');
+    const files = forceAll ? allFiles : allFiles.filter(f => !alreadyMatchedFiles.has(f));
+    const skipped = allFiles.length - files.length;
+    console.log(`${allFiles.length} Beleg(e) (PDF/JPG) im scan/-Ordner gefunden, ${skipped} schon zugeordnet übersprungen, ${files.length} werden geprüft.\n`);
 
     let matched = 0, unmatched = 0;
     for (const file of files) {
