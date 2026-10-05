@@ -24,6 +24,7 @@ const { execSync } = require('child_process');
 const admin = require('firebase-admin');
 const Tesseract = require('tesseract.js');
 const { PNG } = require('pngjs');
+const jpeg = require('jpeg-js');
 
 const serviceAccount = require('./firebase-service-account.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
@@ -132,11 +133,11 @@ function extractTotalsTriple(text) {
 }
 
 // Extrahiert das (einzige) eingebettete Bild einer einfachen Scan-App-PDF
-// (ein FlateDecode-Image-XObject pro Seite) als PNG-Buffer, senkrecht
+// (ein FlateDecode-Image-XObject pro Seite) als rohe RGBA-Pixel, senkrecht
 // gespiegelt. Gibt null zurück, wenn die PDF nicht in dieses einfache Muster
 // passt (z.B. mehrere Bilder, JPEG-komprimiert, o.ä.) - dann bleibt nur die
 // manuelle Prüfung.
-function extractEmbeddedImageAsPng(filePath) {
+function extractEmbeddedImageRgba(filePath) {
     const buf = fs.readFileSync(filePath);
     const text = buf.toString('latin1');
     const m = text.match(/\d+\s+0\s+obj\s*<<([^>]*\/Subtype\s*\/Image[^>]*)>>\s*stream\r?\n/);
@@ -164,7 +165,7 @@ function extractEmbeddedImageAsPng(filePath) {
     const channels = colorSpace === 'DeviceGray' ? 1 : 3;
     if (pixels.length < width * height * channels) return null;
 
-    const png = new PNG({ width, height });
+    const data = Buffer.alloc(width * height * 4);
     // Vertikal gespiegelt schreiben (PDF: Bildzeilen von unten nach oben).
     for (let y = 0; y < height; y++) {
         const srcY = height - 1 - y;
@@ -172,16 +173,53 @@ function extractEmbeddedImageAsPng(filePath) {
             const srcIdx = (srcY * width + x) * channels;
             const dstIdx = (y * width + x) * 4;
             if (channels === 1) {
-                png.data[dstIdx] = png.data[dstIdx + 1] = png.data[dstIdx + 2] = pixels[srcIdx];
+                data[dstIdx] = data[dstIdx + 1] = data[dstIdx + 2] = pixels[srcIdx];
             } else {
-                png.data[dstIdx] = pixels[srcIdx];
-                png.data[dstIdx + 1] = pixels[srcIdx + 1];
-                png.data[dstIdx + 2] = pixels[srcIdx + 2];
+                data[dstIdx] = pixels[srcIdx];
+                data[dstIdx + 1] = pixels[srcIdx + 1];
+                data[dstIdx + 2] = pixels[srcIdx + 2];
             }
-            png.data[dstIdx + 3] = 255;
+            data[dstIdx + 3] = 255;
         }
     }
-    return PNG.sync.write(png);
+    return { data, width, height };
+}
+
+// Simples Nearest-Neighbor-Downscale einer RGBA-Buffer (kein Foto-Anspruch,
+// nur damit der Beleg nach dem Verkleinern noch lesbar bleibt).
+function downscaleRgba({ data, width, height }, factor) {
+    const newWidth = Math.max(1, Math.round(width * factor));
+    const newHeight = Math.max(1, Math.round(height * factor));
+    const out = Buffer.alloc(newWidth * newHeight * 4);
+    for (let y = 0; y < newHeight; y++) {
+        const srcY = Math.min(height - 1, Math.floor(y / factor));
+        for (let x = 0; x < newWidth; x++) {
+            const srcX = Math.min(width - 1, Math.floor(x / factor));
+            const srcIdx = (srcY * width + srcX) * 4;
+            const dstIdx = (y * newWidth + x) * 4;
+            data.copy(out, dstIdx, srcIdx, srcIdx + 4);
+        }
+    }
+    return { data: out, width: newWidth, height: newHeight };
+}
+
+// Komprimiert RGBA-Pixel als JPEG, klein genug für Firestore (Dokumentlimit
+// 1 MB) - probiert absteigende Qualitätsstufen, und falls das allein nicht
+// reicht, zusätzlich eine kleinere Auflösung. Genutzt sowohl für die
+// Texterkennung als auch für die im Browser anzeigbare Vorschau - eine
+// JPEG-Kompression mit vernünftiger Qualität stört die OCR kaum, spart aber
+// gegenüber dem rohen PDF-Scan (10+ MB) enorm viel Platz.
+function compressRgbaToJpeg(rgbaImage, maxBytes) {
+    let current = rgbaImage;
+    for (const scale of [1, 0.6, 0.35]) {
+        const img = scale === 1 ? current : downscaleRgba(current, scale);
+        for (const quality of [75, 55, 35]) {
+            const { data: jpegData } = jpeg.encode(img, quality);
+            if (jpegData.length <= maxBytes) return jpegData;
+        }
+    }
+    // Letzter Versuch, egal wie groß - besser etwas als nichts.
+    return jpeg.encode(downscaleRgba(current, 0.35), 35).data;
 }
 
 // Liest Datum + Betrag aus freiem OCR-Text (Kassenbons, fotografierte
@@ -296,29 +334,54 @@ function extractDateAndAmount(filePath) {
     return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact };
 }
 
-// Liefert { info, imageBuffer, mime } für einen einzelnen Beleg - imageBuffer
-// ist nur bei JPG oder per OCR gelesenem PDF-Scan gesetzt (dann wird dieses
-// Bild statt der Original-PDF als Data-URI gespeichert, weil die Original-
-// PDF bei diesen Scan-Apps meist viel zu groß ist).
+// Firestore-Dokumente sind auf 1 MB begrenzt - mit etwas Luft für die
+// übrigen Felder bleiben die Vorschaubilder unter diesem Limit.
+const MAX_PREVIEW_BYTES = 650 * 1024;
+
+// Liefert { info, previewBuffer, mime } für einen einzelnen Beleg -
+// previewBuffer ist das Bild, das als Data-URI gespeichert wird (bei
+// digitalen Text-PDFs die Original-PDF, sonst ein komprimiertes JPEG -
+// die Original-Scan-Dateien sind oft 10+ MB groß und würden sowieso nie
+// unter das Firestore-Limit passen).
 async function readReceipt(filePath, fileName) {
     const ext = path.extname(fileName).toLowerCase();
 
     if (ext === '.jpg' || ext === '.jpeg') {
         const buffer = fs.readFileSync(filePath);
         const info = await ocrImageBuffer(buffer);
-        return info ? { info, imageBuffer: buffer, mime: 'image/jpeg' } : null;
+        if (!info) return null;
+        let previewBuffer = buffer;
+        if (buffer.length > MAX_PREVIEW_BYTES) {
+            try {
+                const decoded = jpeg.decode(buffer, { maxMemoryUsageInMB: 512 });
+                previewBuffer = compressRgbaToJpeg(decoded, MAX_PREVIEW_BYTES);
+            } catch (e) {
+                previewBuffer = null; // Datei bleibt zu groß, nur Dateiname wird gespeichert
+            }
+        }
+        return { info, previewBuffer, mime: 'image/jpeg' };
     }
 
     // PDF: zuerst die schnelle, zuverlässige Text-Ebene versuchen (digitale
     // Rechnungen) - erst wenn das nichts findet, auf OCR des eingebetteten
     // Bilds ausweichen (fotografierte/gescannte Belege ohne Text-Ebene).
     const textInfo = extractDateAndAmount(filePath);
-    if (textInfo) return { info: textInfo, imageBuffer: null, mime: 'application/pdf' };
+    if (textInfo) return { info: textInfo, previewBuffer: fs.readFileSync(filePath), mime: 'application/pdf' };
 
-    const png = extractEmbeddedImageAsPng(filePath);
-    if (!png) return null;
-    const ocrInfo = await ocrImageBuffer(png);
-    return ocrInfo ? { info: ocrInfo, imageBuffer: png, mime: 'image/png' } : null;
+    const rgba = extractEmbeddedImageRgba(filePath);
+    if (!rgba) return null;
+    // Für die Texterkennung in voller Qualität (als PNG, verlustfrei) -
+    // separat von der komprimierten JPEG-Vorschau fürs Speichern, damit die
+    // Kompression die OCR-Genauigkeit nicht verschlechtert.
+    const pngForOcr = PNG.sync.write((() => {
+        const png = new PNG({ width: rgba.width, height: rgba.height });
+        rgba.data.copy(png.data);
+        return png;
+    })());
+    const ocrInfo = await ocrImageBuffer(pngForOcr);
+    if (!ocrInfo) return null;
+    const previewBuffer = compressRgbaToJpeg(rgba, MAX_PREVIEW_BYTES);
+    return { info: ocrInfo, previewBuffer, mime: 'image/jpeg' };
 }
 
 async function main() {
@@ -341,7 +404,7 @@ async function main() {
             unmatched++;
             continue;
         }
-        const { info, imageBuffer, mime } = result;
+        const { info, previewBuffer, mime } = result;
 
         // Buchungsdatum liegt meist 1-3 Tage nach Kaufdatum (Kartenabrechnung),
         // aber bei Rechnungen (z.B. Steuerberater) können auch Wochen vergehen.
@@ -363,11 +426,6 @@ async function main() {
         }
 
         const match = candidates[0];
-        // Bei OCR-gelesenen Scans (JPG oder per OCR gelesenes PDF-Bild) wird
-        // das (kleinere, bereits korrekt gedrehte) Bild gespeichert statt der
-        // Original-Datei - die Original-Scan-PDFs sind oft 10+ MB groß und
-        // würden sowieso nie als Data-URI reinpassen.
-        const sourceBytes = imageBuffer || fs.readFileSync(path.join(scanDir, file));
         const fields = { scanFile: file };
         if (info.kunde) {
             fields.kunde = info.kunde;
@@ -377,13 +435,15 @@ async function main() {
             fields.vorsteuerExact = info.vorsteuerExact; // exakt aus dem Beleg gelesen, ersetzt die Schätzung per einzelnem MwSt-Satz
         }
 
-        // Firestore-Dokumente dürfen max. 1 MB groß sein - bei größeren
-        // Scans (z.B. hochauflösende Mehrseiten-Scans) nur den Dateinamen
-        // speichern, keine Data-URI.
-        if (sourceBytes.length < 700 * 1024) {
-            fields.scanDataUri = `data:${mime};base64,` + sourceBytes.toString('base64');
+        // Firestore-Dokumente dürfen max. 1 MB groß sein. Digitale Text-PDFs
+        // sind meist klein genug; bei OCR-Scans wurde die Vorschau in
+        // readReceipt() schon so lange komprimiert/verkleinert, bis sie
+        // passt - nur wenn selbst das nicht reicht (previewBuffer === null
+        // oder weiterhin zu groß), bleibt nur der Dateiname ohne Vorschau.
+        if (previewBuffer && previewBuffer.length < MAX_PREVIEW_BYTES + 50 * 1024) {
+            fields.scanDataUri = `data:${mime};base64,` + previewBuffer.toString('base64');
         } else {
-            console.log(`ℹ "${file}" ist zu groß (${(sourceBytes.length / 1024).toFixed(0)} KB) - nur Dateiname gespeichert, keine Data-URI.`);
+            console.log(`ℹ "${file}" ist auch komprimiert noch zu groß - nur Dateiname gespeichert, keine Vorschau.`);
         }
 
         await db.collection('kontoauszug').doc(match.id).set(fields, { merge: true });
