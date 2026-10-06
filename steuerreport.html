@@ -303,6 +303,59 @@
         cursor: pointer;
     }
 
+    .wizard-progress-bar {
+        background: #eee;
+        border-radius: 10px;
+        height: 14px;
+        overflow: hidden;
+        margin-bottom: 18px;
+    }
+    .wizard-progress-fill {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+    .wizard-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 2px solid #eee;
+    }
+    .wizard-step.done { background: #eafaf0; border-color: #c3e9d2; }
+    .wizard-step input[type="checkbox"] { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+    .wizard-step .text { flex: 1; }
+    .wizard-step .text strong { display: block; margin-bottom: 3px; }
+    .wizard-step .text p { margin: 2px 0 8px; font-size: 0.85em; color: #666; }
+    .wizard-step .wizard-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .wizard-step .wizard-actions button, .wizard-step .wizard-actions a {
+        background: #667eea; color: white; border: none; border-radius: 6px;
+        padding: 6px 14px; font-size: 0.85em; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    .wizard-final {
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: 10px;
+        text-align: center;
+        font-weight: 700;
+    }
+    .wizard-final.pending { background: #fff8e1; color: #8a6d00; }
+    .wizard-final.ready { background: #eafaf0; color: #1a7a3a; }
+    .wizard-final button {
+        display: block;
+        margin: 10px auto 0;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 25px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .wizard-final button:disabled { background: #aaa; cursor: not-allowed; }
+
     @media print {
         body > *:not(.container) { display: none !important; }
         body { background: white; padding: 0; }
@@ -436,6 +489,7 @@
         </div>
         <div class="filter-row no-print">
             <button class="btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);" onclick="openChecklist()">✅ Buchhaltung erledigen (Checkliste)</button>
+            <button class="btn" style="background:linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);" onclick="openWizard()">🖨️ Steuerordner-Assistent (Schritt für Schritt)</button>
             <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
         </div>
         <div class="filter-row no-print">
@@ -602,6 +656,17 @@
             <p style="color:#666; margin-top:-8px;">Prüft den <strong>gesamten</strong> Datenbestand (unabhängig vom oben gewählten Jahr/Quartal-Filter) auf fehlende Angaben. Auf einen Punkt klicken springt direkt zur passenden Ansicht.</p>
             <div id="checklistItems"></div>
             <button class="checklist-close" onclick="closeChecklist()">Schließen</button>
+        </div>
+    </div>
+
+    <div class="checklist-overlay no-print" id="wizardOverlay">
+        <div class="checklist-box">
+            <h2>🖨️ Steuerordner-Assistent</h2>
+            <p style="color:#666; margin-top:-8px;">Geht alle Schritte durch, die für den aktuell oben gewählten Zeitraum (<span id="wizardPeriodLabel"></span>) ausgedruckt/abgeheftet werden sollten. Jeden Schritt erledigen, Häkchen setzen - am Ende bestätigen, wenn alle Papiere im Ordner sind.</p>
+            <div class="wizard-progress-bar"><div class="wizard-progress-fill" id="wizardProgressFill" style="width:0%;"></div></div>
+            <div id="wizardSteps"></div>
+            <div id="wizardFinalArea"></div>
+            <button class="checklist-close" onclick="closeWizard()">Schließen</button>
         </div>
     </div>
 
@@ -1914,6 +1979,154 @@
 
         function closeChecklist() {
             document.getElementById('checklistOverlay').classList.remove('open');
+        }
+
+        // Steuerordner-Assistent: führt Schritt für Schritt durch alles, was
+        // für den gewählten Zeitraum ausgedruckt/abgeheftet werden sollte.
+        // Fortschritt wird pro Jahr/Quartal getrennt im Browser gemerkt
+        // (localStorage), damit man zwischendurch unterbrechen und später
+        // weitermachen kann, ohne den Überblick zu verlieren.
+        const WIZARD_STEPS = [
+            {
+                id: 'journal',
+                label: 'Buchungsjournal ausdrucken',
+                desc: 'Druckt die Buchungsjournal-Tabelle dieser Seite - im Druckdialog als PDF speichern oder direkt ausdrucken.',
+                actionLabel: '🖨️ Jetzt drucken',
+                action: () => window.print()
+            },
+            {
+                id: 'rechnungen',
+                label: 'Alle Event-Rechnungen als PDF',
+                desc: 'Lädt eine PDF mit allen Rechnungen des oben gewählten Zeitraums herunter.',
+                actionLabel: '📥 PDF herunterladen',
+                action: () => exportInvoicesBundlePdf()
+            },
+            {
+                id: 'belege',
+                label: 'Kontoauszug mit allen Belegen ausdrucken',
+                desc: 'Dieser Export liegt im Kontoauszug - dort den Button "📑 Kontoauszug komplett mit Belegen" nutzen.',
+                actionLabel: '→ Kontoauszug öffnen',
+                link: 'kontoauszug.html'
+            },
+            {
+                id: 'datev',
+                label: 'DATEV-Buchungsstapel (CSV) exportieren',
+                desc: 'Für den direkten Import beim Steuerberater.',
+                actionLabel: '⬇️ CSV exportieren',
+                action: () => exportDatevCsv()
+            },
+            {
+                id: 'zip',
+                label: 'Alles für den Steuerberater (ZIP) herunterladen',
+                desc: 'Bündelt CSV + beide Rechnungs-/Belegordner-PDFs in einer Datei - deckt die Schritte oben meist schon mit ab.',
+                actionLabel: '📦 ZIP herunterladen',
+                action: () => exportAllForSteuerberater()
+            }
+        ];
+
+        function wizardPeriodKey() {
+            return `${selectedYear()}_${selectedQuarter()}`;
+        }
+        function wizardStorageKey(stepId) {
+            return `steuerordner_wizard_${wizardPeriodKey()}_${stepId}`;
+        }
+        function wizardConfirmKey() {
+            return `steuerordner_wizard_${wizardPeriodKey()}_confirmed`;
+        }
+        function wizardStepDone(stepId) {
+            try { return localStorage.getItem(wizardStorageKey(stepId)) === '1'; } catch (e) { return false; }
+        }
+        function wizardSetStepDone(stepId, done) {
+            try { localStorage.setItem(wizardStorageKey(stepId), done ? '1' : '0'); } catch (e) {}
+        }
+
+        function wizardPeriodLabel() {
+            const year = selectedYear();
+            const quarter = selectedQuarter();
+            const yearLabel = year === 'alle' ? 'alle Jahre' : year;
+            const quarterLabel = quarter === 'alle' ? '' : ` Q${quarter}`;
+            return yearLabel + quarterLabel;
+        }
+
+        function renderWizard() {
+            document.getElementById('wizardPeriodLabel').textContent = wizardPeriodLabel();
+
+            const checklistOpen = buildChecklist().every(i => i.count === 0);
+            let html = '';
+            html += `<div class="checklist-item ${checklistOpen ? 'ok' : 'warn'}" style="margin-bottom:18px;">
+                <div class="icon">${checklistOpen ? '✅' : '⚠️'}</div>
+                <div class="text">
+                    <strong>${checklistOpen ? 'Datenprüfung: alles vollständig' : 'Datenprüfung: es gibt noch offene Punkte'}</strong>
+                    <div style="font-size:0.85em; color:#666;">${checklistOpen ? 'Die Buchhaltungs-Checkliste ist vollständig grün.' : 'Erst die Buchhaltungs-Checkliste durchgehen, damit die Exporte unten vollständig sind.'}</div>
+                    ${!checklistOpen ? `<a class="btn-link" href="#" onclick="closeWizard(); openChecklist(); return false;">→ Zur Checkliste</a>` : ''}
+                </div>
+            </div>`;
+
+            const stepsContainer = document.getElementById('wizardSteps');
+            let doneCount = 0;
+            WIZARD_STEPS.forEach(step => {
+                const done = wizardStepDone(step.id);
+                if (done) doneCount++;
+                const actionHtml = step.link
+                    ? `<a href="${step.link}" target="_blank" onclick="wizardSetStepDone('${step.id}', true); setTimeout(renderWizard, 300);">${step.actionLabel}</a>`
+                    : `<button onclick="wizardRunStep('${step.id}')">${step.actionLabel}</button>`;
+                html += `<div class="wizard-step ${done ? 'done' : ''}">
+                    <input type="checkbox" ${done ? 'checked' : ''} onchange="wizardSetStepDone('${step.id}', this.checked); renderWizard();">
+                    <div class="text">
+                        <strong>${step.label}</strong>
+                        <p>${step.desc}</p>
+                        <div class="wizard-actions">${actionHtml}</div>
+                    </div>
+                </div>`;
+            });
+            stepsContainer.innerHTML = html;
+
+            const pct = Math.round((doneCount / WIZARD_STEPS.length) * 100);
+            document.getElementById('wizardProgressFill').style.width = pct + '%';
+
+            const allDone = doneCount === WIZARD_STEPS.length;
+            const finalArea = document.getElementById('wizardFinalArea');
+            let confirmedAt = null;
+            try { confirmedAt = localStorage.getItem(wizardConfirmKey()); } catch (e) {}
+
+            if (confirmedAt) {
+                finalArea.innerHTML = `<div class="wizard-final ready">🎉 Bestätigt am ${new Date(confirmedAt).toLocaleString('de-DE')} - alle Unterlagen für ${wizardPeriodLabel()} sind ausgedruckt und abgeheftet.
+                    <button style="background:#aaa;" onclick="wizardResetConfirm()">Zurücksetzen</button></div>`;
+            } else if (allDone) {
+                finalArea.innerHTML = `<div class="wizard-final ready">Alle Schritte erledigt! Wenn wirklich alle Papiere ausgedruckt und im Steuerordner abgeheftet sind:
+                    <button onclick="wizardConfirmComplete()">✅ Bestätigen - fertig abgeheftet</button></div>`;
+            } else {
+                finalArea.innerHTML = `<div class="wizard-final pending">Noch ${WIZARD_STEPS.length - doneCount} von ${WIZARD_STEPS.length} Schritten offen.
+                    <button disabled>✅ Bestätigen - fertig abgeheftet</button></div>`;
+            }
+        }
+
+        function wizardRunStep(stepId) {
+            const step = WIZARD_STEPS.find(s => s.id === stepId);
+            if (!step) return;
+            try { step.action(); } catch (e) { alert('❌ Fehler: ' + e.message); return; }
+            wizardSetStepDone(stepId, true);
+            setTimeout(renderWizard, 300);
+        }
+
+        function wizardConfirmComplete() {
+            try { localStorage.setItem(wizardConfirmKey(), new Date().toISOString()); } catch (e) {}
+            renderWizard();
+        }
+
+        function wizardResetConfirm() {
+            if (!confirm('Bestätigung für diesen Zeitraum wirklich zurücksetzen?')) return;
+            try { localStorage.removeItem(wizardConfirmKey()); } catch (e) {}
+            renderWizard();
+        }
+
+        function openWizard() {
+            renderWizard();
+            document.getElementById('wizardOverlay').classList.add('open');
+        }
+
+        function closeWizard() {
+            document.getElementById('wizardOverlay').classList.remove('open');
         }
 
         initFirebase();
