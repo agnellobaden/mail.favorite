@@ -384,6 +384,7 @@
         <div class="filter-row no-print">
             <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Einzel-Export:</span>
             <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
+            <button class="btn btn-secondary" onclick="exportDatevCsv()">📤 DATEV-Buchungsstapel (CSV)</button>
             <button class="btn btn-secondary" onclick="window.print()">🖨️ Drucken / Als PDF speichern</button>
             <button class="btn btn-secondary" onclick="exportInvoicesBundlePdf()">📥 Alle Event-Rechnungen als eine PDF</button>
         </div>
@@ -1630,6 +1631,129 @@
             const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
             const filename = `Steuerreport_EisFavorite_${selectedYear() === 'alle' ? 'alle' : selectedYear()}${quarterSuffix}.csv`;
             return { blob, filename };
+        }
+
+        // SKR03-Kontenrahmen für den DATEV/Lexware-Buchungsstapel-Export -
+        // Ist-Versteuerung, dieselbe Zuordnung wie vom Steuerberater
+        // vorgegeben. Automatikkonten (3300/3400/8300/8400) brauchen keinen
+        // BU-Schlüssel, da die Kontonummer selbst den USt/VSt-Satz festlegt.
+        function datevExpenseKonto(kategorie, mwstSatz) {
+            switch (kategorie) {
+                case 'Wareneinkauf': return mwstSatz === 7 ? '3300' : '3400';
+                case 'Kfz-Kosten': return '4530';
+                case 'Miete/Nebenkosten': return '4215';
+                case 'Versicherungen': return '4360';
+                case 'Werbung/Marketing': return '4600';
+                case 'Büro/Verwaltung': return '4930';
+                default: return '4900';
+            }
+        }
+
+        // BU-Schlüssel nach der verbreitetsten SKR03-Konvention (9 = 19%
+        // Vorsteuer, 8 = 7% Vorsteuer automatisch) - nur für normale
+        // Aufwandskonten ohne satzfeste Kontonummer. Der Steuerberater sollte
+        // das gegen seine eigene DATEV-Konfiguration prüfen, falls er eine
+        // andere BU-Nummerierung verwendet.
+        function datevExpenseBu(konto, mwstSatz) {
+            if (konto === '3300' || konto === '3400' || konto === '4360') return '';
+            if (mwstSatz === 7) return '8';
+            if (mwstSatz == null || mwstSatz > 0) return '9';
+            return '';
+        }
+
+        function datevTruncate(str, maxChars) {
+            str = String(str || '').replace(/\s+/g, ' ').trim();
+            return str.length > maxChars ? str.slice(0, maxChars - 1) + '…' : str;
+        }
+
+        function datevIsoToDe(dateIso) {
+            if (!dateIso) return '';
+            const [y, m, d] = dateIso.split('-');
+            return `${d}.${m}.${y}`;
+        }
+
+        // Baut den kompletten Buchungsstapel (Einnahmen + Ausgaben) im
+        // aktuell gewählten Jahr/Quartal-Filter - exakt im Format für den
+        // Steuerberater-Export (analog DATEV EXTF/Lexware): Umsatz Brutto,
+        // S/H, Konto, Gegenkonto, BU-Schlüssel, Belegdatum, Belegfeld 1,
+        // Buchungstext. Nutzt denselben Jahr/Quartal-Filter wie der Rest des
+        // Reports, damit man wie gewünscht nach Zeitraum filtern kann (Q3,
+        // Q4, ganzes Jahr, ...).
+        function buildDatevCsvBlob() {
+            const revenue = filteredRevenue();
+            const cashExpenses = filteredExpenses();
+            const bankExpenses = filteredBankExpenses();
+            const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+
+            const rows = [];
+
+            revenue.forEach(e => {
+                const inv = invoiceForRevenueEntry(e);
+                const gegenkonto = e.paymentMethod === 'ueberweisung' ? '1200' : '1000';
+                rows.push({
+                    sortIso: e.dateIso,
+                    umsatz: (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','),
+                    sh: 'H',
+                    konto: '8400',
+                    gegenkonto,
+                    bu: '',
+                    belegdatum: datevIsoToDe(e.dateIso),
+                    belegfeld1: (inv && inv.invoiceNumber) || e.belegNr || '',
+                    buchungstext: datevTruncate(e.note || 'Erlös', 60)
+                });
+            });
+
+            cashExpenses.forEach(e => {
+                const mwstSatz = e.mwstSatz != null ? e.mwstSatz : 19;
+                const konto = datevExpenseKonto(e.kategorie || 'Sonstiges', mwstSatz);
+                rows.push({
+                    sortIso: e.dateIso,
+                    umsatz: (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','),
+                    sh: 'S',
+                    konto,
+                    gegenkonto: '1000',
+                    bu: datevExpenseBu(konto, mwstSatz),
+                    belegdatum: datevIsoToDe(e.dateIso),
+                    belegfeld1: e.belegNr || '',
+                    buchungstext: datevTruncate((e.kategorie || 'Sonstiges') + ' - ' + (e.note || ''), 60)
+                });
+            });
+
+            bankExpenses.forEach(e => {
+                const mwstSatz = e.mwstSatz != null ? e.mwstSatz : 19;
+                const konto = datevExpenseKonto(e.kategorie || 'Sonstiges', mwstSatz);
+                rows.push({
+                    sortIso: e.dateIso,
+                    umsatz: (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','),
+                    sh: 'S',
+                    konto,
+                    gegenkonto: '1200',
+                    bu: datevExpenseBu(konto, mwstSatz),
+                    belegdatum: datevIsoToDe(e.dateIso),
+                    belegfeld1: e.belegNr || '',
+                    buchungstext: datevTruncate((e.kategorie || 'Sonstiges') + ' - ' + (e.note || ''), 60)
+                });
+            });
+
+            rows.sort((a, b) => (a.sortIso || '').localeCompare(b.sortIso || ''));
+
+            const lines = [];
+            lines.push(['Umsatz (Brutto)', 'S/H', 'Konto', 'Gegenkonto', 'BU-Schlüssel', 'Belegdatum', 'Belegfeld 1', 'Buchungstext']);
+            rows.forEach(r => lines.push([r.umsatz, r.sh, r.konto, r.gegenkonto, r.bu, r.belegdatum, r.belegfeld1, r.buchungstext]));
+
+            const csv = lines.map(row => row.map(csvEscape).join(';')).join('\r\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const quarterSuffix = selectedQuarter() === 'alle' ? '' : `_Q${selectedQuarter()}`;
+            const filename = `Buchungsstapel_DATEV_EisFavorite_${selectedYear() === 'alle' ? 'alle' : selectedYear()}${quarterSuffix}.csv`;
+            return { blob, filename };
+        }
+
+        function exportDatevCsv() {
+            const { blob, filename } = buildDatevCsvBlob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
         }
 
         initFirebase();
