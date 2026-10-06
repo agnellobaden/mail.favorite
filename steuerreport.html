@@ -247,6 +247,62 @@
         .stat-card .value { font-size: 1.15em; }
     }
 
+    .checklist-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .checklist-overlay.open { display: flex; }
+    .checklist-box {
+        background: white;
+        border-radius: 14px;
+        max-width: 700px;
+        width: 100%;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 25px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .checklist-box h2 { margin-top: 0; color: #333; }
+    .checklist-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 2px solid #eee;
+    }
+    .checklist-item.ok { background: #eafaf0; border-color: #c3e9d2; }
+    .checklist-item.warn { background: #fff8e1; border-color: #ffe9a8; }
+    .checklist-item .icon { font-size: 1.4em; line-height: 1; }
+    .checklist-item .text { flex: 1; }
+    .checklist-item .text strong { display: block; margin-bottom: 2px; }
+    .checklist-item a.btn-link {
+        display: inline-block;
+        margin-top: 6px;
+        color: #667eea;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .checklist-item a.btn-link:hover { text-decoration: underline; }
+    .checklist-close {
+        display: block;
+        margin: 15px auto 0;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 25px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
     @media print {
         body > *:not(.container) { display: none !important; }
         body { background: white; padding: 0; }
@@ -379,6 +435,7 @@
             </select>
         </div>
         <div class="filter-row no-print">
+            <button class="btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);" onclick="openChecklist()">✅ Buchhaltung erledigen (Checkliste)</button>
             <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
         </div>
         <div class="filter-row no-print">
@@ -539,6 +596,15 @@
         </div>
     </div>
 
+    <div class="checklist-overlay no-print" id="checklistOverlay">
+        <div class="checklist-box">
+            <h2>✅ Buchhaltung erledigen - Checkliste</h2>
+            <p style="color:#666; margin-top:-8px;">Prüft den <strong>gesamten</strong> Datenbestand (unabhängig vom oben gewählten Jahr/Quartal-Filter) auf fehlende Angaben. Auf einen Punkt klicken springt direkt zur passenden Ansicht.</p>
+            <div id="checklistItems"></div>
+            <button class="checklist-close" onclick="closeChecklist()">Schließen</button>
+        </div>
+    </div>
+
     <script>
         let db = null;
         let allTageseinnahmen = [];
@@ -546,6 +612,7 @@
         let allKassenbuch = [];
         let allKontoauszug = [];
         let invoicesByBookingId = {};
+        let allRechnungsarchiv = [];
 
         // EÜR-taugliche Ausgaben-Kategorien - dieselbe Liste wie in
         // kassenbuch.html und kontoauszug.html.
@@ -607,9 +674,11 @@
             // passenden Rechnungs-PDF zuordnen lässt.
             db.collection('rechnungsarchiv').onSnapshot(snapshot => {
                 invoicesByBookingId = {};
+                allRechnungsarchiv = [];
                 snapshot.forEach(doc => {
                     const inv = { ...doc.data(), id: doc.id };
                     if (inv.bookingId) invoicesByBookingId[inv.bookingId] = inv;
+                    allRechnungsarchiv.push(inv);
                 });
                 refreshAll();
             }, error => console.error('Firestore-Fehler (Rechnungsarchiv):', error));
@@ -1754,6 +1823,97 @@
             link.href = URL.createObjectURL(blob);
             link.download = filename;
             link.click();
+        }
+
+        // Buchhaltungs-Checkliste: prüft den GESAMTEN Datenbestand (nicht nur
+        // den oben gewählten Jahr/Quartal-Filter) auf typische Lücken, die
+        // vor einer sauberen Abgabe an den Steuerberater noch gefüllt werden
+        // sollten, und verlinkt direkt zur passenden Filteransicht.
+        function buildChecklist() {
+            const bankGeschaeft = allKontoauszug.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft');
+            const ohneKategorieZuordnung = allKontoauszug.filter(e => e.richtung !== 'einnahme' && !e.category);
+            const ohneEuerKategorie = bankGeschaeft.filter(e => !e.kategorie);
+            const ohneBelegNr = bankGeschaeft.filter(e => !e.belegNr);
+            const ohneScan = bankGeschaeft.filter(e => !e.scanFile);
+
+            const kassenbuchOhneKategorie = allKassenbuch.filter(e => e.type === 'ausgabe' && !e.kategorie);
+
+            const heuteIso = new Date().toISOString().slice(0, 10);
+            const vor14TagenIso = shiftIsoDate(heuteIso, -14);
+            const ueberfaelligeRechnungen = allRechnungsarchiv.filter(inv => {
+                const invoiceIso = parseDeDateToIso(inv.invoiceDate || inv.date);
+                if (!invoiceIso || invoiceIso > vor14TagenIso) return false; // noch keine 14 Tage her, kein Grund zur Sorge
+                return !kontoauszugEinnahmeForInvoice(inv);
+            });
+
+            return [
+                {
+                    count: ohneKategorieZuordnung.length,
+                    label: 'Kontoauszug-Buchungen noch ohne Zuordnung (Geschäft/Privat)',
+                    hint: 'Für jede Bank-Buchung muss klar sein, ob sie geschäftlich oder privat war.',
+                    link: 'kontoauszug.html?filter=offen', linkLabel: '→ Im Kontoauszug zuordnen'
+                },
+                {
+                    count: ohneEuerKategorie.length,
+                    label: 'Geschäftsausgaben noch ohne EÜR-Kategorie (Wareneinkauf, Kfz-Kosten, ...)',
+                    hint: 'Nötig, damit der DATEV-Export das richtige Konto zuordnen kann.',
+                    link: 'kontoauszug.html?filter=ohneKategorie', linkLabel: '→ Im Kontoauszug kategorisieren'
+                },
+                {
+                    count: ohneBelegNr.length,
+                    label: 'Geschäftsausgaben noch ohne Beleg-Nr.',
+                    hint: 'Für die GoBD-konforme Zuordnung zum Papierordner/Scan.',
+                    link: 'kontoauszug.html?filter=ohneBelegNr', linkLabel: '→ Im Kontoauszug Beleg-Nr. vergeben'
+                },
+                {
+                    count: ohneScan.length,
+                    label: 'Geschäftsausgaben ohne hinterlegten Scan-Beleg',
+                    hint: 'Beleg einscannen (in den scan/-Ordner legen) und match-scans.js laufen lassen, oder Scan-Datei im Kontoauszug manuell zuordnen.',
+                    link: 'kontoauszug.html?filter=ohneScan', linkLabel: '→ Im Kontoauszug ansehen'
+                },
+                {
+                    count: kassenbuchOhneKategorie.length,
+                    label: 'Kassenbuch-Ausgaben (bar) noch ohne EÜR-Kategorie',
+                    hint: '',
+                    link: 'kassenbuch.html', linkLabel: '→ Im Kassenbuch kategorisieren'
+                },
+                {
+                    count: ueberfaelligeRechnungen.length,
+                    label: 'Rechnungen seit über 14 Tagen ohne erkannten Zahlungseingang',
+                    hint: ueberfaelligeRechnungen.length > 0
+                        ? 'Betroffen: ' + ueberfaelligeRechnungen.map(inv => (inv.customerName || '?') + ' (' + (inv.invoiceNumber || '') + ', ' + formatEuro(parseAmountToNumber(inv.amount) || 0) + ')').join(', ')
+                        : '',
+                    link: 'rechnungsarchiv.html', linkLabel: '→ Rechnungsarchiv prüfen / Zahlung anmahnen'
+                }
+            ];
+        }
+
+        function openChecklist() {
+            const items = buildChecklist();
+            const container = document.getElementById('checklistItems');
+            const allOk = items.every(i => i.count === 0);
+
+            let html = '';
+            if (allOk) {
+                html += `<div class="checklist-item ok"><div class="icon">🎉</div><div class="text"><strong>Alles erledigt!</strong>Keine offenen Punkte gefunden - die Buchhaltung ist vollständig. Jetzt kannst du oben den DATEV-Buchungsstapel bzw. "Alles für den Steuerberater" exportieren.</div></div>`;
+            }
+            items.forEach(i => {
+                const ok = i.count === 0;
+                html += `<div class="checklist-item ${ok ? 'ok' : 'warn'}">
+                    <div class="icon">${ok ? '✅' : '⚠️'}</div>
+                    <div class="text">
+                        <strong>${ok ? i.label.replace(/noch ohne|ohne/, 'vollständig mit') : i.count + '× ' + i.label}</strong>
+                        ${!ok && i.hint ? `<div style="font-size:0.85em; color:#666;">${i.hint}</div>` : ''}
+                        ${!ok ? `<a class="btn-link" href="${i.link}" target="_blank">${i.linkLabel}</a>` : ''}
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+            document.getElementById('checklistOverlay').classList.add('open');
+        }
+
+        function closeChecklist() {
+            document.getElementById('checklistOverlay').classList.remove('open');
         }
 
         initFirebase();

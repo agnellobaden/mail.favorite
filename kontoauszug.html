@@ -259,6 +259,8 @@
                 <option value="zahlungseingang">Nur Zahlungseingänge</option>
                 <option value="mitScan">Nur mit Scan-Beleg</option>
                 <option value="ohneScan">Nur ohne Scan-Beleg (Geschäftsausgaben)</option>
+                <option value="ohneKategorie">Nur ohne EÜR-Kategorie (Geschäftsausgaben)</option>
+                <option value="ohneBelegNr">Nur ohne Beleg-Nr. (Geschäftsausgaben)</option>
             </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
@@ -501,6 +503,8 @@
             if (filter === 'offen') entries = entries.filter(e => e.richtung !== 'einnahme' && !e.category);
             else if (filter === 'mitScan') entries = entries.filter(e => !!e.scanFile);
             else if (filter === 'ohneScan') entries = entries.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft' && !e.scanFile);
+            else if (filter === 'ohneKategorie') entries = entries.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft' && !e.kategorie);
+            else if (filter === 'ohneBelegNr') entries = entries.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft' && !e.belegNr);
             else if (filter !== 'alle') entries = entries.filter(e => e.category === filter);
 
             const tbody = document.getElementById('entriesBody');
@@ -964,6 +968,13 @@
             const wrap = document.querySelector('.burger-wrap');
             if (wrap && !wrap.contains(e.target)) closeBurgerMenu();
         });
+
+        // Direkter Sprung aus der Buchhaltungs-Checkliste (steuerreport.html)
+        // in die passende Filteransicht, z.B. kontoauszug.html?filter=ohneKategorie.
+        const urlFilter = new URLSearchParams(location.search).get('filter');
+        if (urlFilter) {
+            document.getElementById('catFilter').value = urlFilter;
+        }
 
         initFirebase();
     </script>
