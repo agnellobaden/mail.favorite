@@ -1995,6 +1995,16 @@
                 action: () => window.print()
             },
             {
+                id: 'tagesberichte',
+                label: 'Tagesberichte / Kassenberichte ausdrucken',
+                desc: 'Dieser Export liegt im Kassenbuch - dort "📦 Sammeldruck (alle Tage im Zeitraum)" nutzen (Von-Bis ist hier schon vorausgefüllt).',
+                actionLabel: '→ Kassenbuch öffnen',
+                link: () => {
+                    const vb = wizardPeriodVonBis();
+                    return vb ? `kassenbuch.html?von=${vb.von}&bis=${vb.bis}` : 'kassenbuch.html';
+                }
+            },
+            {
                 id: 'rechnungen',
                 label: 'Alle Event-Rechnungen als PDF',
                 desc: 'Lädt eine PDF mit allen Rechnungen des oben gewählten Zeitraums herunter.',
@@ -2023,6 +2033,23 @@
                 action: () => exportAllForSteuerberater()
             }
         ];
+
+        // Von-Bis-Datumsbereich für den oben gewählten Jahr/Quartal-Filter -
+        // zum Vorausfüllen des Kassenbuch-Sammeldrucks. Bei "alle Jahre" gibt
+        // es keinen sinnvollen festen Bereich, dann null.
+        function wizardPeriodVonBis() {
+            const year = selectedYear();
+            const quarter = selectedQuarter();
+            if (year === 'alle') return null;
+            if (quarter === 'alle') return { von: `${year}-01-01`, bis: `${year}-12-31` };
+            const quarterStartMonth = { '1': 1, '2': 4, '3': 7, '4': 10 };
+            const startMonth = quarterStartMonth[quarter];
+            const endMonth = startMonth + 2;
+            const von = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+            const lastDay = new Date(parseInt(year, 10), endMonth, 0).getDate();
+            const bis = `${year}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            return { von, bis };
+        }
 
         function wizardPeriodKey() {
             return `${selectedYear()}_${selectedQuarter()}`;
@@ -2067,8 +2094,9 @@
             WIZARD_STEPS.forEach(step => {
                 const done = wizardStepDone(step.id);
                 if (done) doneCount++;
-                const actionHtml = step.link
-                    ? `<a href="${step.link}" target="_blank" onclick="wizardSetStepDone('${step.id}', true); setTimeout(renderWizard, 300);">${step.actionLabel}</a>`
+                const resolvedLink = typeof step.link === 'function' ? step.link() : step.link;
+                const actionHtml = resolvedLink
+                    ? `<a href="${resolvedLink}" target="_blank" onclick="wizardSetStepDone('${step.id}', true); setTimeout(renderWizard, 300);">${step.actionLabel}</a>`
                     : `<button onclick="wizardRunStep('${step.id}')">${step.actionLabel}</button>`;
                 html += `<div class="wizard-step ${done ? 'done' : ''}">
                     <input type="checkbox" ${done ? 'checked' : ''} onchange="wizardSetStepDone('${step.id}', this.checked); renderWizard();">
