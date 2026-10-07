@@ -438,6 +438,13 @@
             .kb-day-block { margin-bottom: 12px; }
             .kb-summary-table, .kb-zaehl-table { font-size: 0.72em; }
             .kb-summary-table td, .kb-zaehl-table th, .kb-zaehl-table td { padding: 2px 6px; }
+
+            /* Sauberes Formular ohne Schlagschatten/Grauton - nur klare
+               schwarze Linien wie auf einem echten Formular, kein hellgrauer
+               "Schatten"-Look durch die Bildschirm-Rahmenfarben/Füllung. */
+            #kassenberichtModal, #eigenbelegModal { box-shadow: none !important; }
+            .kb-summary-table td, .kb-zaehl-table th, .kb-zaehl-table td { border-color: #000 !important; }
+            .kb-zaehl-table th { background: none !important; }
         }
         .eigenbeleg-box {
             border: 1px solid #000;
