@@ -421,7 +421,7 @@
             #kassenberichtModal > div, #eigenbelegModal > div {
                 max-width: 100%;
                 margin: 0;
-                padding: 15mm;
+                padding: 10mm;
                 box-shadow: none;
                 border-radius: 0;
             }
@@ -430,6 +430,14 @@
             .kb-day-block + .kb-day-block { page-break-before: always; }
             .no-print { display: none !important; }
             .print-only { display: inline !important; }
+
+            /* Kompakter gedruckt, damit ein kompletter Kassenbericht
+               (Summentabelle + Stückelung bis 1 Cent + Kassenendbestand)
+               auf eine A4-Seite passt, statt auf Seite 2 überzulaufen. */
+            #kbPrintArea h2 { font-size: 1.05em; margin: 0 0 8px; }
+            .kb-day-block { margin-bottom: 12px; }
+            .kb-summary-table, .kb-zaehl-table { font-size: 0.72em; }
+            .kb-summary-table td, .kb-zaehl-table th, .kb-zaehl-table td { padding: 2px 6px; }
         }
         .eigenbeleg-box {
             border: 1px solid #000;
