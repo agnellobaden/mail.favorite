@@ -479,6 +479,7 @@
         let allEntries = [];
         let allTageseinnahmenEntries = []; // "Kasse"-Einträge aus tageseinnahmen.html (nur Anzeige, Bearbeitung dort)
         let allZaehlungen = {}; // Kassenzählprotokoll je Tag, key = dateIso
+        let currentKbPrintDates = []; // Tag(e), die gerade im Kassenbericht-Modal angezeigt werden - zum Markieren als "gedruckt" beim Klick auf Drucken
 
         const TYPE_LABELS = {
             einnahme: { label: '💵 Bareinnahme', bg: '#d4edda', color: '#155724', sign: 1 },
@@ -578,6 +579,7 @@
                 if (document.getElementById('kassenberichtModal').style.display === 'block') {
                     renderKassenbericht();
                 }
+                renderTable();
             }, error => {
                 console.error('Firestore-Fehler (Kassenzählung):', error);
             });
@@ -702,9 +704,10 @@
                 const amount = parseFloat(e.amount) || 0;
                 const amountClass = t.sign >= 0 ? 'amount-plus' : 'amount-minus';
                 const amountSign = t.sign >= 0 ? '+' : '-';
+                const gedruckt = !!(allZaehlungen[e.dateIso] && allZaehlungen[e.dateIso].gedruckt);
                 return `
                 <tr${e.fromTageseinnahmen ? ' style="background:#f0f7ff;"' : ''}>
-                    <td style="cursor:pointer; text-decoration:underline dotted; color:#667eea;" title="Kassenbericht für diesen Tag öffnen (zum Korrigieren)" onclick="openKassenberichtForDate('${e.dateIso}')">${e.date || e.dateIso || '-'}</td>
+                    <td style="cursor:pointer; text-decoration:underline dotted; color:#667eea;" title="${gedruckt ? 'Kassenbericht für diesen Tag wurde bereits gedruckt - ' : ''}Kassenbericht für diesen Tag öffnen (zum Korrigieren)" onclick="openKassenberichtForDate('${e.dateIso}')">${gedruckt ? '<span style="color:#28a745;" title="Bereits gedruckt">✓</span> ' : ''}${e.date || e.dateIso || '-'}</td>
                     <td>${typeBadge(e.type)}</td>
                     <td>${e.note || '-'}${e.fromTageseinnahmen ? ' <span style="color:#667eea; font-size:0.8em;">(aus Tageseinnahmen)</span>' : ''}</td>
                     <td>${e.type === 'ausgabe'
@@ -858,6 +861,7 @@
         function openKassenbericht() {
             const dateIso = document.getElementById('kbReportDate').value;
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
+            currentKbPrintDates = [dateIso];
             document.getElementById('kassenberichtModal').style.display = 'block';
             renderKassenbericht();
         }
@@ -1119,6 +1123,7 @@
             const pageCount = datesWithEntries.length + eigenbelegEntries.length;
             if (pageCount > 62 && !confirm(`${pageCount} Seiten (Kassenberichte + Eigenbelege) im Zeitraum. Trotzdem fortfahren?`)) return;
 
+            currentKbPrintDates = datesWithEntries;
             const kassenberichteHtml = datesWithEntries.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
             const eigenbelegeHtml = eigenbelegEntries.map(e => buildEigenbelegHtml(e, true)).join('');
             document.getElementById('kbPrintArea').innerHTML = kassenberichteHtml + eigenbelegeHtml;
@@ -1133,7 +1138,21 @@
         function printKassenbericht() {
             document.getElementById('kassenberichtModal').scrollTop = 0;
             window.scrollTo(0, 0);
+            markKbDatesAsGedruckt(currentKbPrintDates);
             setTimeout(() => window.print(), 50);
+        }
+
+        // Markiert die gerade gedruckten Tage mit einem Häkchen in der
+        // Haupttabelle (Feld "gedruckt" im Kassenzählprotokoll-Dokument des
+        // jeweiligen Tages) - so sieht man auf einen Blick, welche
+        // Kassenberichte schon ausgedruckt/abgeheftet sind.
+        function markKbDatesAsGedruckt(dateIsoList) {
+            if (!dateIsoList || dateIsoList.length === 0) return;
+            const batch = db.batch();
+            dateIsoList.forEach(dateIso => {
+                batch.set(db.collection('kassenzaehlung').doc(dateIso), { dateIso, gedruckt: true }, { merge: true });
+            });
+            batch.commit().catch(err => console.error('Konnte "gedruckt"-Markierung nicht speichern:', err));
         }
 
         function toggleBurgerMenu() {
