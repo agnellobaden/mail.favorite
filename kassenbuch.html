@@ -910,9 +910,7 @@
             let differenzHtml = '';
             if (hasCount) {
                 const differenz = gezaehlt - kassenbestandSchluss;
-                if (Math.abs(differenz) < 0.005) {
-                    differenzHtml = `<p style="font-size:0.9em; margin-top:8px; color:#28a745;">✓ Kassensturz stimmt: gezählter Bestand entspricht dem Kassenbuch.</p>`;
-                } else {
+                if (Math.abs(differenz) >= 0.005) {
                     differenzHtml = `<p style="font-size:0.9em; margin-top:8px; color:#e74c3c;">⚠ Differenz zum Kassenbuch: ${differenz > 0 ? '+' : ''}${formatEuro(differenz)} (Soll laut Kassenbuch: ${formatEuro(kassenbestandSchluss)}).</p>`;
                 }
             }
