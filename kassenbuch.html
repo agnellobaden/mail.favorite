@@ -229,12 +229,27 @@
                 measurementId: "G-WGRT5L3NCX"
             };
             var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            if (__isLocal) {
+            var __authToken = new URLSearchParams(location.search).get('authToken');
+            if (__isLocal && !__authToken) {
                 var __gate = document.getElementById('__authGate');
                 if (__gate) __gate.remove();
                 return;
             }
             if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            // print-listener.js (headless Chrome auf localhost) meldet sich
+            // mit einem vom Server (firebase-admin) erzeugten Custom Token
+            // an, damit die Firestore-Regeln (nur Owner) auch dort greifen -
+            // __isLocal allein würde nur die Sichtgate überspringen, aber
+            // keine echte Firebase-Auth-Session herstellen.
+            if (__isLocal && __authToken) {
+                window.__authReady = firebase.auth().signInWithCustomToken(__authToken).then(function() {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                }).catch(function(err) {
+                    console.error('Custom-Token-Login fehlgeschlagen:', err);
+                });
+                return;
+            }
             var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com'];
             firebase.auth().onAuthStateChanged(function(user) {
                 if (!user) {
@@ -392,9 +407,11 @@
             <p class="no-print" style="color:#666; font-size:0.85em; margin:-5px 0 15px;">Menge je Stückelung eintragen (tatsächlich gezähltes Bargeld) - wird automatisch gespeichert und mit dem Kassenbestand laut Kassenbuch verglichen (Kassensturz).</p>
             <div id="kbPrintArea"></div>
 
-            <div class="no-print" style="display:flex; gap:10px; margin-top:20px;">
+            <div class="no-print" style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
                 <button class="btn" onclick="printKassenbericht()">🖨️ Drucken / Als PDF speichern</button>
+                <button class="btn btn-secondary" onclick="sendKassenberichtToPc()">📲 An PC-Drucker senden</button>
             </div>
+            <p class="no-print" id="pcDruckStatus" style="font-size:0.85em; color:#666; margin-top:8px;"></p>
         </div>
     </div>
 
@@ -1146,6 +1163,29 @@
         // Haupttabelle (Feld "gedruckt" im Kassenzählprotokoll-Dokument des
         // jeweiligen Tages) - so sieht man auf einen Blick, welche
         // Kassenberichte schon ausgedruckt/abgeheftet sind.
+        // Vom Handy aus: Druckauftrag in Firestore ablegen, den ein
+        // dauerhaft auf dem PC laufendes Skript (print-listener.js, siehe
+        // email-import-service/) abholt, als PDF erzeugt und automatisch an
+        // den dort angeschlossenen Drucker schickt - PC muss dafür an und
+        // das Skript gestartet sein.
+        function sendKassenberichtToPc() {
+            if (!currentKbPrintDates || currentKbPrintDates.length === 0) { alert('Kein Zeitraum ausgewählt.'); return; }
+            const statusEl = document.getElementById('pcDruckStatus');
+            statusEl.textContent = '⏳ Wird an den PC gesendet...';
+            db.collection('druckauftraege').add({
+                typ: 'kassenbericht',
+                dates: currentKbPrintDates,
+                status: 'offen',
+                createdAtMs: Date.now()
+            }).then(() => {
+                statusEl.textContent = '✅ Gesendet - der PC druckt automatisch, sobald print-listener.js dort läuft.';
+                markKbDatesAsGedruckt(currentKbPrintDates);
+            }).catch(err => {
+                statusEl.textContent = '';
+                alert('❌ Konnte nicht gesendet werden: ' + err.message);
+            });
+        }
+
         function markKbDatesAsGedruckt(dateIsoList) {
             if (!dateIsoList || dateIsoList.length === 0) return;
             const batch = db.batch();
@@ -1178,7 +1218,32 @@
         if (wizardParams.get('von')) document.getElementById('kbVonDate').value = wizardParams.get('von');
         if (wizardParams.get('bis')) document.getElementById('kbBisDate').value = wizardParams.get('bis');
 
-        initFirebase();
+        // Bei print-listener.js (Custom-Token-Login, siehe __authGate oben)
+        // erst mit initFirebase() starten, wenn die Anmeldung wirklich
+        // durch ist - sonst scheitern die ersten Firestore-onSnapshot-
+        // Aufrufe an den Sicherheitsregeln und erholen sich nicht wieder.
+        if (window.__authReady) {
+            window.__authReady.then(initFirebase);
+        } else {
+            initFirebase();
+        }
+
+        // Automatischer Druck für print-listener.js (PC-Drucker-Weiterleitung
+        // vom Handy, siehe sendKassenberichtToPc()): öffnet den Kassenbericht
+        // für die übergebene(n) Datum(e) ohne Klicks und setzt danach ein
+        // Flag, an dem das headless-Browser-Skript erkennt, dass der
+        // Kassenbericht fertig gerendert ist und gedruckt werden kann.
+        const autoDruckDatumListe = wizardParams.get('datumListe');
+        if (autoDruckDatumListe) {
+            window.__autoDruckReady = false;
+            setTimeout(() => {
+                const dates = autoDruckDatumListe.split(',').filter(Boolean);
+                const html = dates.map(d => buildKassenberichtHtmlForDate(d, false)).join('');
+                document.getElementById('kbPrintArea').innerHTML = html;
+                document.getElementById('kassenberichtModal').style.display = 'block';
+                setTimeout(() => { window.__autoDruckReady = true; }, 500);
+            }, 3000);
+        }
     </script>
 </body>
 </html>

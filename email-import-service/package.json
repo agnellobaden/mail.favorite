@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node import.js",
     "test": "node import.js --once",
-    "send-reminders": "node send-payment-reminders.js"
+    "send-reminders": "node send-payment-reminders.js",
+    "print-listener": "node print-listener.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
@@ -17,6 +18,7 @@
     "nodemailer": "^9.0.3",
     "pdf-lib": "^1.17.1",
     "pngjs": "^7.0.0",
+    "puppeteer": "^25.12.0",
     "tesseract.js": "^7.0.0"
   }
 }
