@@ -1654,6 +1654,72 @@
         // Ein Klick, alles für den Steuerberater: CSV + Ordner-PDF
         // Snack-Oase + Ordner-PDF EisFavorite (jeweils mit Deckblatt und
         // angehängten Beleg-PDFs, chronologisch) - als eine ZIP-Datei.
+        // Baut eine kurze, erklärende LIESMICH.txt - damit auch ein Steuerberater,
+        // der die Firma/App nicht kennt, auf Anhieb versteht, was in der ZIP
+        // steckt, welche Datei wofür ist und wie die Firma/Versteuerung
+        // aufgebaut ist, ohne vorher extra nachfragen zu müssen.
+        function buildReadmeText() {
+            const revenue = filteredRevenue();
+            const cashExpenses = filteredExpenses();
+            const bankExpenses = filteredBankExpenses();
+            const totalBrutto = revenue.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+            const totalUst = totalBrutto - (totalBrutto / 1.07);
+            const vorsteuer = calcVorsteuer(cashExpenses.concat(bankExpenses));
+            const zeitraum = (selectedYear() === 'alle' ? 'alle Jahre' : selectedYear()) + (selectedQuarter() === 'alle' ? '' : ', Q' + selectedQuarter());
+            const heute = new Date().toLocaleDateString('de-DE');
+
+            return `EisFavorite / SnackOase - Buchhaltungsunterlagen für den Steuerberater
+====================================================================
+
+Zeitraum dieser Unterlagen: ${zeitraum}
+Erstellt am: ${heute}
+
+Firma / Steuerpflichtiger:
+  Andrea Agnello
+  Betreibt zwei Gewerbe über dasselbe Geschäftskonto:
+    - "Mobiler Eisverkauf Agnello" (EisFavorite) - mobiler Eisverkauf/Catering
+    - "Snack-Oase 24/7" - Imbiss/Verkaufsautomaten
+  Versteuerung: Ist-Versteuerung
+  Kontenrahmen: SKR03
+
+Enthaltene Dateien:
+  1) Buchungsstapel_DATEV_*.csv
+     Maschinenlesbarer Buchungsstapel im DATEV/Lexware-nahen Format
+     (Umsatz Brutto; S/H; Konto; Gegenkonto; BU-Schlüssel; Belegdatum;
+     Belegfeld 1; Buchungstext) - direkt importierbar in jede gängige
+     Steuerberater-Software. Semikolon-getrennt, Dezimalkomma, UTF-8.
+
+  2) Steuerreport_EisFavorite_*.csv
+     Dieselben Daten in für Menschen lesbarer Form (Einnahmen/Ausgaben
+     mit Datum, Kategorie, MwSt-Satz, Notiz) - zur schnellen Kontrolle,
+     nicht zum direkten Import gedacht.
+
+  3) Ordner_*.pdf (ein PDF je Gewerbe/Kunde: "Snack-Oase" und
+     "Mobiler Eisverkauf Agnello")
+     Chronologischer Beleg-Ordner: zu jeder Buchung ein kurzes
+     Deckblatt (Datum/Betrag/Beschreibung), direkt gefolgt vom
+     eingescannten Original-Beleg bzw. der Rechnungs-PDF, falls
+     vorhanden. Ersetzt den Papierordner.
+
+Kurzübersicht für diesen Zeitraum:
+  Betriebseinnahmen (brutto):      ${formatEuro(totalBrutto)}
+  davon Umsatzsteuer (7%):         ${formatEuro(totalUst)}
+  Betriebsausgaben - Vorsteuer:    ${formatEuro(vorsteuer)}
+  USt-Zahllast (Saldo):            ${formatEuro(totalUst - vorsteuer)}
+  Anzahl Einnahme-Buchungen:       ${revenue.length}
+  Anzahl Ausgabe-Buchungen:        ${cashExpenses.length + bankExpenses.length}
+
+Hinweise:
+  - Barausgaben kommen aus dem Kassenbuch (offene Ladenkasse), die
+    übrigen Ausgaben aus dem Bankkonto (gemeinsam für beide Gewerbe).
+  - Einzelne Buchungen sind ggf. mit einer Notiz markiert, wenn die
+    steuerliche Einordnung noch zu prüfen ist (z.B. "ggf. privat",
+    "noch nicht abgeglichen") - bitte diese Hinweise beachten.
+  - Bei Rückfragen zu einzelnen Buchungen: Andrea Agnello,
+    agnello.baden@gmail.com
+`;
+        }
+
         async function exportAllForSteuerberater() {
             const btn = document.getElementById('exportAllBtn');
             const originalLabel = btn.textContent;
@@ -1661,6 +1727,11 @@
             btn.disabled = true;
             try {
                 const zip = new JSZip();
+
+                zip.file('LIESMICH.txt', buildReadmeText());
+
+                const datevResult = buildDatevCsvBlob();
+                zip.file(datevResult.filename, datevResult.blob);
 
                 const csvResult = buildCsvBlob();
                 zip.file(csvResult.filename, csvResult.blob);
@@ -1676,7 +1747,7 @@
                 }
 
                 if (!anyPdf) {
-                    alert('Hinweis: Keine Buchungen mit Belegen im gewählten Zeitraum gefunden - es wird nur die CSV gezippt.');
+                    alert('Hinweis: Keine Buchungen mit Belegen im gewählten Zeitraum gefunden - es werden nur die CSV-Dateien gezippt.');
                 }
 
                 const zipBlob = await zip.generateAsync({ type: 'blob' });
