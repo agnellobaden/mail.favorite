@@ -451,6 +451,11 @@
             .kb-summary-table, .kb-zaehl-table { font-size: 0.72em; }
             .kb-summary-table td, .kb-zaehl-table th, .kb-zaehl-table td { padding: 2px 6px; }
 
+            /* Leere Ausgaben-Zeilen zum handschriftlichen Eintragen etwas
+               höher als die restliche, kompakte Tabelle - genug Platz für
+               einen Stift, ohne die ganze Seite wieder zu sprengen. */
+            .kb-blank-row td { padding: 9px 6px; }
+
             /* Sauberes Formular ohne Schlagschatten/Grauton - nur klare
                schwarze Linien wie auf einem echten Formular, kein hellgrauer
                "Schatten"-Look durch die Bildschirm-Rahmenfarben/Füllung. */
@@ -902,7 +907,7 @@
                 const e = ausgabenLines[i];
                 const label = e ? (e.note || '') : '';
                 const amount = e ? formatEuro(parseFloat(e.amount) || 0) : '';
-                rows.push(`<tr><td>${label}</td><td class="kb-amount">${amount}</td><td></td></tr>`);
+                rows.push(`<tr class="kb-blank-row"><td>${label}</td><td class="kb-amount">${amount}</td><td></td></tr>`);
             }
             rows.push(`<tr><td colspan="3">&nbsp;</td></tr>`);
             rows.push(`<tr><td>Privatentnahmen (durch Eigenbeleg nachzuweisen)</td><td class="kb-amount">${formatEuro(privatentnahmen)}</td><td></td></tr>`);
