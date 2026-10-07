@@ -321,7 +321,18 @@
             </div>
             <div class="field" style="flex:1;">
                 <label for="entryNote">Notiz (optional)</label>
-                <input type="text" id="entryNote" placeholder="z.B. Wareneinkauf Großmarkt">
+                <input type="text" id="entryNote" list="haendlerListe" placeholder="z.B. Wareneinkauf Großmarkt">
+                <datalist id="haendlerListe">
+                    <option value="Metro">
+                    <option value="Tanken">
+                    <option value="Amazon">
+                    <option value="Bäko">
+                    <option value="Köllemann">
+                    <option value="Aldi">
+                    <option value="Lidl">
+                    <option value="Netto">
+                    <option value="Bank">
+                </datalist>
             </div>
             <button class="btn" onclick="addEntry()">➕ Eintragen</button>
         </div>
