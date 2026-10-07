@@ -262,6 +262,11 @@
                 <option value="ohneKategorie">Nur ohne EÜR-Kategorie (Geschäftsausgaben)</option>
                 <option value="ohneBelegNr">Nur ohne Beleg-Nr. (Geschäftsausgaben)</option>
             </select>
+            <select id="geschaeftFilter" onchange="renderTable()" title="Trennt die Buchungen nach Gewerbe - EisFavorite ist der Standard, Snack-Oase wird pro Buchung markiert (🏪-Badge/Auswahl).">
+                <option value="alle" selected>Beide Gewerbe</option>
+                <option value="eisfavorite">🍦 Nur EisFavorite</option>
+                <option value="snackoase">🏪 Nur Snack-Oase</option>
+            </select>
             <button class="btn btn-secondary" onclick="markAllOffenAsGeschaeft()">✅ Alle noch offenen als Geschäftsausgabe markieren</button>
             <button class="btn btn-secondary" onclick="assignAllMissingBelegNr()">🔢 Fehlende Beleg-Nr. für alle vergeben</button>
             <button class="btn btn-secondary" id="printAllBelegeBtn" onclick="printAllBelegeChronologisch()">🖨️ Alle Belege chronologisch drucken</button>
@@ -507,6 +512,17 @@
             else if (filter === 'ohneBelegNr') entries = entries.filter(e => e.richtung !== 'einnahme' && e.category === 'geschaeft' && !e.belegNr);
             else if (filter !== 'alle') entries = entries.filter(e => e.category === filter);
 
+            // Trennung nach Gewerbe (beide laufen über dasselbe Geschäftskonto):
+            // EisFavorite ist der Standard - alles ohne explizite Snack-Oase-
+            // Kennzeichnung zählt dazu. Snack-Oase nur, wenn explizit markiert
+            // (aus einem Beleg erkannt oder manuell gesetzt).
+            const geschaeftFilter = document.getElementById('geschaeftFilter').value;
+            if (geschaeftFilter === 'snackoase') {
+                entries = entries.filter(e => e.kunde && /snack-?oase/i.test(e.kunde));
+            } else if (geschaeftFilter === 'eisfavorite') {
+                entries = entries.filter(e => !e.kunde || !/snack-?oase/i.test(e.kunde));
+            }
+
             const tbody = document.getElementById('entriesBody');
             const emptyState = document.getElementById('emptyState');
 
@@ -546,7 +562,7 @@
                 <tr${e.scanFile ? ' style="background:#eafaf0;"' : ''}>
                     <td>${e.date || e.dateIso || '-'}</td>
                     <td>${e.buchungstext || '-'}</td>
-                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${(!isEinnahme && e.category === 'geschaeft') ? kundeCell(e) : ''}</td>
+                    <td>${(e.empfaenger ? e.empfaenger + ' - ' : '') + (e.verwendungszweck || '')}${!isEinnahme ? kundeCell(e) : ''}</td>
                     <td class="amount-cell">${amountHtml}</td>
                     <td>${categoryHtml}</td>
                     <td>${kategorieHtml}</td>
