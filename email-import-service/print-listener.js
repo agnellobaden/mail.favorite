@@ -19,6 +19,19 @@ const serviceAccount = require('./firebase-service-account.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
+// Firestore-Lesequote (kostenloser Plan) ist an manchen Tagen zwischendurch
+// erschöpft ("RESOURCE_EXHAUSTED") - das darf das ganze Skript nicht zum
+// Absturz bringen, sonst druckt/speichert bis zum manuellen Neustart gar
+// nichts mehr. Einfach loggen und weiterlaufen - die naechste Minute oder
+// der naechste reconcile()-Durchlauf (siehe unten) holt automatisch nach,
+// sobald die Quote sich wieder erholt hat.
+process.on('unhandledRejection', err => {
+    console.error('⚠️ Unerwarteter Fehler (Skript läuft trotzdem weiter):', err.message || err);
+});
+process.on('uncaughtException', err => {
+    console.error('⚠️ Unerwarteter Fehler (Skript läuft trotzdem weiter):', err.message || err);
+});
+
 const APP_DIR = path.join(__dirname, '..');
 const PORT = 5411;
 // Dauerhafter Sammelordner für alle gedruckten Kassenberichte (nicht der
@@ -148,6 +161,37 @@ async function handleBelegUpload(doc) {
     }
 }
 
+// Holt Kassenberichte nach, die als "gedruckt" markiert sind, aber (z.B.
+// wegen einer kurzzeitig erschöpften Firestore-Quote, siehe oben) nie als
+// PDF im Kassenberichte-Ordner gelandet sind - läuft beim Start und danach
+// regelmäßig im Hintergrund, damit so eine Lücke sich von selbst schließt,
+// sobald Firestore wieder erreichbar ist, ohne dass jemand es manuell
+// anstoßen muss.
+async function reconcileMissingPdfs() {
+    try {
+        const snap = await db.collection('kassenzaehlung').where('gedruckt', '==', true).get();
+        const gedrucktDates = [];
+        snap.forEach(doc => gedrucktDates.push(doc.id));
+        if (gedrucktDates.length === 0) return;
+
+        const existingFiles = fs.readdirSync(EXPORT_DIR);
+        const fehlend = gedrucktDates.filter(d => !existingFiles.some(f => f.includes(`Kassenbericht_${d}`) || f === `Kassenbericht_${d}.pdf`));
+        if (fehlend.length === 0) return;
+
+        console.log(`\n🔄 Nachhol-Check: ${fehlend.length} als gedruckt markierte(r) Tag(e) ohne PDF im Ordner - hole nach: ${fehlend.join(', ')}`);
+        for (const dateIso of fehlend) {
+            try {
+                const outPath = await renderKassenberichtPdf([dateIso]);
+                console.log(`✅ Nachgeholt: ${outPath}`);
+            } catch (err) {
+                console.error(`❌ Konnte ${dateIso} nicht nachholen (vermutlich Quote noch leer):`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('Nachhol-Check fehlgeschlagen (vermutlich Quote noch leer), versuche es später erneut:', err.message);
+    }
+}
+
 async function main() {
     await startLocalServer();
     console.log(`✅ Lokaler Server läuft auf http://localhost:${PORT}`);
@@ -168,6 +212,9 @@ async function main() {
     }, error => {
         console.error('Firestore-Fehler (belegUploads):', error);
     });
+
+    await reconcileMissingPdfs();
+    setInterval(reconcileMissingPdfs, 30 * 60 * 1000); // alle 30 Minuten erneut prüfen
 }
 
 main();
