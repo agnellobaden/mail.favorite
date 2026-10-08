@@ -875,11 +875,37 @@
             return DENOMINATIONS.reduce((sum, d) => sum + (parseFloat(counts[d]) || 0) * d, 0);
         }
 
+        // Letzte tatsächlich gezählte Stückelung VOR einem bestimmten Tag -
+        // als Startvorschlag für einen neuen, noch leeren Kassenbericht
+        // (die Schublade sieht sich von Tag zu Tag meist ähnlich, bevor am
+        // Abend neu gezählt wird). Ersetzt NICHT das echte Nachzählen - ist
+        // nur der Ausgangswert, den man beim Zählen korrigiert.
+        function lastZaehlungCountsBefore(dateIso) {
+            const dates = Object.keys(allZaehlungen)
+                .filter(d => d < dateIso && allZaehlungen[d] && allZaehlungen[d].counts && Object.keys(allZaehlungen[d].counts).length > 0)
+                .sort();
+            if (dates.length === 0) return null;
+            const lastDate = dates[dates.length - 1];
+            return { dateIso: lastDate, counts: allZaehlungen[lastDate].counts };
+        }
+
         function openKassenbericht() {
             const dateIso = document.getElementById('kbReportDate').value;
             if (!dateIso) { alert('Bitte ein Datum wählen.'); return; }
             currentKbPrintDates = [dateIso];
             document.getElementById('kassenberichtModal').style.display = 'block';
+
+            // Noch nie gezählt an diesem Tag? Letzte bekannte Stückelung als
+            // Vorschlag übernehmen, statt mit lauter leeren Feldern zu starten.
+            if (Object.keys(currentZaehlungCounts(dateIso)).length === 0) {
+                const prev = lastZaehlungCountsBefore(dateIso);
+                if (prev) {
+                    allZaehlungen[dateIso] = { dateIso, date: isoToDe(dateIso), counts: prev.counts, vorschlagVon: prev.dateIso };
+                    db.collection('kassenzaehlung').doc(dateIso).set({
+                        dateIso, date: isoToDe(dateIso), counts: prev.counts, vorschlagVon: prev.dateIso
+                    }, { merge: true }).catch(err => console.error('Konnte Zählvorschlag nicht speichern:', err));
+                }
+            }
             renderKassenbericht();
         }
 
@@ -990,6 +1016,7 @@
                         <tbody>${rows.join('')}</tbody>
                     </table>
                     <h3 style="margin:25px 0 8px; font-size:1.1em;">Kassenzählprotokoll</h3>
+                    ${(editable && allZaehlungen[dateIso] && allZaehlungen[dateIso].vorschlagVon) ? `<p class="no-print" style="font-size:0.85em; color:#856404; background:#fff3cd; padding:8px 12px; border-radius:6px; margin:0 0 10px;">⚠️ Vorschlag übernommen vom ${isoToDe(allZaehlungen[dateIso].vorschlagVon)} - bitte wirklich nachzählen und korrigieren, bevor du druckst/bestätigst.</p>` : ''}
                     <table class="kb-zaehl-table">
                         <thead><tr><th>Stückelung</th><th>Menge</th><th>Betrag</th></tr></thead>
                         <tbody>${zaehlRows}</tbody>
@@ -1011,10 +1038,13 @@
             if (menge > 0) counts[denomination] = menge; else delete counts[denomination];
             allZaehlungen[dateIso] = { dateIso, date: isoToDe(dateIso), counts };
 
+            // Sobald wirklich etwas korrigiert wurde, war es keine reine
+            // Übernahme des Vorschlags mehr - Hinweis verschwindet.
             db.collection('kassenzaehlung').doc(dateIso).set({
                 dateIso: dateIso,
                 date: isoToDe(dateIso),
                 counts: counts,
+                vorschlagVon: firebase.firestore.FieldValue.delete(),
                 updatedAtMs: Date.now()
             }, { merge: true }).catch(err => {
                 alert('❌ Konnte Zählung nicht speichern: ' + err.message);
