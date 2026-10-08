@@ -414,6 +414,7 @@
             <div class="no-print" style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap; align-items:center;">
                 <button class="btn" onclick="printKassenbericht()">🖨️ Drucken (speichert gleichzeitig als PDF)</button>
                 <button class="btn btn-secondary" onclick="sendKassenberichtToPc()">📲 An PC-Drucker senden</button>
+                <button class="btn btn-secondary" onclick="uebernehmeVomVortag()">↩️ Vom vorherigen Formular übernehmen</button>
                 <button class="btn btn-secondary btn-sm" onclick="closeKassenbericht()">✖ Schließen</button>
             </div>
             <p class="no-print" id="pcDruckStatus" style="font-size:0.85em; color:#666; margin-top:8px;"></p>
@@ -919,6 +920,26 @@
             if (dates.length === 0) return null;
             const lastDate = dates[dates.length - 1];
             return { dateIso: lastDate, counts: allZaehlungen[lastDate].counts };
+        }
+
+        // Manueller Button: übernimmt jederzeit auf Knopfdruck die Zählung
+        // des vorherigen Formulars (nächster Tag davor mit einer Zählung) -
+        // überschreibt dabei auch eine bereits vorhandene/bestehende eigene
+        // Zählung des aktuell geöffneten Tages, deshalb vorher nachfragen.
+        function uebernehmeVomVortag() {
+            const dateIso = document.getElementById('kbReportDate').value;
+            if (!dateIso) return;
+            const prev = lastZaehlungCountsBefore(dateIso);
+            if (!prev) { alert('Für keinen früheren Tag ist eine Zählung gespeichert.'); return; }
+            const hatSchonWerte = Object.keys(currentZaehlungCounts(dateIso)).length > 0;
+            if (hatSchonWerte && !confirm(`Die aktuelle Zählung für diesen Tag wird durch die Zählung vom ${isoToDe(prev.dateIso)} ersetzt. Fortfahren?`)) return;
+
+            allZaehlungen[dateIso] = { dateIso, date: isoToDe(dateIso), counts: prev.counts, vorschlagVon: prev.dateIso };
+            db.collection('kassenzaehlung').doc(dateIso).set({
+                dateIso, date: isoToDe(dateIso), counts: prev.counts, vorschlagVon: prev.dateIso
+            }, { merge: true }).then(() => {
+                renderKassenbericht();
+            }).catch(err => alert('❌ Konnte nicht übernommen werden: ' + err.message));
         }
 
         function openKassenbericht() {
