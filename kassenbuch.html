@@ -1291,13 +1291,55 @@
         // bereits window.print() hier auf diesem Gerät.
         function queueSaveToKassenberichteOrdner() {
             if (!currentKbPrintDates || currentKbPrintDates.length === 0) return;
+            trySaveJob({ dates: currentKbPrintDates, createdAtMs: Date.now() });
+        }
+
+        // Schreibt den Speicher-Auftrag nach Firestore - bei einem
+        // vorübergehenden Fehler (z.B. kurz erschöpfte Lesequote) wird bis
+        // zu 3x mit wachsender Pause erneut versucht. Schlägt auch das
+        // fehl, landet der Auftrag in localStorage und wird beim nächsten
+        // Öffnen dieser Seite automatisch nachgeholt (siehe
+        // retryPendingKbSaves()) - zusätzlich zum 30-Minuten-Nachholcheck,
+        // den print-listener.js selbst macht.
+        function trySaveJob(job, attempt) {
+            attempt = attempt || 1;
             db.collection('druckauftraege').add({
                 typ: 'kassenbericht',
-                dates: currentKbPrintDates,
+                dates: job.dates,
                 nurSpeichern: true,
                 status: 'offen',
-                createdAtMs: Date.now()
-            }).catch(err => console.error('Konnte Speicher-Auftrag nicht anlegen:', err));
+                createdAtMs: job.createdAtMs
+            }).then(() => {
+                removePendingKbSave(job);
+            }).catch(err => {
+                console.error(`Speicher-Auftrag fehlgeschlagen (Versuch ${attempt}):`, err.message);
+                if (attempt < 3) {
+                    setTimeout(() => trySaveJob(job, attempt + 1), attempt * 3000);
+                } else {
+                    addPendingKbSave(job);
+                }
+            });
+        }
+
+        function getPendingKbSaves() {
+            try { return JSON.parse(localStorage.getItem('pendingKbSaves') || '[]'); } catch (e) { return []; }
+        }
+        function addPendingKbSave(job) {
+            try {
+                const list = getPendingKbSaves();
+                list.push(job);
+                localStorage.setItem('pendingKbSaves', JSON.stringify(list));
+            } catch (e) {}
+        }
+        function removePendingKbSave(job) {
+            try {
+                const list = getPendingKbSaves().filter(j => j.createdAtMs !== job.createdAtMs);
+                localStorage.setItem('pendingKbSaves', JSON.stringify(list));
+            } catch (e) {}
+        }
+        function retryPendingKbSaves() {
+            const list = getPendingKbSaves();
+            list.forEach(job => trySaveJob(job));
         }
 
         // Winzige IndexedDB-Ablage für den einmal ausgewählten Ordner-Handle
@@ -1481,6 +1523,10 @@
         } else {
             initFirebase();
         }
+        // Noch offene Speicher-Aufträge von einem vorherigen Besuch (z.B.
+        // weil die Seite nach einer fehlgeschlagenen Quote geschlossen
+        // wurde, bevor die 3 Versuche durch waren) jetzt nachholen.
+        setTimeout(retryPendingKbSaves, 2000);
 
         // Automatischer Druck für print-listener.js (PC-Drucker-Weiterleitung
         // vom Handy, siehe sendKassenberichtToPc()): öffnet den Kassenbericht
