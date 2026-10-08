@@ -1277,8 +1277,27 @@
             document.getElementById('kassenberichtModal').scrollTop = 0;
             window.scrollTo(0, 0);
             markKbDatesAsGedruckt(currentKbPrintDates);
-            downloadKassenberichtPdf(); // läuft parallel zum Druckdialog, blockiert ihn nicht
+            downloadKassenberichtPdf(); // läuft parallel zum Druckdialog, blockiert ihn nicht (lokaler Download/Ordner, falls eingerichtet)
+            queueSaveToKassenberichteOrdner(); // zusätzlich: landet garantiert im selben Kassenberichte-Ordner wie beim Handy-Druck, egal welches Gerät/Browser
             setTimeout(() => window.print(), 50);
+        }
+
+        // Legt zusätzlich zum lokalen Download/Ordner-Schreiben einen
+        // "nur speichern"-Auftrag für print-listener.js an - landet dadurch
+        // IMMER im selben email-import-service/exports/Kassenberichte/-
+        // Ordner wie "An PC-Drucker senden", unabhängig davon, ob File
+        // System Access im aktuellen Browser überhaupt unterstützt wird
+        // (z.B. am Handy nicht). Druckt NICHT zusätzlich - das übernimmt
+        // bereits window.print() hier auf diesem Gerät.
+        function queueSaveToKassenberichteOrdner() {
+            if (!currentKbPrintDates || currentKbPrintDates.length === 0) return;
+            db.collection('druckauftraege').add({
+                typ: 'kassenbericht',
+                dates: currentKbPrintDates,
+                nurSpeichern: true,
+                status: 'offen',
+                createdAtMs: Date.now()
+            }).catch(err => console.error('Konnte Speicher-Auftrag nicht anlegen:', err));
         }
 
         // Winzige IndexedDB-Ablage für den einmal ausgewählten Ordner-Handle

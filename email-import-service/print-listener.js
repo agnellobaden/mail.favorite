@@ -101,8 +101,12 @@ async function handleJob(doc) {
         if (job.typ === 'kassenbericht') {
             const pdfPath = await renderKassenberichtPdf(job.dates);
             console.log(`📄 PDF erstellt: ${pdfPath}`);
-            await printPdf(pdfPath);
-            console.log('🖨️ An den Drucker geschickt.');
+            if (job.nurSpeichern) {
+                console.log('💾 Nur gespeichert (lokaler Druck lief bereits auf dem anderen Gerät).');
+            } else {
+                await printPdf(pdfPath);
+                console.log('🖨️ An den Drucker geschickt.');
+            }
             await doc.ref.set({ status: 'erledigt', erledigtAtMs: Date.now() }, { merge: true });
         } else {
             await doc.ref.set({ status: 'fehler', fehler: 'Unbekannter Auftragstyp: ' + job.typ }, { merge: true });
