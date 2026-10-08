@@ -1023,7 +1023,7 @@
 
             const counts = currentZaehlungCounts(dateIso);
             const zaehlRows = DENOMINATIONS.map(d => {
-                const menge = counts[d] || '';
+                const menge = counts[d] != null ? counts[d] : '';
                 const betrag = (parseFloat(counts[d]) || 0) * d;
                 const mengeCell = editable
                     ? `<input type="number" min="0" step="1" value="${menge}" class="no-print" style="width:80px; padding:6px 8px; border:2px solid #ddd; border-radius:6px;" onchange="updateZaehlungMenge('${dateIso}', ${d}, this.value)"><span class="print-only" style="display:none;">${menge}</span>`
@@ -1086,9 +1086,18 @@
         }
 
         function updateZaehlungMenge(dateIso, denomination, value) {
-            const menge = parseFloat(value) || 0;
             const counts = { ...currentZaehlungCounts(dateIso) };
-            if (menge > 0) counts[denomination] = menge; else delete counts[denomination];
+            // Leeres Feld = nicht gezählt (Eintrag entfernen). Eine
+            // ausdrücklich eingetragene "0" bleibt dagegen als echte Null
+            // stehen, statt beim Speichern wieder zu verschwinden - sonst
+            // lässt sich "0 Stück" gar nicht sichtbar eintragen.
+            if (String(value).trim() === '') {
+                delete counts[denomination];
+            } else {
+                const menge = parseFloat(value);
+                if (isNaN(menge) || menge < 0) { delete counts[denomination]; }
+                else counts[denomination] = menge;
+            }
             allZaehlungen[dateIso] = { dateIso, date: isoToDe(dateIso), counts };
 
             // Sobald wirklich etwas korrigiert wurde, war es keine reine
