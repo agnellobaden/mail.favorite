@@ -1064,7 +1064,24 @@
         function invoiceForRevenueEntry(e) {
             if (!e.fromBooking) return null;
             const bookingId = String(e.id || '').replace(/^booking-/, '');
-            return invoicesByBookingId[bookingId] || null;
+            if (invoicesByBookingId[bookingId]) return invoicesByBookingId[bookingId];
+
+            // Fallback: manche Rechnungen im Archiv haben keine bookingId
+            // gespeichert (z.B. über eine ältere Version von
+            // rechnung-erstellen.html angelegt) und tauchen deshalb über
+            // die direkte Verknüpfung nicht auf. Stattdessen über
+            // Kundenname (im "Event: ..."-Notiztext enthalten) + exakt
+            // gleichen Betrag suchen - nur übernehmen, wenn GENAU EINE
+            // Rechnung passt, sonst lieber keine falsche Zuordnung raten.
+            const amount = parseFloat(e.amount);
+            const kundeName = String(e.note || '').replace(/^Event:\s*/, '').trim().toLowerCase();
+            if (!kundeName || isNaN(amount)) return null;
+            const kandidaten = allRechnungsarchiv.filter(inv =>
+                !inv.bookingId &&
+                String(inv.customerName || '').toLowerCase().includes(kundeName.split(' ')[0]) &&
+                Math.abs((parseAmountToNumber(inv.amount) || 0) - amount) < 0.01
+            );
+            return kandidaten.length === 1 ? kandidaten[0] : null;
         }
 
         // Passenden Zahlungseingang im Kontoauszug zu einer Rechnung suchen:
@@ -1808,6 +1825,7 @@ Hinweise:
             const cashExpenses = filteredExpenses();
             const bankExpenses = filteredBankExpenses();
             const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+            const forceText = v => /^\d{6,}$/.test(String(v)) ? `="${v}"` : v;
 
             const totalBrutto = revenue.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
             const totalUst = totalBrutto - (totalBrutto / 1.07);
@@ -1830,7 +1848,7 @@ Hinweise:
                     e.paymentMethod === 'bar' ? 'Kasse' : e.paymentMethod === 'ueberweisung' ? 'Überweisung' : '-',
                     e.note || '',
                     (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','),
-                    (inv && inv.invoiceNumber) || ''
+                    forceText((inv && inv.invoiceNumber) || '')
                 ]);
             });
             lines.push([]);
@@ -1917,6 +1935,12 @@ Hinweise:
             const cashExpenses = filteredExpenses();
             const bankExpenses = filteredBankExpenses();
             const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+            // Lange rein numerische Rechnungs-/Belegnummern (z.B. "2026079338")
+            // verwandelt Excel beim Öffnen sonst automatisch in
+            // wissenschaftliche Schreibweise (2,0261E+10) und zerstört damit
+            // die Nummer - mit ="..." zwingt man Excel, den Wert als reinen
+            // Text zu behandeln.
+            const forceText = v => /^\d{6,}$/.test(String(v)) ? `="${v}"` : v;
 
             const rows = [];
 
@@ -1972,7 +1996,7 @@ Hinweise:
 
             const lines = [];
             lines.push(['Umsatz (Brutto)', 'S/H', 'Konto', 'Gegenkonto', 'BU-Schlüssel', 'Belegdatum', 'Belegfeld 1', 'Buchungstext']);
-            rows.forEach(r => lines.push([r.umsatz, r.sh, r.konto, r.gegenkonto, r.bu, r.belegdatum, r.belegfeld1, r.buchungstext]));
+            rows.forEach(r => lines.push([r.umsatz, r.sh, r.konto, r.gegenkonto, r.bu, r.belegdatum, forceText(r.belegfeld1), r.buchungstext]));
 
             const csv = lines.map(row => row.map(csvEscape).join(';')).join('\r\n');
             const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

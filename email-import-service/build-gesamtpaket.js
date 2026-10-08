@@ -162,11 +162,25 @@ async function buildGesamtpaket({ von, bis }) {
     function invoiceForRevenueEntry(e) {
         if (!e.fromBooking) return null;
         const bookingId = String(e.id || '').replace(/^booking-/, '');
-        return invoicesByBookingId[bookingId] || null;
+        if (invoicesByBookingId[bookingId]) return invoicesByBookingId[bookingId];
+
+        // Fallback: Rechnungen ohne gespeicherte bookingId (aeltere/manuell
+        // angelegte) ueber Kundenname + exakt gleichen Betrag finden - nur
+        // bei genau einem Treffer uebernehmen.
+        const amount = parseFloat(e.amount);
+        const kundeName = String(e.note || '').replace(/^Event:\s*/, '').trim().toLowerCase();
+        if (!kundeName || isNaN(amount)) return null;
+        const kandidaten = allRechnungsarchiv.filter(inv =>
+            !inv.bookingId &&
+            String(inv.customerName || '').toLowerCase().includes(kundeName.split(' ')[0]) &&
+            Math.abs((parseAmountToNumber(inv.amount) || 0) - amount) < 0.01
+        );
+        return kandidaten.length === 1 ? kandidaten[0] : null;
     }
 
     // ---- 1) DATEV-Buchungsstapel-CSV ----
     const csvEscape = v => `"${String(v).replace(/"/g, '""')}"`;
+    const forceText = v => /^\d{6,}$/.test(String(v)) ? `="${v}"` : v;
     const datevRows = [];
     revenue.forEach(e => {
         const inv = invoiceForRevenueEntry(e);
@@ -175,7 +189,7 @@ async function buildGesamtpaket({ von, bis }) {
             row: [
                 (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','), 'H', '8400',
                 e.paymentMethod === 'ueberweisung' ? '1200' : '1000', '',
-                isoToDe(e.dateIso), (inv && inv.invoiceNumber) || e.belegNr || '',
+                isoToDe(e.dateIso), forceText((inv && inv.invoiceNumber) || e.belegNr || ''),
                 String(e.note || 'Erlös').replace(/\s+/g, ' ').trim().slice(0, 60)
             ]
         });
@@ -224,7 +238,7 @@ async function buildGesamtpaket({ von, bis }) {
     ];
     [...revenue].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
         const inv = invoiceForRevenueEntry(e);
-        uebersichtLines.push([e.date || e.dateIso || '', e.paymentMethod === 'bar' ? 'Kasse' : e.paymentMethod === 'ueberweisung' ? 'Überweisung' : '-', e.note || '', (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','), (inv && inv.invoiceNumber) || '']);
+        uebersichtLines.push([e.date || e.dateIso || '', e.paymentMethod === 'bar' ? 'Kasse' : e.paymentMethod === 'ueberweisung' ? 'Überweisung' : '-', e.note || '', (parseFloat(e.amount) || 0).toFixed(2).replace('.', ','), forceText((inv && inv.invoiceNumber) || '')]);
     });
     uebersichtLines.push([], ['Betriebsausgaben (Kassenbuch, bar)'], ['Datum', 'Kategorie', 'Notiz', 'MwSt-Satz', 'Betrag (€)']);
     [...cashExpenses].sort((a, b) => (a.dateIso || '').localeCompare(b.dateIso || '')).forEach(e => {
