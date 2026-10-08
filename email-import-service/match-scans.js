@@ -46,6 +46,10 @@ function deToIso(deDate) {
     const yyyy = y.length === 2 ? '20' + y : y;
     return `${yyyy}-${m}-${d}`;
 }
+function deFromIso(dateIso) {
+    const [y, m, d] = dateIso.split('-');
+    return `${d}.${m}.${y}`;
+}
 
 const GERMAN_MONTHS = {
     januar: '01', februar: '02', märz: '03', maerz: '03', april: '04', mai: '05', juni: '06',
@@ -258,7 +262,30 @@ function parseReceiptText(text) {
     }
     if (amount == null) return null;
 
-    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact: null };
+    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact: null, rawText: text };
+}
+
+// Erkennt aus dem Belegtext, ob bar oder per Karte bezahlt wurde - nur wenn
+// das eindeutig dasteht (sonst null, dann lieber keine automatische
+// Einordnung als eine geratene falsche).
+function detectZahlart(text) {
+    if (/\bBAR\b|Barzahlung/i.test(text)) return 'bar';
+    if (/girocard|ec-?cash|ec-?karte|kartenzahlung|kreditkarte|maestro/i.test(text)) return 'karte';
+    return null;
+}
+
+// Rät anhand des Händlernamens/Belegtexts eine EÜR-Kategorie - dieselben
+// Muster, die schon bei der manuellen Kategorisierung in dieser Saison
+// verwendet wurden (siehe kontoauszug.html/kassenbuch.html). Bei keinem
+// Treffer lieber "Sonstiges" mit Hinweis, als etwas Falsches zu raten.
+function guessKategorie(text) {
+    if (/tankstelle|avia\b|shell\b|esso\b|aral\b|\btotal\b|\bjet\b|\bhem\b|diesel|super e10|super e5/i.test(text)) return 'Kfz-Kosten';
+    if (/\bmetro\b|\bnetto\b|\baldi\b|\blidl\b|\brewe\b|\bedeka\b|kaufland|bäko|baeko|köllemann|koellemann/i.test(text)) return 'Wareneinkauf';
+    if (/deutsche post|porto|labelfreimachung/i.test(text)) return 'Büro/Verwaltung';
+    if (/versicherung/i.test(text)) return 'Versicherungen';
+    if (/werbe|flyer|druckerei|plakat/i.test(text)) return 'Werbung/Marketing';
+    if (/miete|nebenkosten|stadtwerke|hausverwaltung/i.test(text)) return 'Miete/Nebenkosten';
+    return 'Sonstiges';
 }
 
 // OCR eines Bild-Buffers (PNG/JPG) - gibt dieselbe Form wie extractDateAndAmount() zurück.
@@ -331,7 +358,7 @@ function extractDateAndAmount(filePath) {
         vorsteuerExact = Math.round(totalsTriple.vat * 100) / 100;
     }
 
-    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact };
+    return { dateIso, amount, kunde: extractKunde(text), vorsteuerExact, rawText: text };
 }
 
 // Firestore-Dokumente sind auf 1 MB begrenzt - mit etwas Luft für die
@@ -395,11 +422,16 @@ async function main() {
     const kontoauszug = [];
     snapshot.forEach(doc => kontoauszug.push({ id: doc.id, ...doc.data() }));
 
-    // Dateien, die schon erfolgreich zugeordnet sind, beim nächsten Lauf
+    const kassenbuchSnapshot = await db.collection('kassenbuch').get();
+    const kassenbuchScanFiles = new Set();
+    kassenbuchSnapshot.forEach(doc => { const f = doc.data().scanFile; if (f) kassenbuchScanFiles.add(f); });
+
+    // Dateien, die schon erfolgreich zugeordnet sind (im Kontoauszug ODER
+    // automatisch ins Kassenbuch eingetragen), beim nächsten Lauf
     // überspringen (OCR ist langsam) - nur neue bzw. bisher erfolglose
     // Dateien (--alle erzwingt trotzdem alles neu, z.B. nach einem Fix in
     // diesem Skript selbst).
-    const alreadyMatchedFiles = new Set(kontoauszug.map(k => k.scanFile).filter(Boolean));
+    const alreadyMatchedFiles = new Set([...kontoauszug.map(k => k.scanFile).filter(Boolean), ...kassenbuchScanFiles]);
     const forceAll = process.argv.includes('--alle');
     const files = forceAll ? allFiles : allFiles.filter(f => !alreadyMatchedFiles.has(f));
     const skipped = allFiles.length - files.length;
@@ -429,6 +461,34 @@ async function main() {
         );
 
         if (candidates.length === 0) {
+            // Kein Bankumsatz dazu gefunden - wenn der Beleg selbst
+            // eindeutig "BAR"/"Barzahlung" ausweist, kann das kein Karten-
+            // Umsatz sein, der erst noch im Kontoauszug auftaucht, sondern
+            // gehört direkt ins Kassenbuch (offene Ladenkasse). Automatisch
+            // kategorisiert nach Händlername - bei Unsicherheit "Sonstiges",
+            // nie eine geratene Kategorie als sicher ausgeben.
+            const zahlart = info.rawText ? detectZahlart(info.rawText) : null;
+            if (zahlart === 'bar') {
+                const kategorie = guessKategorie(info.rawText);
+                const kbFields = {
+                    dateIso: info.dateIso,
+                    date: deFromIso(info.dateIso),
+                    type: 'ausgabe',
+                    amount: info.amount,
+                    note: `${file} (automatisch erkannt: bar bezahlt)`,
+                    kategorie,
+                    mwstSatz: 19,
+                    scanFile: file,
+                    createdAtMs: Date.now()
+                };
+                if (previewBuffer && previewBuffer.length < MAX_PREVIEW_BYTES + 50 * 1024) {
+                    kbFields.scanDataUri = `data:${mime};base64,` + previewBuffer.toString('base64');
+                }
+                await db.collection('kassenbuch').add(kbFields);
+                console.log(`💵 "${file}" -> automatisch ins Kassenbuch (bar, ${kategorie}): ${info.dateIso} ${info.amount.toFixed(2)} €`);
+                matched++;
+                continue;
+            }
             console.log(`❌ Kein Kontoauszug-Eintrag gefunden für "${file}" (${info.dateIso}, ${info.amount.toFixed(2)} €).`);
             unmatched++;
             continue;

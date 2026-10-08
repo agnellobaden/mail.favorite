@@ -163,10 +163,31 @@ async function handleBelegUpload(doc) {
         fs.writeFileSync(outPath, buffer);
         console.log(`✅ Gespeichert: ${outPath}`);
         await doc.ref.delete();
+        runMatchScans(); // direkt im Anschluss automatisch zuordnen, damit der Beleg ohne weiteres Zutun in der Buchhaltung auftaucht
     } catch (err) {
         console.error('❌ Fehler beim Speichern des Handy-Belegs:', err.message);
         await doc.ref.set({ status: 'fehler', fehler: err.message }, { merge: true }).catch(() => {});
     }
+}
+
+// Startet match-scans.js als eigenen Prozess (OCR ist rechenintensiv, daher
+// bewusst nicht im selben Prozess) - ordnet neue Belege automatisch Bank-
+// buchungen zu, oder traegt sie bei erkannter Barzahlung direkt ins
+// Kassenbuch ein (siehe detectZahlart()/guessKategorie() dort). Mehrfacher
+// gleichzeitiger Aufruf wird verhindert (matchScansRunning-Flag), ein
+// Aufruf waehrend ein Lauf schon laeuft wird stattdessen fuer danach vorgemerkt.
+let matchScansRunning = false;
+let matchScansQueued = false;
+function runMatchScans() {
+    if (matchScansRunning) { matchScansQueued = true; return; }
+    matchScansRunning = true;
+    console.log('\n🔍 match-scans.js läuft automatisch...');
+    execFile('node', ['match-scans.js'], { cwd: __dirname, maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
+        matchScansRunning = false;
+        if (stdout) console.log(stdout.trim());
+        if (err) console.error('⚠️ match-scans.js meldete einen Fehler:', err.message);
+        if (matchScansQueued) { matchScansQueued = false; runMatchScans(); }
+    });
 }
 
 // Holt Kassenberichte nach, die als "gedruckt" markiert sind, aber (z.B.
@@ -223,6 +244,9 @@ async function main() {
 
     await reconcileMissingPdfs();
     setInterval(reconcileMissingPdfs, 30 * 60 * 1000); // alle 30 Minuten erneut prüfen
+
+    runMatchScans(); // auch Belege nachholen, die z.B. direkt per echtem Scanner in scan/ gelandet sind, nicht nur vom Handy
+    setInterval(runMatchScans, 30 * 60 * 1000);
 }
 
 main();
