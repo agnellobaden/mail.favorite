@@ -113,17 +113,56 @@ async function handleJob(doc) {
     }
 }
 
+// Vom Handy fotografierte/hochgeladene Belege (beleg-hochladen.html) landen
+// hier als komprimiertes Foto in Firestore - wird ins scan/-Ordner
+// geschrieben, damit sie match-scans.js beim naechsten Lauf wie jeden
+// anderen Scan findet. Der Firestore-Eintrag wird danach geloescht (nur
+// als kurzlebiger Transportweg gedacht, keine Dauerablage).
+const SCAN_DIR = path.join(APP_DIR, 'scan');
+if (!fs.existsSync(SCAN_DIR)) fs.mkdirSync(SCAN_DIR, { recursive: true });
+
+async function handleBelegUpload(doc) {
+    const data = doc.data();
+    console.log(`\n📸 Neuer Beleg vom Handy: ${data.filename}`);
+    try {
+        const base64 = (data.dataUri || '').split(',')[1];
+        if (!base64) throw new Error('Kein Bildinhalt im Upload gefunden.');
+        const buffer = Buffer.from(base64, 'base64');
+        let outPath = path.join(SCAN_DIR, data.filename || `Handy_${Date.now()}.jpg`);
+        let n = 1;
+        while (fs.existsSync(outPath)) {
+            const base = path.basename(data.filename, '.jpg');
+            outPath = path.join(SCAN_DIR, `${base}_${n}.jpg`);
+            n++;
+        }
+        fs.writeFileSync(outPath, buffer);
+        console.log(`✅ Gespeichert: ${outPath}`);
+        await doc.ref.delete();
+    } catch (err) {
+        console.error('❌ Fehler beim Speichern des Handy-Belegs:', err.message);
+        await doc.ref.set({ status: 'fehler', fehler: err.message }, { merge: true }).catch(() => {});
+    }
+}
+
 async function main() {
     await startLocalServer();
     console.log(`✅ Lokaler Server läuft auf http://localhost:${PORT}`);
-    console.log('👂 Warte auf Druckaufträge vom Handy (Strg+C zum Beenden)...');
+    console.log('👂 Warte auf Druckaufträge und Handy-Belege (Strg+C zum Beenden)...');
 
     db.collection('druckauftraege').where('status', '==', 'offen').onSnapshot(snapshot => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') handleJob(change.doc);
         });
     }, error => {
-        console.error('Firestore-Fehler:', error);
+        console.error('Firestore-Fehler (druckauftraege):', error);
+    });
+
+    db.collection('belegUploads').where('status', '==', 'offen').onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') handleBelegUpload(change.doc);
+        });
+    }, error => {
+        console.error('Firestore-Fehler (belegUploads):', error);
     });
 }
 
