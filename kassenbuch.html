@@ -1193,11 +1193,68 @@
             setTimeout(() => window.print(), 50);
         }
 
-        // Speichert den gerade angezeigten Kassenbericht zusätzlich als PDF
-        // (automatischer Browser-Download, landet ohne Dialog im Downloads-
-        // Ordner) - nimmt pro Tag einen Screenshot der bereits fertig
-        // formatierten Druckansicht (html2canvas), damit es exakt so aussieht
-        // wie der Ausdruck, ohne die Tabellen-Logik ein zweites Mal zu bauen.
+        // Winzige IndexedDB-Ablage für den einmal ausgewählten Ordner-Handle
+        // (File System Access API) - localStorage kann keine Handle-Objekte
+        // speichern, IndexedDB schon. So merkt sich der Browser auf diesem
+        // PC dauerhaft, welcher Ordner gemeint ist, ohne bei jedem Drucken
+        // erneut zu fragen.
+        function kbIdbStore() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('kassenbuch-fs', 1);
+                req.onupgradeneeded = () => req.result.createObjectStore('handles');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+        async function kbIdbGet(key) {
+            const db = await kbIdbStore();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('handles', 'readonly').objectStore('handles').get(key);
+                tx.onsuccess = () => resolve(tx.result || null);
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+        async function kbIdbSet(key, value) {
+            const db = await kbIdbStore();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('handles', 'readwrite').objectStore('handles').put(value, key);
+                tx.onsuccess = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // Holt den gemerkten Ordner-Handle (fragt bei fehlender/entzogener
+        // Berechtigung erneut) oder lässt den Ordner einmalig auswählen -
+        // danach landet jede PDF ohne weiteren Dialog direkt dort.
+        async function getKassenberichteDirHandle(promptIfMissing) {
+            let handle = await kbIdbGet('kassenberichteDir').catch(() => null);
+            if (handle) {
+                const perm = await handle.queryPermission({ mode: 'readwrite' });
+                if (perm === 'granted') return handle;
+                const req = await handle.requestPermission({ mode: 'readwrite' });
+                if (req === 'granted') return handle;
+            }
+            if (!promptIfMissing) return null;
+            handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            await kbIdbSet('kassenberichteDir', handle);
+            return handle;
+        }
+
+        function triggerBrowserDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // Speichert den gerade angezeigten Kassenbericht zusätzlich als PDF -
+        // nimmt pro Tag einen Screenshot der bereits fertig formatierten
+        // Druckansicht (html2canvas), damit es exakt so aussieht wie der
+        // Ausdruck, ohne die Tabellen-Logik ein zweites Mal zu bauen.
+        // Auf dem PC (File System Access API vorhanden): schreibt direkt in
+        // den einmal ausgewählten Ordner (am besten email-import-service/
+        // exports/Kassenberichte, denselben wie print-listener.js nutzt).
+        // Sonst (Handy/Safari ohne diese API): normaler Download-Ordner.
         async function downloadKassenberichtPdf() {
             const dayBlocks = document.querySelectorAll('#kbPrintArea .kb-day-block');
             if (dayBlocks.length === 0) return;
@@ -1228,7 +1285,22 @@
 
                 const dates = currentKbPrintDates || [];
                 const suffix = dates.length > 1 ? `${dates[0]}_bis_${dates[dates.length - 1]}` : (dates[0] || todayIso());
-                pdf.save(`Kassenbericht_${suffix}.pdf`);
+                const filename = `Kassenbericht_${suffix}.pdf`;
+                const blob = pdf.output('blob');
+
+                if (window.showDirectoryPicker) {
+                    try {
+                        const dirHandle = await getKassenberichteDirHandle(true);
+                        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        return;
+                    } catch (err) {
+                        console.error('Konnte nicht direkt in den Ordner schreiben, speichere stattdessen in Downloads:', err);
+                    }
+                }
+                triggerBrowserDownload(blob, filename);
             } catch (err) {
                 console.error('Konnte PDF nicht automatisch speichern:', err);
             }
