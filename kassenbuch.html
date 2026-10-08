@@ -1078,11 +1078,40 @@
                 counts: counts,
                 vorschlagVon: firebase.firestore.FieldValue.delete(),
                 updatedAtMs: Date.now()
-            }, { merge: true }).catch(err => {
+            }, { merge: true }).then(() => {
+                propagateCountsForward(dateIso, counts);
+            }).catch(err => {
                 alert('❌ Konnte Zählung nicht speichern: ' + err.message);
             });
 
             renderKassenbericht();
+        }
+
+        // Schiebt eine neu korrigierte Zählung an alle NACHFOLGENDEN Tage
+        // weiter, die noch gar keine eigene echte Zählung haben (nur einen
+        // übernommenen Vorschlag, kenntlich am Feld vorschlagVon) - sonst
+        // bliebe dort die alte, jetzt überholte Zahl stehen, bis man jeden
+        // Tag einzeln von Hand nachzieht. Stoppt beim ersten Tag mit einer
+        // eigenen echten Zählung (die wird nie überschrieben).
+        function propagateCountsForward(fromDateIso, counts) {
+            const laterDates = Object.keys(allZaehlungen)
+                .filter(d => d > fromDateIso && allZaehlungen[d] && allZaehlungen[d].vorschlagVon)
+                .sort();
+            if (laterDates.length === 0) return;
+            const batch = db.batch();
+            let prevDate = fromDateIso;
+            for (const d of laterDates) {
+                // Nur weiterreichen, solange die Kette ununterbrochen auf
+                // Vorschlägen beruht (jeder Tag verweist auf den jeweils
+                // vorherigen) - sonst gehört dieser Tag zu einer anderen,
+                // unabhängigen Kette und soll unberührt bleiben. Der
+                // vorschlagVon-Verweis selbst bleibt dabei unverändert,
+                // nur die Zahlen werden aktualisiert.
+                if (allZaehlungen[d].vorschlagVon !== prevDate) break;
+                batch.set(db.collection('kassenzaehlung').doc(d), { counts }, { merge: true });
+                prevDate = d;
+            }
+            batch.commit().catch(err => console.error('Konnte Folgetage nicht aktualisieren:', err));
         }
 
         // Speichert eine im Kassenbericht-Modal inline korrigierte Bareinnahme
