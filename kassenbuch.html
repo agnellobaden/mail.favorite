@@ -10,6 +10,9 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- html2canvas + jsPDF: Kassenbericht als PDF in den Downloads-Ordner speichern (zusätzlich zum Ausdrucken) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
     * { box-sizing: border-box; }
@@ -408,7 +411,7 @@
             <div id="kbPrintArea"></div>
 
             <div class="no-print" style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
-                <button class="btn" onclick="printKassenbericht()">🖨️ Drucken / Als PDF speichern</button>
+                <button class="btn" onclick="printKassenbericht()">🖨️ Drucken (speichert gleichzeitig als PDF)</button>
                 <button class="btn btn-secondary" onclick="sendKassenberichtToPc()">📲 An PC-Drucker senden</button>
             </div>
             <p class="no-print" id="pcDruckStatus" style="font-size:0.85em; color:#666; margin-top:8px;"></p>
@@ -1186,7 +1189,49 @@
             document.getElementById('kassenberichtModal').scrollTop = 0;
             window.scrollTo(0, 0);
             markKbDatesAsGedruckt(currentKbPrintDates);
+            downloadKassenberichtPdf(); // läuft parallel zum Druckdialog, blockiert ihn nicht
             setTimeout(() => window.print(), 50);
+        }
+
+        // Speichert den gerade angezeigten Kassenbericht zusätzlich als PDF
+        // (automatischer Browser-Download, landet ohne Dialog im Downloads-
+        // Ordner) - nimmt pro Tag einen Screenshot der bereits fertig
+        // formatierten Druckansicht (html2canvas), damit es exakt so aussieht
+        // wie der Ausdruck, ohne die Tabellen-Logik ein zweites Mal zu bauen.
+        async function downloadKassenberichtPdf() {
+            const dayBlocks = document.querySelectorAll('#kbPrintArea .kb-day-block');
+            if (dayBlocks.length === 0) return;
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+
+                for (let i = 0; i < dayBlocks.length; i++) {
+                    const canvas = await html2canvas(dayBlocks[i], {
+                        backgroundColor: '#ffffff',
+                        scale: 2,
+                        onclone: (clonedDoc) => {
+                            // Dieselbe Sichtbarkeit wie beim echten Drucken:
+                            // Eingabefelder ausblenden, stattdessen den reinen
+                            // Zahlenwert zeigen (siehe .no-print/.print-only).
+                            clonedDoc.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+                            clonedDoc.querySelectorAll('.print-only').forEach(el => el.style.display = 'inline');
+                        }
+                    });
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidthMm = pageWidth - 20;
+                    const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+                    if (i > 0) pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 10, 10, imgWidthMm, Math.min(imgHeightMm, pageHeight - 20));
+                }
+
+                const dates = currentKbPrintDates || [];
+                const suffix = dates.length > 1 ? `${dates[0]}_bis_${dates[dates.length - 1]}` : (dates[0] || todayIso());
+                pdf.save(`Kassenbericht_${suffix}.pdf`);
+            } catch (err) {
+                console.error('Konnte PDF nicht automatisch speichern:', err);
+            }
         }
 
         // Markiert die gerade gedruckten Tage mit einem Häkchen in der

@@ -21,8 +21,12 @@ const db = admin.firestore();
 
 const APP_DIR = path.join(__dirname, '..');
 const PORT = 5411;
-const EXPORT_DIR = path.join(__dirname, 'exports');
-if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR);
+// Dauerhafter Sammelordner für alle gedruckten Kassenberichte (nicht der
+// Wegwerf-"exports"-Ordner) - jeder Druck vom Handy landet hier zusätzlich
+// als PDF, damit nichts verloren geht, auch wenn der Ausdruck selbst
+// verlegt wird.
+const EXPORT_DIR = path.join(__dirname, 'exports', 'Kassenberichte');
+if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -70,7 +74,9 @@ async function renderKassenberichtPdf(dates) {
         const url = `http://localhost:${PORT}/kassenbuch.html?datumListe=${encodeURIComponent(dates.join(','))}&authToken=${encodeURIComponent(authToken)}`;
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForFunction('window.__autoDruckReady === true', { timeout: 20000 });
-        const outPath = path.join(EXPORT_DIR, `Kassenbericht_${dates[0]}_${Date.now()}.pdf`);
+        const zeitstempel = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+        const nameSuffix = dates.length > 1 ? `${dates[0]}_bis_${dates[dates.length - 1]}` : dates[0];
+        const outPath = path.join(EXPORT_DIR, `Kassenbericht_${nameSuffix}_${zeitstempel}.pdf`);
         await page.pdf({ path: outPath, format: 'A4', printBackground: false, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
         return outPath;
     } finally {
