@@ -492,7 +492,9 @@
             <button class="btn" style="background:linear-gradient(135deg, #28a745 0%, #20c997 100%);" onclick="openChecklist()">✅ Buchhaltung erledigen (Checkliste)</button>
             <button class="btn" style="background:linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);" onclick="openWizard()">🖨️ Steuerordner-Assistent (Schritt für Schritt)</button>
             <button class="btn" id="exportAllBtn" onclick="exportAllForSteuerberater()">📦 Alles für den Steuerberater (ZIP)</button>
+            <button class="btn" style="background:linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);" onclick="sendGesamtpaketJob()">📦 Komplettpaket EisFavorite (inkl. Tagesberichte, auf dem PC)</button>
         </div>
+        <p class="no-print" id="gesamtpaketStatus" style="font-size:0.85em; color:#666; margin:-10px 0 10px;"></p>
         <div class="filter-row no-print">
             <span style="align-self:center; font-size:0.9em; color:#555; font-weight:700;">Einzel-Export:</span>
             <button class="btn btn-secondary" onclick="exportCsv()">⬇️ Als CSV exportieren</button>
@@ -1719,6 +1721,31 @@ Hinweise:
   - Bei Rückfragen zu einzelnen Buchungen: Andrea Agnello,
     agnello.baden@gmail.com
 `;
+        }
+
+        // "Ein Knopfdruck"-Komplettpaket für EisFavorite: legt einen Auftrag
+        // in Firestore ab, den print-listener.js (muss auf dem PC laufen)
+        // abholt und dort lokal zu EINER ZIP-Datei zusammenbaut - DATEV-CSV,
+        // lesbare Übersicht, LIESMICH.txt, alle Belege/Rechnungen (aus
+        // Firestore) und alle Tagesberichte-PDFs (aus dem Kassenberichte-
+        // Ordner). Snack-Oase ist bewusst nicht enthalten (läuft getrennt).
+        function sendGesamtpaketJob() {
+            const vb = wizardPeriodVonBis();
+            if (!vb) { alert('Bitte oben ein konkretes Jahr (nicht "alle Jahre") wählen.'); return; }
+            const statusEl = document.getElementById('gesamtpaketStatus');
+            statusEl.textContent = '⏳ Wird angefordert...';
+            db.collection('druckauftraege').add({
+                typ: 'gesamtpaket',
+                von: vb.von,
+                bis: vb.bis,
+                status: 'offen',
+                createdAtMs: Date.now()
+            }).then(() => {
+                statusEl.textContent = `✅ Angefordert für ${vb.von} bis ${vb.bis} - der PC baut das Paket zusammen, sobald print-listener.js dort läuft (Explorer öffnet sich dort automatisch mit der fertigen ZIP).`;
+            }).catch(err => {
+                statusEl.textContent = '';
+                alert('❌ Konnte nicht angefordert werden: ' + err.message);
+            });
         }
 
         async function exportAllForSteuerberater() {

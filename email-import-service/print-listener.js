@@ -18,6 +18,7 @@ const puppeteer = require('puppeteer');
 const serviceAccount = require('./firebase-service-account.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
+const { buildGesamtpaket } = require('./build-gesamtpaket.js');
 
 // Firestore-Lesequote (kostenloser Plan) ist an manchen Tagen zwischendurch
 // erschöpft ("RESOURCE_EXHAUSTED") - das darf das ganze Skript nicht zum
@@ -121,6 +122,13 @@ async function handleJob(doc) {
                 console.log('🖨️ An den Drucker geschickt.');
             }
             await doc.ref.set({ status: 'erledigt', erledigtAtMs: Date.now() }, { merge: true });
+        } else if (job.typ === 'gesamtpaket') {
+            console.log(`📦 Baue Komplettpaket für EisFavorite (${job.von} bis ${job.bis})...`);
+            const result = await buildGesamtpaket({ von: job.von, bis: job.bis });
+            console.log(`✅ Paket fertig: ${result.zipPath}`);
+            console.log(`   ${JSON.stringify(result.stats)}`);
+            execFile('explorer', [`/select,${result.zipPath}`], () => {}); // Ordner im Explorer öffnen, Datei markiert
+            await doc.ref.set({ status: 'erledigt', erledigtAtMs: Date.now(), zipPath: result.zipPath, stats: result.stats }, { merge: true });
         } else {
             await doc.ref.set({ status: 'fehler', fehler: 'Unbekannter Auftragstyp: ' + job.typ }, { merge: true });
         }
