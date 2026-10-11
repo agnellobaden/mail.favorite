@@ -87,6 +87,7 @@
     .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .btn-secondary { background: #f0f0f0; color: #333; }
     .btn-flyer { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; }
+    .btn-newsletter { background: linear-gradient(135deg, #e91e63 0%, #c2185b 100%); color: white; }
 
     .actions-menu-wrap { position: relative; display: inline-block; }
     .actions-dropdown {
@@ -297,6 +298,7 @@
             <div class="stat-card" style="background:#2196F3;"><div class="num" id="statGeoeffnet">0</div><div class="label">📬 E-Mail geöffnet</div></div>
             <div class="stat-card" style="background:#009688;"><div class="num" id="statWebsiteBesucht">0</div><div class="label">🌐 Website besucht</div></div>
             <div class="stat-card" style="background:#ff9800;"><div class="num" id="statConversion">0</div><div class="label">📝 Anfrage/Planer genutzt</div></div>
+            <div class="stat-card" style="background:linear-gradient(135deg,#e91e63 0%,#c2185b 100%);cursor:pointer;" onclick="showNewsletterOnly()" title="Nur Newsletter-Abonnenten anzeigen"><div class="num" id="statNewsletter">0</div><div class="label">📰 Newsletter</div></div>
             <div class="stat-card" style="background:#333;"><div class="num" id="statGesamt">0</div><div class="label">Gesamt</div></div>
         </div>
 
@@ -337,6 +339,7 @@
                     <button onclick="closeVersandMenu(); openSendLog();">📜 Versand-Verlauf</button>
                 </div>
             </div>
+            <button class="btn btn-newsletter" onclick="showNewsletterOnly()">📰 Nur Newsletter (<span id="newsletterBtnCount">0</span>)</button>
             <button class="btn btn-secondary" onclick="loadLeadsOnce()" title="Liste neu von Firestore laden (z.B. um Aenderungen von anderen Geraeten oder der Tages-Kampagne zu sehen)">🔄 Aktualisieren</button>
         </div>
 
@@ -787,6 +790,12 @@ Ihr EisFavorite-Team</textarea>
                 });
                 updateStats();
                 renderLeads();
+                // Aufruf aus newsletter.html ("An alle Bestätigten schreiben"):
+                // Newsletter-Abonnenten direkt vorauswählen
+                if (new URLSearchParams(location.search).get('auswahl') === 'newsletter' && !window.__newsletterPreselected) {
+                    window.__newsletterPreselected = true;
+                    selectVereineUndFirmen();
+                }
             }).catch(error => {
                 console.error('Firestore-Fehler:', error);
             });
@@ -868,6 +877,9 @@ Ihr EisFavorite-Team</textarea>
             document.getElementById('statWebsiteBesucht').textContent = withEmail.filter(l => l.websiteVisited).length;
             document.getElementById('statConversion').textContent = withEmail.filter(l => l.usedAnfrage || l.usedPlaner).length;
             document.getElementById('statGesamt').textContent = allLeads.length;
+            const nlCount = allLeads.filter(l => l.category === 'newsletter' && l.email).length;
+            document.getElementById('statNewsletter').textContent = nlCount;
+            document.getElementById('newsletterBtnCount').textContent = nlCount;
             const countEl = document.getElementById('leadsListCount');
             if (countEl) countEl.textContent = allLeads.length;
         }
@@ -877,6 +889,21 @@ Ihr EisFavorite-Team</textarea>
         // die Schulter schaut). Aufklappen fragt zusätzlich nochmal das
         // Passwort ab (nicht nur die einmalige Seiten-Sperre) - Zuklappen
         // braucht kein Passwort.
+        // Nur Newsletter-Abonnenten zeigen: Filter setzen und Liste aufklappen
+        // (das Passwort der Firmenliste wird dabei wie gewohnt abgefragt)
+        function showNewsletterOnly() {
+            document.getElementById('statusFilter').value = 'alle';
+            document.getElementById('categoryFilter').value = 'newsletter';
+            const search = document.getElementById('searchFilter');
+            if (search) search.value = '';
+            const tracking = document.getElementById('trackingFilter');
+            if (tracking) tracking.value = 'alle';
+            renderLeads();
+            const container = document.getElementById('leadsListContainer');
+            if (container.style.display === 'none') toggleLeadsList();
+            if (container.style.display !== 'none') container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         function toggleLeadsList() {
             const container = document.getElementById('leadsListContainer');
             const icon = document.getElementById('leadsListToggleIcon');

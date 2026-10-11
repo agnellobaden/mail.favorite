@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newsletter - EisFavorite</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        padding: 25px;
+    }
+    .back-link {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        margin-bottom: 15px;
+    }
+    h1 { color: #667eea; margin-bottom: 8px; font-size: 1.5em; }
+    .intro { color: #666; font-size: 0.92em; margin-bottom: 18px; line-height: 1.5; }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+    .stat {
+        background: #f5f6fb;
+        border-radius: 12px;
+        padding: 12px 14px;
+    }
+    .stat b { display: block; font-size: 1.6em; color: #333; }
+    .stat span { font-size: 0.8em; color: #777; }
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+    .btn {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-weight: 700;
+        font-size: 0.9em;
+        cursor: pointer;
+    }
+    .btn-primary { background: #667eea; color: #fff; }
+    .btn-secondary { background: #eef0fb; color: #4a54c0; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+    .tab {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid #dde0f3;
+        background: #fff;
+        cursor: pointer;
+        font-weight: 600;
+        color: #555;
+    }
+    .tab.active { background: #667eea; border-color: #667eea; color: #fff; }
+    input.search {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #dde0f3;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        font-size: 0.95em;
+    }
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 4px;
+        border-bottom: 1px solid #f0f0f5;
+    }
+    .row .email { flex: 1; font-weight: 600; color: #333; word-break: break-all; }
+    .row .date { font-size: 0.8em; color: #888; white-space: nowrap; }
+    .badge {
+        font-size: 0.75em;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+    .badge.confirmed { background: #e3f6ea; color: #1f7a45; }
+    .badge.pending { background: #fff4dc; color: #8a5a00; }
+    .badge.lead { background: #eef0fb; color: #4a54c0; }
+    .row button.del {
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 1.05em;
+        opacity: 0.55;
+    }
+    .row button.del:hover { opacity: 1; }
+    .empty { text-align: center; color: #999; padding: 30px 0; }
+    .hint {
+        background: #fff8ec;
+        border-left: 4px solid #f0a81e;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.85em;
+        color: #6b5320;
+        margin-bottom: 16px;
+        line-height: 1.5;
+    }
+    @media (max-width: 600px) {
+        .stats { grid-template-columns: 1fr 1fr; }
+        .row { flex-wrap: wrap; }
+        .row .email { flex-basis: 100%; }
+    }
+</style>
+</head>
+<body>
+    <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        (function() {
+            var __cfg = {
+                apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+                authDomain: "mailfavorite-e8f49.firebaseapp.com",
+                projectId: "mailfavorite-e8f49",
+                storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+                messagingSenderId: "73719715044",
+                appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+                measurementId: "G-WGRT5L3NCX"
+            };
+            var __isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (__isLocal) {
+                var __gate = document.getElementById('__authGate');
+                if (__gate) __gate.remove();
+                return;
+            }
+
+            if (!firebase.apps.length) firebase.initializeApp(__cfg);
+            var __allowedEmails = ['eisfavorit@gmail.com', 'agnello.baden@gmail.com'];
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+                } else if (__allowedEmails.indexOf(user.email) === -1) {
+                    firebase.auth().signOut().then(function() {
+                        alert('❌ Zugriff verweigert: ' + user.email + ' ist nicht berechtigt.');
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    var gate = document.getElementById('__authGate');
+                    if (gate) gate.remove();
+                    if (window.__onAuthReady) window.__onAuthReady();
+                }
+            });
+        })();
+    </script>
+
+    <div class="container">
+        <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
+        <h1>📰 Newsletter</h1>
+        <p class="intro">
+            Alle E-Mail-Adressen, die sich über eisfavorite.de für den Newsletter angemeldet haben –
+            über das Footer-Formular oder den Haken im Anfrageformular.
+        </p>
+
+        <div class="hint">
+            🔐 <b>Double-Opt-in:</b> Erst wenn der Kunde den Link in seiner Bestätigungsmail anklickt, ist er
+            <b>„Bestätigt“</b> und wird automatisch in <b>Firmenadressen / Akquise</b> als
+            „📰 Newsletter-Abonnent“ angelegt. Nur bestätigte Adressen dürfen Werbung bekommen (DSGVO / § 7 UWG).
+            „Wartet auf Bestätigung“ bedeutet: angemeldet, aber noch nicht bestätigt.
+        </div>
+
+        <div class="stats">
+            <div class="stat"><b id="statConfirmed">–</b><span>✅ Bestätigt</span></div>
+            <div class="stat"><b id="statPending">–</b><span>⏳ Wartet auf Bestätigung</span></div>
+            <div class="stat"><b id="statTotal">–</b><span>📋 Anmeldungen gesamt</span></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="sendBtn" onclick="openSend()">📧 An alle Bestätigten schreiben</button>
+            <button class="btn btn-secondary" id="syncBtn" onclick="syncToAkquise()">📇 Fehlende in Akquise übernehmen</button>
+            <button class="btn btn-secondary" onclick="exportCsv()">📥 CSV exportieren</button>
+            <button class="btn btn-secondary" onclick="loadAll()">🔄 Aktualisieren</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-filter="confirmed" onclick="setFilter('confirmed')">✅ Bestätigt</button>
+            <button class="tab" data-filter="pending" onclick="setFilter('pending')">⏳ Wartet auf Bestätigung</button>
+            <button class="tab" data-filter="all" onclick="setFilter('all')">📋 Alle</button>
+        </div>
+
+        <input class="search" id="search" type="search" placeholder="E-Mail suchen..." oninput="render()">
+
+        <div id="list"><p class="empty">Lade Anmeldungen...</p></div>
+    </div>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyDNtaUvAbjU2OHjLWNnNJyhkccoH9YlkYo",
+            authDomain: "mailfavorite-e8f49.firebaseapp.com",
+            projectId: "mailfavorite-e8f49",
+            storageBucket: "mailfavorite-e8f49.firebasestorage.app",
+            messagingSenderId: "73719715044",
+            appId: "1:73719715044:web:e0e762cda49ae166b6c8f1",
+            measurementId: "G-WGRT5L3NCX"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        var db = firebase.firestore();
+
+        var subscribers = [];      // newsletterSubscribers
+        var leadTokens = new Set(); // Tokens, für die schon ein Akquise-Eintrag existiert
+        var filter = 'confirmed';
+
+        function toDate(ts) {
+            if (!ts) return null;
+            if (ts.toDate) return ts.toDate();
+            if (typeof ts === 'number') return new Date(ts);
+            return null;
+        }
+
+        function fmt(d) {
+            return d ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '–';
+        }
+
+        // Einmalig laden statt Dauer-Listener (Lesekontingent schonen, siehe werbung.html)
+        function loadAll() {
+            document.getElementById('list').innerHTML = '<p class="empty">Lade Anmeldungen...</p>';
+            Promise.all([
+                db.collection('newsletterSubscribers').get(),
+                db.collection('marketingLeads').where('category', '==', 'newsletter').get()
+            ]).then(function(res) {
+                subscribers = [];
+                res[0].forEach(function(doc) {
+                    subscribers.push(Object.assign({ id: doc.id }, doc.data()));
+                });
+                leadTokens = new Set();
+                res[1].forEach(function(doc) {
+                    var d = doc.data();
+                    if (d.sourceToken) leadTokens.add(d.sourceToken);
+                    if (d.email) leadTokens.add('mail:' + String(d.email).toLowerCase());
+                });
+                subscribers.sort(function(a, b) {
+                    var da = toDate(a.confirmedAt) || toDate(a.createdAt) || new Date(0);
+                    var dbb = toDate(b.confirmedAt) || toDate(b.createdAt) || new Date(0);
+                    return dbb - da;
+                });
+                render();
+            }).catch(function(err) {
+                console.error(err);
+                document.getElementById('list').innerHTML = '<p class="empty">❌ Konnte nicht geladen werden: ' + err.message + '</p>';
+            });
+        }
+
+        function hasLead(s) {
+            return leadTokens.has(s.id) || leadTokens.has('mail:' + String(s.email || '').toLowerCase());
+        }
+
+        function setFilter(f) {
+            filter = f;
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.toggle('active', t.dataset.filter === f);
+            });
+            render();
+        }
+
+        function render() {
+            var confirmed = subscribers.filter(function(s) { return s.status === 'confirmed'; });
+            var pending = subscribers.filter(function(s) { return s.status !== 'confirmed'; });
+            document.getElementById('statConfirmed').textContent = confirmed.length;
+            document.getElementById('statPending').textContent = pending.length;
+            document.getElementById('statTotal').textContent = subscribers.length;
+
+            var missing = confirmed.filter(function(s) { return !hasLead(s); }).length;
+            var syncBtn = document.getElementById('syncBtn');
+            syncBtn.textContent = missing ? '📇 ' + missing + ' fehlende in Akquise übernehmen' : '📇 Alle in Akquise ✓';
+            syncBtn.disabled = missing === 0;
+            document.getElementById('sendBtn').disabled = confirmed.length === 0;
+
+            var q = document.getElementById('search').value.trim().toLowerCase();
+            var list = filter === 'confirmed' ? confirmed : filter === 'pending' ? pending : subscribers;
+            if (q) list = list.filter(function(s) { return String(s.email || '').toLowerCase().indexOf(q) !== -1; });
+
+            var el = document.getElementById('list');
+            if (!list.length) {
+                el.innerHTML = '<p class="empty">Keine Einträge.</p>';
+                return;
+            }
+            el.innerHTML = list.map(function(s) {
+                var isConf = s.status === 'confirmed';
+                var when = isConf
+                    ? 'bestätigt ' + fmt(toDate(s.confirmedAt))
+                    : 'angemeldet ' + fmt(toDate(s.createdAt));
+                return '<div class="row">' +
+                    '<span class="email">' + escapeHtml(s.email || '') + '</span>' +
+                    (isConf && hasLead(s) ? '<span class="badge lead">📇 in Akquise</span>' : '') +
+                    '<span class="badge ' + (isConf ? 'confirmed' : 'pending') + '">' + (isConf ? '✅ Bestätigt' : '⏳ Wartet') + '</span>' +
+                    '<span class="date">' + when + '</span>' +
+                    '<button class="del" title="Abmelden / löschen" onclick="removeSubscriber(\'' + s.id + '\')">🗑️</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        function escapeHtml(t) {
+            return String(t).replace(/[&<>"']/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        // Bestätigte Abonnenten, für die (z.B. aus der Zeit vor der Automatik)
+        // noch kein Akquise-Eintrag existiert, nachträglich anlegen.
+        function syncToAkquise() {
+            var todo = subscribers.filter(function(s) { return s.status === 'confirmed' && !hasLead(s); });
+            if (!todo.length) return;
+            if (!confirm(todo.length + ' bestätigte Abonnenten in „Firmenadressen / Akquise“ als Newsletter-Abonnent anlegen?')) return;
+            var batch = db.batch();
+            var now = Date.now();
+            todo.forEach(function(s) {
+                batch.set(db.collection('marketingLeads').doc('newsletter-' + s.id), {
+                    name: s.email,
+                    category: 'newsletter',
+                    email: s.email,
+                    sourceType: 'newsletterSubscribers',
+                    sourceToken: s.id,
+                    status: 'neu',
+                    createdAtMs: now,
+                    lastModifiedMs: now
+                }, { merge: true });
+            });
+            batch.commit().then(function() {
+                alert('✅ ' + todo.length + ' Abonnenten übernommen.');
+                loadAll();
+            }).catch(function(err) {
+                alert('❌ Fehler: ' + err.message);
+            });
+        }
+
+        function openSend() {
+            window.location.href = 'werbung.html?auswahl=newsletter';
+        }
+
+        // Abmeldung: Anmeldung UND zugehörigen Akquise-Eintrag entfernen
+        function removeSubscriber(id) {
+            var s = subscribers.find(function(x) { return x.id === id; });
+            if (!s) return;
+            if (!confirm('„' + s.email + '“ vom Newsletter abmelden und löschen?\n(Wird auch aus Firmenadressen / Akquise entfernt.)')) return;
+            Promise.all([
+                db.collection('newsletterSubscribers').doc(id).delete(),
+                db.collection('marketingLeads').doc('newsletter-' + id).delete().catch(function() {})
+            ]).then(loadAll).catch(function(err) {
+                alert('❌ Fehler: ' + err.message);
+            });
+        }
+
+        function exportCsv() {
+            var rows = [['E-Mail', 'Status', 'Angemeldet', 'Bestätigt']];
+            subscribers.forEach(function(s) {
+                rows.push([s.email || '', s.status === 'confirmed' ? 'bestätigt' : 'wartet', fmt(toDate(s.createdAt)), fmt(toDate(s.confirmedAt))]);
+            });
+            var csv = rows.map(function(r) { return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(';'); }).join('\n');
+            var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'newsletter-abonnenten.csv';
+            a.click();
+        }
+
+        // Laden erst nach erfolgreicher Anmeldung (lokal sofort)
+        var __isLocalPage = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (__isLocalPage) loadAll();
+        else window.__onAuthReady = loadAll;
+    </script>
+</body>
+</html>
