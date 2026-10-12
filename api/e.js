@@ -40,7 +40,7 @@ function setCors(req, res) {
 async function markLead(id, fields) {
     if (!id || !admin.apps.length) return;
     try {
-        await admin.firestore().collection('marketingLeads').doc(id).set(fields, { merge: true });
+        await admin.firestore().collection('marketingLeads').doc(id).set({ ...fields, lastModifiedMs: Date.now() }, { merge: true });
     } catch (err) {
         console.error('Konnte Lead nicht aktualisieren:', id, err.message);
     }

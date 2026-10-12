@@ -318,6 +318,9 @@
                     <div class="actions-group-label">🍦 Flyer</div>
                     <a href="flyer-firmen.html" target="_blank">🍦 Flyer ansehen</a>
                     <hr>
+                    <div class="actions-group-label">🔁 Daten</div>
+                    <button onclick="closeActionsMenu(); if (confirm('Wirklich alle ~1800 Einträge neu aus der Datenbank laden?\nDas verbraucht entsprechend viele Lesezugriffe.')) loadLeadsOnce(true);">🔁 Komplett neu laden (verbraucht Kontingent)</button>
+                    <hr>
                     <div class="actions-group-label">⚙️ Einrichtung</div>
                     <button onclick="configureWebhook(); closeActionsMenu();">⚙️ n8n-Webhook einrichten</button>
                 </div>
@@ -340,7 +343,8 @@
                 </div>
             </div>
             <button class="btn btn-newsletter" onclick="showNewsletterOnly()">📰 Nur Newsletter (<span id="newsletterBtnCount">0</span>)</button>
-            <button class="btn btn-secondary" onclick="loadLeadsOnce()" title="Liste neu von Firestore laden (z.B. um Aenderungen von anderen Geraeten oder der Tages-Kampagne zu sehen)">🔄 Aktualisieren</button>
+            <button class="btn btn-secondary" onclick="loadLeadsOnce()" title="Nur geänderte Einträge von der Datenbank holen (sparsam)">🔄 Aktualisieren</button>
+            <span id="leadsSyncInfo" style="align-self:center; font-size:0.85em; color:#777;"></span>
         </div>
 
         <h3 onclick="toggleLeadsList()" style="margin: 20px 0 0; padding: 15px 20px; font-size: 1.1em; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
@@ -773,7 +777,11 @@ Ihr EisFavorite-Team</textarea>
                 firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
-            loadLeadsOnce();
+            // Lokaler Zwischenspeicher (IndexedDB): die ~1800 Einträge liegen
+            // danach im Browser und kosten beim Öffnen keine Lesezugriffe mehr.
+            db.enablePersistence({ synchronizeTabs: true })
+                .catch(err => console.warn('⚠️ Zwischenspeicher nicht verfügbar:', err.code))
+                .finally(() => loadLeadsOnce());
         }
 
         // Bewusst kein dauerhafter onSnapshot-Listener auf der kompletten
@@ -782,12 +790,68 @@ Ihr EisFavorite-Team</textarea>
         // Lesekontingent (Spark-Tarif, 50.000/Tag) an einem Vormittag fast
         // aufgebraucht. Stattdessen einmaliges Laden + Aktualisieren-Button;
         // eigene Aenderungen werden direkt lokal in allLeads gespiegelt.
-        function loadLeadsOnce() {
-            db.collection('marketingLeads').get().then(snapshot => {
+        // Sparsames Laden: Liste aus dem lokalen Zwischenspeicher, von der
+        // Datenbank nur die Einträge holen, die sich seit dem letzten Abgleich
+        // geändert haben (lastModifiedMs). Ein vollständiges Neuladen (liest
+        // alle ~1800 Einträge) gibt es nur noch auf ausdrücklichen Klick.
+        const LEADS_SYNC_KEY = 'werbungLeadsLastSyncMs';
+        function getLastSync() {
+            try { return parseInt(localStorage.getItem(LEADS_SYNC_KEY) || '0', 10) || 0; } catch (e) { return 0; }
+        }
+        function setLastSync(ms) {
+            try { localStorage.setItem(LEADS_SYNC_KEY, String(ms)); } catch (e) { /* egal */ }
+        }
+        function showSyncInfo(text) {
+            const el = document.getElementById('leadsSyncInfo');
+            if (el) el.textContent = text;
+        }
+
+        function loadLeadsOnce(forceFull) {
+            const lastSync = getLastSync();
+            const startedAt = Date.now();
+            const applySnapshot = snapshot => {
                 allLeads = [];
-                snapshot.forEach(doc => {
-                    allLeads.push({ ...doc.data(), id: doc.id });
+                snapshot.forEach(doc => allLeads.push({ ...doc.data(), id: doc.id }));
+            };
+
+            let loading;
+            if (!forceFull && lastSync) {
+                loading = db.collection('marketingLeads').get({ source: 'cache' }).then(cached => {
+                    if (cached.empty) return null;
+                    applySnapshot(cached);
+                    updateStats();
+                    renderLeads();
+                    // nur Änderungen seit dem letzten Abgleich (5 Min. Puffer)
+                    return db.collection('marketingLeads')
+                        .where('lastModifiedMs', '>', lastSync - 5 * 60 * 1000)
+                        .get()
+                        .then(delta => {
+                            delta.forEach(doc => {
+                                const lead = { ...doc.data(), id: doc.id };
+                                const idx = allLeads.findIndex(l => l.id === doc.id);
+                                if (idx === -1) allLeads.push(lead); else allLeads[idx] = lead;
+                            });
+                            setLastSync(startedAt);
+                            showSyncInfo('📦 Aus Zwischenspeicher · ' + delta.size + ' Änderung(en) geholt · ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
+                            return true;
+                        });
+                }).catch(err => {
+                    console.warn('Zwischenspeicher/Abgleich nicht möglich:', err);
+                    return allLeads.length ? true : null;
                 });
+            } else {
+                loading = Promise.resolve(null);
+            }
+
+            loading.then(done => {
+                if (done) return;
+                // Erstes Mal (oder ausdrücklich gewünscht): alles einmal laden
+                return db.collection('marketingLeads').get().then(snapshot => {
+                    applySnapshot(snapshot);
+                    setLastSync(startedAt);
+                    showSyncInfo('🔁 Komplett geladen (' + snapshot.size + ' Einträge) · ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
+                });
+            }).then(() => {
                 updateStats();
                 renderLeads();
                 // Aufruf aus newsletter.html ("An alle Bestätigten schreiben"):
