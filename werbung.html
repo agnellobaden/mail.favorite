@@ -205,54 +205,6 @@
 </style>
 </head>
 <body>
-    <!-- Zusätzliche Passwort-Sperre vor der eigentlichen Google-Anmeldung
-         (__authGate weiter unten) - rein clientseitig, für schnellen Zugriff
-         ohne jedes Mal den Google-Login durchzugehen. Ersetzt NICHT die
-         echte Absicherung (Firebase Auth + Firestore-Regeln), die greift
-         unabhängig davon weiterhin. -->
-    <div id="__pwGate" style="position:fixed;inset:0;background:#fff;z-index:9999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;">
-        <form id="__pwGateForm" style="text-align:center; max-width:280px; width:100%; padding:20px;">
-            <div style="font-size:2.5em; margin-bottom:10px;">🔒</div>
-            <div style="font-weight:700; color:#333; margin-bottom:14px;">Passwort erforderlich</div>
-            <input type="password" id="__pwGateInput" placeholder="Passwort" autocomplete="off"
-                style="width:100%; padding:10px 14px; border:2px solid #ddd; border-radius:8px; font-size:1em; margin-bottom:10px; box-sizing:border-box;">
-            <button type="submit" style="width:100%; padding:10px; border:none; border-radius:8px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; font-weight:700; cursor:pointer;">Entsperren</button>
-            <div id="__pwGateError" style="color:#e74c3c; font-size:0.85em; margin-top:10px; display:none;">❌ Falsches Passwort.</div>
-        </form>
-    </div>
-    <script>
-        (function() {
-            var PW_STORAGE_KEY = 'werbungPwGateUnlocked';
-            var CORRECT_PASSWORD = 'Wassermax.22';
-            window.WERBUNG_PASSWORD = CORRECT_PASSWORD; // auch fuer toggleLeadsList() (erneute Abfrage beim Aufklappen der Firmenliste)
-
-            var gate = document.getElementById('__pwGate');
-            var form = document.getElementById('__pwGateForm');
-            var input = document.getElementById('__pwGateInput');
-            var errorEl = document.getElementById('__pwGateError');
-
-            // Einmal pro Browser-Tab-Sitzung eingeben reicht - sessionStorage
-            // statt localStorage, damit ein neuer Tab/Browser-Neustart wieder sperrt.
-            if (sessionStorage.getItem(PW_STORAGE_KEY) === 'true') {
-                gate.remove();
-                return;
-            }
-
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                if (input.value === CORRECT_PASSWORD) {
-                    sessionStorage.setItem(PW_STORAGE_KEY, 'true');
-                    gate.remove();
-                } else {
-                    errorEl.style.display = 'block';
-                    input.value = '';
-                    input.focus();
-                }
-            });
-
-            setTimeout(function() { input.focus(); }, 50);
-        })();
-    </script>
     <div id="__authGate" style="position:fixed;inset:0;background:#fff;z-index:999999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#667eea;font-weight:700;font-size:1.1em;">🔒 Prüfe Anmeldung...</div>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script>
@@ -363,7 +315,9 @@
             </select>
             <select id="categoryFilter" onchange="renderLeads()">
                 <option value="alle">Alle Kategorien</option>
-                <option value="newsletter" selected>📰 Newsletter-Abonnent</option>
+                <option value="newsletter-alle">📰 Newsletter (alle)</option>
+                <option value="newsletter" selected>📰 Newsletter-Abonnent (bestätigt)</option>
+                <option value="newsletter-pending">⏳ Newsletter (unbestätigt)</option>
                 <option value="firma">🏢 Firma</option>
                 <option value="schule">🏫 Schule</option>
                 <option value="kindergarten">🧸 Kindergarten/Kita</option>
@@ -888,13 +842,14 @@ Ihr EisFavorite-Team</textarea>
             verein: '🤝 Verein',
             verwaltung: '🏛️ Verwaltung',
             bestandskunde: '👤 Bestandskunde',
-            newsletter: '📰 Newsletter-Abonnent'
+            newsletter: '📰 Newsletter-Abonnent',
+            'newsletter-pending': '⏳ Newsletter (unbestätigt)'
         };
         // "newsletter" bewusst zuerst: das sind die einzigen Kontakte mit
         // bestätigter Einwilligung (Double-Opt-in über eisfavorite.de) - die
         // anderen Kategorien sind recherchierte Kaltakquise-Adressen ohne
         // Einwilligung und dürfen nicht per E-Mail beworben werden (§ 7 UWG).
-        const CATEGORY_ORDER = ['newsletter', 'firma', 'schule', 'kindergarten', 'foerderverein', 'verein', 'verwaltung', 'bestandskunde'];
+        const CATEGORY_ORDER = ['newsletter', 'newsletter-pending', 'firma', 'schule', 'kindergarten', 'foerderverein', 'verein', 'verwaltung', 'bestandskunde'];
 
         // Leitet die Kategorie aus dem Namen ab - dieselbe Logik, die auch
         // für RECHERCHIERTE_LEADS_KUPPENHEIM verwendet wurde.
@@ -941,7 +896,7 @@ Ihr EisFavorite-Team</textarea>
             document.getElementById('statWebsiteBesucht').textContent = withEmail.filter(l => l.websiteVisited).length;
             document.getElementById('statConversion').textContent = withEmail.filter(l => l.usedAnfrage || l.usedPlaner).length;
             document.getElementById('statGesamt').textContent = allLeads.length;
-            const nlCount = allLeads.filter(l => l.category === 'newsletter' && l.email).length;
+            const nlCount = allLeads.filter(l => (l.category === 'newsletter' || l.category === 'newsletter-pending') && l.email).length;
             document.getElementById('statNewsletter').textContent = nlCount;
             document.getElementById('newsletterBtnCount').textContent = nlCount;
             const countEl = document.getElementById('leadsListCount');
@@ -957,7 +912,7 @@ Ihr EisFavorite-Team</textarea>
         // (das Passwort der Firmenliste wird dabei wie gewohnt abgefragt)
         function showNewsletterOnly() {
             document.getElementById('statusFilter').value = 'alle';
-            document.getElementById('categoryFilter').value = 'newsletter';
+            document.getElementById('categoryFilter').value = 'newsletter-alle';
             const search = document.getElementById('searchFilter');
             if (search) search.value = '';
             const tracking = document.getElementById('trackingFilter');
@@ -981,12 +936,6 @@ Ihr EisFavorite-Team</textarea>
                 return;
             }
 
-            const input = prompt('🔒 Passwort zum Öffnen der Firmenliste:');
-            if (input === null) return; // abgebrochen
-            if (input !== window.WERBUNG_PASSWORD) {
-                alert('❌ Falsches Passwort.');
-                return;
-            }
             container.style.display = 'block';
             icon.style.transform = 'rotate(90deg)';
             label.textContent = 'aufgeklappt, Klick zum Verstecken';
@@ -1007,7 +956,9 @@ Ihr EisFavorite-Team</textarea>
                 filtered = filtered.filter(l => (l.status || 'neu') === statusFilter);
             }
             if (categoryFilter !== 'alle') {
-                filtered = filtered.filter(l => (l.category || 'firma') === categoryFilter);
+                filtered = categoryFilter === 'newsletter-alle'
+                    ? filtered.filter(l => l.category === 'newsletter' || l.category === 'newsletter-pending')
+                    : filtered.filter(l => (l.category || 'firma') === categoryFilter);
             }
             if (searchFilter) {
                 filtered = filtered.filter(l =>
