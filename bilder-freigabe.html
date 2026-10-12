@@ -33,6 +33,32 @@
         margin-bottom: 15px;
     }
     h1 { color: #667eea; margin-bottom: 20px; font-size: 1.5em; }
+    .gallery-sync-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        background: #f3f5ff;
+        border: 1px solid #dfe3fb;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 18px;
+        font-size: 0.9em;
+        color: #444;
+        line-height: 1.45;
+    }
+    .btn-sync {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        background: #667eea;
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .btn-sync:disabled { opacity: 0.6; cursor: wait; }
     .tabs {
         display: flex;
         gap: 8px;
@@ -221,6 +247,14 @@
         <a href="buchungen-uebersicht.html" class="back-link">← Zurück zur Übersicht</a>
         <h1>🖼️ Event-Bilder freigeben</h1>
 
+        <div class="gallery-sync-box">
+            <div>
+                <b>☁️ Website-Galerie</b><br>
+                <span id="gallerySyncInfo">Freigegebene Fotos werden automatisch für die Website vorbereitet (klein &amp; sparsam). Neue Freigaben erscheinen dort nach spätestens 1 Stunde.</span>
+            </div>
+            <button class="btn-sync" id="gallerySyncBtn" onclick="syncAllToCloudinary()">☁️ Alle freigegebenen Fotos übertragen</button>
+        </div>
+
         <div class="tabs">
             <button class="tab active" data-filter="pending" onclick="setFilter('pending')">⏳ Ausstehend</button>
             <button class="tab" data-filter="approved" onclick="setFilter('approved')">✅ Freigegeben</button>
@@ -377,8 +411,94 @@
             return batch.commit();
         }
 
+        // Foto zu Cloudinary hochladen (gleiches Konto/Preset wie die Videos).
+        // Die Website holt sich daraus automatisch kleine, sparsame Größen.
+        function uploadImageToCloudinary(dataUrl) {
+            // Cloudinary nimmt das Bild nur als echte Datei an -> Data-URL in Blob umwandeln
+            var parts = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || '');
+            if (!parts) return Promise.reject(new Error('Kein gültiges Bild'));
+            var bin = atob(parts[2]);
+            var bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            var formData = new FormData();
+            formData.append('file', new Blob([bytes], { type: parts[1] }), 'foto.' + (parts[1].split('/')[1] || 'jpg'));
+            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            formData.append('folder', 'galerie');
+            return fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+                method: 'POST',
+                body: formData
+            }).then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { throw new Error('Cloudinary: ' + t.slice(0, 160)); });
+                return r.json();
+            }).then(function(d) { return d.secure_url; });
+        }
+
+        // Fotos ohne Cloudinary-Kopie hochladen und die URL am Dokument speichern
+        function ensureCloudinary(docIds, onProgress) {
+            var todo = allPhotoDocs.filter(function(d) {
+                return docIds.indexOf(d.id) !== -1 && d.imageData && !d.videoUrl && !d.cloudinaryUrl;
+            });
+            var done = 0;
+            return todo.reduce(function(chain, d) {
+                return chain.then(function() {
+                    return uploadImageToCloudinary(d.imageData).then(function(url) {
+                        d.cloudinaryUrl = url;
+                        done++;
+                        if (onProgress) onProgress(done, todo.length);
+                        return db.collection('eventPhotos').doc(d.id).update({ cloudinaryUrl: url });
+                    });
+                });
+            }, Promise.resolve()).then(function() { return todo.length; });
+        }
+
         function approveGroup(docIds) {
-            updateGroupStatus(docIds, 'approved');
+            var btn = document.getElementById('gallerySyncBtn');
+            ensureCloudinary(docIds, function(done, total) {
+                btn.textContent = '☁️ Übertrage Foto ' + done + ' von ' + total + ' …';
+            }).then(function() {
+                btn.textContent = '☁️ Alle freigegebenen Fotos übertragen';
+                return updateGroupStatus(docIds, 'approved');
+            }).catch(function(err) {
+                btn.textContent = '☁️ Alle freigegebenen Fotos übertragen';
+                console.error(err);
+                alert('⚠️ Übertragung für die Website fehlgeschlagen:\n' + err.message + '\n\nDas Foto wird trotzdem freigegeben, erscheint auf der Website aber evtl. erst nach erneutem Übertragen.');
+                return updateGroupStatus(docIds, 'approved');
+            });
+        }
+
+        // Einmalig / bei Bedarf: alle freigegebenen Fotos übertragen
+        function syncAllToCloudinary() {
+            var btn = document.getElementById('gallerySyncBtn');
+            var ids = allPhotoDocs.filter(function(d) { return d.status === 'approved'; }).map(function(d) { return d.id; });
+            var missing = allPhotoDocs.filter(function(d) { return d.status === 'approved' && d.imageData && !d.videoUrl && !d.cloudinaryUrl; }).length;
+            if (!missing) { alert('✅ Alle freigegebenen Fotos sind schon für die Website übertragen.'); return; }
+            if (!confirm(missing + ' freigegebene Fotos für die Website übertragen?')) return;
+            btn.disabled = true;
+            ensureCloudinary(ids, function(done, total) {
+                btn.textContent = '☁️ ' + done + ' von ' + total + ' …';
+            }).then(function(n) {
+                return syncFeaturedCloudinary().then(function() { return n; });
+            }).then(function(n) {
+                alert('✅ ' + n + ' Fotos übertragen. Sie erscheinen auf der Website nach spätestens 1 Stunde.');
+            }).catch(function(err) {
+                console.error(err);
+                alert('❌ Fehler beim Übertragen:\n' + err.message);
+            }).then(function() {
+                btn.disabled = false;
+                btn.textContent = '☁️ Alle freigegebenen Fotos übertragen';
+            });
+        }
+
+        // Startseiten-Bild: Cloudinary-URL im siteMeta mitführen
+        function syncFeaturedCloudinary() {
+            if (!currentFeaturedImageData) return Promise.resolve();
+            var doc = allPhotoDocs.find(function(d) { return d.imageData === currentFeaturedImageData; });
+            var urlPromise = doc && doc.cloudinaryUrl
+                ? Promise.resolve(doc.cloudinaryUrl)
+                : uploadImageToCloudinary(currentFeaturedImageData);
+            return urlPromise.then(function(url) {
+                return db.collection('siteMeta').doc('gallery').set({ featuredCloudinaryUrl: url }, { merge: true });
+            });
         }
 
         function rejectGroup(docIds) {
@@ -609,13 +729,20 @@
         function setFeaturedPhoto(docId) {
             var photoDoc = allPhotoDocs.find(function(d) { return d.id === docId; });
             if (!photoDoc) return;
-            db.collection('siteMeta').doc('gallery').set({
+            var cloudUrlPromise = photoDoc.cloudinaryUrl
+                ? Promise.resolve(photoDoc.cloudinaryUrl)
+                : uploadImageToCloudinary(photoDoc.imageData).then(function(url) {
+                    photoDoc.cloudinaryUrl = url;
+                    return db.collection('eventPhotos').doc(photoDoc.id).update({ cloudinaryUrl: url }).then(function() { return url; });
+                }).catch(function(err) { console.error(err); return null; });
+            cloudUrlPromise.then(function(cloudUrl) { return db.collection('siteMeta').doc('gallery').set({
+                featuredCloudinaryUrl: cloudUrl || firebase.firestore.FieldValue.delete(),
                 featuredImageData: photoDoc.imageData,
                 featuredTitle: photoDoc.title,
                 featuredSocialLink: photoDoc.socialLink ? photoDoc.socialLink : firebase.firestore.FieldValue.delete(),
                 hasApproved: true,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }).then(function() {
+            }, { merge: true }); }).then(function() {
                 currentFeaturedImageData = photoDoc.imageData;
                 render();
             }).catch(function(err) {
